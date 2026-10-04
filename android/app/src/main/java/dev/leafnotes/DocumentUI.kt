@@ -88,7 +88,17 @@ import java.util.Date
             }
             if(block.kind=="toggle" && block.collapsed!=true && draggingBlock!=block.id)SheetRow("Add inside toggle","plus"){store.addChild(block.id);focusNext=store.activeBlock}
             if(slashBlock==block.id){val commands=suggestions(slashQuery)
-                Column(Modifier.fillMaxWidth().heightIn(max=320.dp).verticalScroll(rememberScrollState()).background(c.paper,RoundedCornerShape(14.dp)).border(.5.dp,c.separator,RoundedCornerShape(14.dp))){commands.forEach{(command,title)->SheetRow(title,"list"){applyCommand(block.id,command)}};SheetRow("Close commands","close"){slashBlock=null}}
+                Column(Modifier.fillMaxWidth().padding(top=8.dp).clip(RoundedCornerShape(16.dp)).background(c.paper).border(.7.dp,c.separator,RoundedCornerShape(16.dp)).heightIn(max=260.dp).verticalScroll(rememberScrollState()).padding(horizontal=12.dp,vertical=8.dp)) {
+                    Label("Blocks",12,color=c.secondary,modifier=Modifier.padding(start=8.dp,bottom=4.dp))
+                    commands.forEachIndexed{i,(command,title)->Pressable(Modifier.fillMaxWidth().heightIn(min=48.dp).background(if(i==0)c.accent.copy(alpha=.10f)else Color.Transparent,RoundedCornerShape(10.dp)),title,onClick={applyCommand(block.id,command)}) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {
+                            Box(Modifier.size(24.dp),contentAlignment=Alignment.Center){when(command){"text"->Label("T",19);"title"->Label("H1",16);"subtitle"->Label("H2",16);"headline"->Label("H3",16);"toggle"->Label("▸",20);"table"->Glyph("grid",size=21);"divider"->Glyph("minus",size=21);else->Glyph(if(command=="bullet")"list"else command,size=21)}}
+                            Label(title,16,modifier=Modifier.weight(1f))
+                        }
+                    }}
+                    if(commands.isEmpty())Label("No matching blocks",14,color=c.secondary,modifier=Modifier.padding(12.dp))
+                    SubtleDivider();SheetRow("Close commands","close"){slashBlock=null}
+                }
             }
             if(!block.isText || store.activeBlock==block.id)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) { Pressable(Modifier.size(30.dp),"Block options",onClick={store.activeBlock=block.id;blockMenu=block.id}){Glyph("more",size=15,tint=c.tertiary)} }
         }

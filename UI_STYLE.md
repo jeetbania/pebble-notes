@@ -16,3 +16,7 @@ Read this before changing any user-facing UI. The user’s explicit direction ta
 - Tables clip their complete content at all four corners, including after rows/columns are added.
 - Selection actions operate on the entire selected set. Permanent deletion confirms the count and captures the full set before mutation.
 - Playtest all affected controls in an isolated library, including empty blocks, wrapping, nested toggles, persistence, light/dark appearance and narrow windows. Automated checks supplement real interaction, not replace it.
+
+- Mobile action buttons use capsule or circular shapes; fields, cards and menu rows retain their appropriate rounded rectangles. Do not add small page/brand labels to the top-right navigation area.
+- Mobile home uses a purple glow behind cards with a long, smooth falloff and a paler light-mode variant. Status/navigation bars blend with the current page and use readable system icons. Scrolled content passes behind a blurred, faded header; header labels remain crisp.
+- Mobile settings starts with a compact grouped index and opens focused inner pages. Avoid promotional paragraphs and redundant explanations. Sheet titles and primary actions remain visible while the form scrolls, with space above the keyboard and system gesture area.

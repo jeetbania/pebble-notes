@@ -1,5 +1,12 @@
 # Pebble Notes changelog
 
+## 0.14.1 · A calmer phone interface
+
+- Android home has a richer purple glow with a long falloff and a pale light-mode variant. System bars blend with each page, and redundant navigation labels are removed.
+- Library and note headers blur and fade scrolled content while keeping navigation readable. Slash suggestions have distinct icons and comfortable spacing.
+- Task boards use subtle neutral surfaces. Task creation groups details, scheduling, description, subtasks and attachments with visible fields and a fixed pill-shaped Save button.
+- Settings opens focused pages for Profile, Appearance, Clipboard, Sync, Updates and About, with shorter copy and adaptive colours.
+
 ## 0.14.0 · A clearer desktop
 
 - Desktop welcome screens have a seamless background. Settings now includes Profile with a name, bio, photo, and initial avatar.
