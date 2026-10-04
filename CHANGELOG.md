@@ -1,5 +1,14 @@
 # Pebble Notes changelog
 
+## 0.14.4 · A calmer phone
+
+- Phone task options use compact status and priority icons, grouped scheduling controls and a concise action toolbar.
+- Task details use icon controls that fit narrow screens.
+- Notes open as full pages without a raised card edge. Tighter block spacing keeps headings and toggle children together.
+- Removed the add-inside-toggle prompt; Return still creates a toggle child.
+- Sheet dimming, blur and motion now animate together, with reduced-motion support. Profile settings use shorter labels.
+- Empty-state previews use solid light and dark cards on phone too, so the stacked artwork stays clean.
+
 ## 0.14.3 · At your fingertips
 
 - Mac keyboard shortcuts include sidebar, search, new notes and navigation. Find the full list in Settings → Shortcuts.

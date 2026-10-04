@@ -98,7 +98,7 @@ fun iconResource(name: String): Int = when(name) {
     "share" -> R.drawable.lucide_arrow_up_from_line; "undo" -> R.drawable.lucide_undo_2; "clip" -> R.drawable.lucide_paperclip
     "done" -> R.drawable.lucide_check; "close" -> R.drawable.lucide_x; "number" -> R.drawable.lucide_list_ordered
     "download" -> R.drawable.pebble_download; "bell" -> R.drawable.pebble_bell; "info" -> R.drawable.pebble_info; "sparkle" -> R.drawable.pebble_sparkle; "sync" -> R.drawable.lucide_arrow_left_right
-    "tray" -> R.drawable.pebble_tray; "plus" -> R.drawable.lucide_plus; else -> R.drawable.lucide_folder
+    "copy" -> R.drawable.pebble_copy; "note" -> R.drawable.pebble_note; "todo" -> R.drawable.pebble_status_todo; "progress" -> R.drawable.pebble_status_progress; "review" -> R.drawable.pebble_status_review; "tray" -> R.drawable.pebble_tray; "plus" -> R.drawable.lucide_plus; else -> R.drawable.lucide_folder
 }
 @Composable fun Glyph(name: String, description: String? = null, size: Int = 23, tint: Color = LocalLeafColors.current.text) {
     if(name == "format") Label("Aa", size, FontWeight.Medium, tint)
@@ -163,7 +163,7 @@ fun iconResource(name: String): Int = when(name) {
         if(updater.visible && !whatsNew) UpdateDialog(updater)
         val note=store.editing ?: lastNote
         if(note!=null && (store.selected!=null || navigation.value<width-.5f)) {
-            Box(Modifier.fillMaxSize().graphicsLayer { translationX=navigation.value }.shadow(10.dp,RoundedCornerShape(topStart=30.dp,topEnd=30.dp)).clip(RoundedCornerShape(topStart=30.dp,topEnd=30.dp))) {
+            Box(Modifier.fillMaxSize().graphicsLayer { translationX=navigation.value }) {
                 EditorScreen(store,note,lastId,onBack={back()},onMore={menu=true},onFormat={keyboard?.hide();formatPanel=!formatPanel},onImages={store.insertionOffset=editor?.selectionStart;images.launch(arrayOf("*/*"))},onCompose={store.create()},onPreview={preview=it},onEditor={editor=it},onConflict={conflicts=true},onShare={
                     store.flush(); val intent=Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT,note.displayTitle+"\n\n"+note.text) }; store.context.startActivity(Intent.createChooser(intent,"Share note").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 })
@@ -358,7 +358,7 @@ fun dateGroup(millis:Long):String {
             Column(Modifier.fillMaxSize().backdropSource().verticalScroll(rememberScrollState()).padding(horizontal=28.dp).padding(top=100.dp,bottom=130.dp)) {
                 BasicTextField(note.title,{store.editing?.let{n->store.update(n.copy(title=it))}},singleLine=true,keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(imeAction=androidx.compose.ui.text.input.ImeAction.Next),keyboardActions=androidx.compose.foundation.text.KeyboardActions(onNext={focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Next)}),textStyle=TextStyle(fontSize=metrics.size("title").sp,fontWeight=FontWeight.SemiBold,color=c.text,lineHeight=(metrics.size("title")*1.2).sp,letterSpacing=(-.6).sp),cursorBrush=SolidColor(c.accent),modifier=Modifier.fillMaxWidth().onFocusChanged{editing=it.isFocused},decorationBox={inner->if(note.title.isEmpty())Label("Untitled note",30,FontWeight.SemiBold,c.tertiary);inner()})
                 if(store.heads.count{it.noteId==store.selected}>1)Pressable(Modifier.padding(top=12.dp),"Review versions",onClick=onConflict){Label("Edits from both devices · review",13,color=c.accent)}
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
                 DocumentBlocks(store,note,noteId,onEditor,{editing=it},onPreview)
             }
             ScrollHeader(surface=c.canvas) { Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
@@ -429,20 +429,23 @@ fun prefixLine(view:EditText,prefix:String) {
 @Composable fun SheetRow(label:String,icon:String,tint:Color=LocalLeafColors.current.text,onClick:()->Unit) {
     Pressable(Modifier.fillMaxWidth(),label,onClick=onClick){Row(Modifier.fillMaxWidth().padding(vertical=13.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(17.dp)){Glyph(icon,size=22,tint=tint);Label(label,17,color=tint)}}
 }
+val LocalSheetAction=compositionLocalOf<((()->Unit)->Unit)>{ {action->action()} }
 @Composable fun IosSheet(title:String,onDismiss:()->Unit,translucent:Boolean=false,footer:(@Composable ()->Unit)?=null,content:@Composable ColumnScope.()->Unit) {
-    val c=LocalLeafColors.current;val calm=LocalCalmMotion.current;var visible by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
-    val close:()->Unit={visible=false;scope.launch{delay(if(calm)0 else 180);onDismiss()}}
-    LaunchedEffect(Unit){visible=true}
+    val c=LocalLeafColors.current;val calm=LocalCalmMotion.current;val progress=remember{Animatable(0f)};var closing by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
+    val finish:((()->Unit)->Unit)={action->if(!closing){closing=true;scope.launch{progress.animateTo(0f,tween(if(calm)0 else 180));action()}}}
+    val close:()->Unit={finish(onDismiss)}
+    LaunchedEffect(Unit){progress.animateTo(1f,tween(if(calm)0 else 260, easing=androidx.compose.animation.core.FastOutSlowInEasing))}
+    val sheetProgress=progress.value
     Dialog(onDismissRequest=close,properties=DialogProperties(usePlatformDefaultWidth=false,decorFitsSystemWindows=false)) {
         val view=LocalView.current
-        SideEffect {(view.parent as? DialogWindowProvider)?.window?.let{window->window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));window.setDimAmount(.18f);if(Build.VERSION.SDK_INT>=31){window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND);window.attributes=window.attributes.apply{blurBehindRadius=if(translucent)32 else 16}}}}
+        SideEffect {(view.parent as? DialogWindowProvider)?.window?.let{window->window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));window.attributes=window.attributes.apply{windowAnimations=0};window.setDimAmount(.18f*sheetProgress);if(Build.VERSION.SDK_INT>=31){window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND);window.attributes=window.attributes.apply{blurBehindRadius=((if(translucent)32 else 16)*sheetProgress).toInt()}}}}
         Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().padding(bottom=20.dp),contentAlignment=Alignment.BottomCenter) {
             Box(Modifier.fillMaxSize().clickable(indication=null,interactionSource=remember{MutableInteractionSource()}){close()})
-            AnimatedVisibility(visible,enter=fadeIn(tween(if(calm)0 else 180))+slideInVertically(spring(dampingRatio=1f,stiffness=550f)){if(calm)0 else 36},exit=fadeOut(tween(if(calm)0 else 150))+slideOutVertically(tween(if(calm)0 else 180)){if(calm)0 else 24}) {
+            Box(Modifier.graphicsLayer{alpha=progress.value;translationY=if(calm)0f else (1f-progress.value)*64.dp.toPx()}) {
             Column(Modifier.fillMaxWidth().padding(start=10.dp,end=10.dp,bottom=10.dp).heightIn(max=650.dp).shadow(24.dp,RoundedCornerShape(32.dp)).background(if(translucent)c.paper.copy(alpha=.94f) else c.paper,RoundedCornerShape(32.dp)).padding(start=24.dp,end=24.dp,top=20.dp,bottom=48.dp)) {
                 Box(Modifier.align(Alignment.CenterHorizontally).width(34.dp).height(4.dp).background(c.tertiary.copy(alpha=.25f),CircleShape))
-                Row(Modifier.padding(top=18.dp,bottom=16.dp),verticalAlignment=Alignment.CenterVertically){Label(title,25,FontWeight.SemiBold,modifier=Modifier.weight(1f));Pressable(Modifier.size(36.dp).background(c.fill,CircleShape),"Close",onClick=close){Glyph("close",size=21)}}
-                Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState()),content=content)
+                Row(Modifier.padding(top=18.dp,bottom=16.dp),verticalAlignment=Alignment.CenterVertically){Label(title,25,FontWeight.SemiBold,modifier=Modifier.weight(1f));Pressable(Modifier.size(44.dp).background(c.fill,CircleShape),"Close",onClick=close){Glyph("close",size=21)}}
+                CompositionLocalProvider(LocalSheetAction provides finish){Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState()),content=content)}
                 footer?.invoke()
             }
             }

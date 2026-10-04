@@ -48,7 +48,7 @@ import java.io.File
                 Label(page,30,FontWeight.Bold)
                 when(page) {
                     "Settings" -> {
-                        Pressable(Modifier.fillMaxWidth().background(c.paper,RoundedCornerShape(22.dp)).padding(18.dp),"Profile",onClick={page="Profile"}) {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)){Avatar();Column(Modifier.weight(1f)){Label(name.ifBlank{"Your profile"},18,FontWeight.SemiBold);Label("Name & picture",13,color=c.secondary)};Glyph("next",size=18,tint=c.secondary)}}
+                        Pressable(Modifier.fillMaxWidth().background(c.paper,RoundedCornerShape(22.dp)).padding(18.dp),"Profile",onClick={page="Profile"}) {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)){Avatar();Column(Modifier.weight(1f)){Label(name.ifBlank{"Your profile"},18,FontWeight.SemiBold)};Glyph("next",size=18,tint=c.secondary)}}
                         SettingsGroup("Preferences") {
                             SettingsRow("Appearance","sun"){page="Appearance"}
                             SettingsRow("Writing & text sizes","format",onWriting)
@@ -67,8 +67,8 @@ import java.io.File
                     }
                     "Profile" -> {
                         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(18.dp)){Avatar(72);Column{SheetRow("Choose picture","image"){choosePicture.launch("image/*")};if(avatarFile.exists())SheetRow("Remove picture","close"){avatarFile.delete();avatarVersion++}}}
-                        SettingsGroup("Your name") {MobileField(name,"What should we call you?",singleLine=true){store.preferences.edit().putString("profileName",it.take(40)).apply()}}
-                        SettingsGroup("About you") {MobileField(store.preferences.getString("profileBio","") ?: "","Optional"){store.preferences.edit().putString("profileBio",it.take(280)).apply()}}
+                        SettingsGroup("Your name") {MobileField(name,"Name",singleLine=true){store.preferences.edit().putString("profileName",it.take(40)).apply()}}
+                        SettingsGroup("Bio") {MobileField(store.preferences.getString("profileBio","") ?: "","Optional"){store.preferences.edit().putString("profileBio",it.take(280)).apply()}}
                     }
                     "Appearance" -> {
                         SettingsGroup("Theme") {

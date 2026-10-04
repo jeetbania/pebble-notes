@@ -44,14 +44,14 @@ import java.util.Date
     }
     note.document.forEachIndexed { index,block -> if(note.blockVisible(block,draggingBlock))key(noteId,block.id) {
         var wraps by remember{mutableStateOf(false)}
-        Column(Modifier.fillMaxWidth().reorderTarget(block.id,reorder).padding(top=if(block.spans.any{it.kind in listOf("headline","title","subtitle")})18.dp else if(block.kind in listOf("check","bullet","number"))2.dp else 8.dp)) {
+        Column(Modifier.fillMaxWidth().reorderTarget(block.id,reorder).padding(top=if(index==0)0.dp else if(block.textStyle in listOf("headline","title","subtitle"))12.dp else if(block.parentId!=null || block.kind in listOf("check","bullet","number"))2.dp else 5.dp)) {
             if(block.isText) Row(Modifier.fillMaxWidth().padding(start=((block.indent+note.depth(block))*18).dp),verticalAlignment=if(wraps)Alignment.Top else Alignment.CenterVertically) {
                 Box(Modifier.width(24.dp)) { if(store.activeBlock==block.id)ReorderGrip(block.id,reorder,note.document.filter{it.parentId==block.parentId}.map{it.id},onDragging={draggingBlock=if(it)block.id else null}){ids->store.editing?.let{n->val peers=n.document.filter{it.parentId==block.parentId}.map{it.id};val old=peers.indexOf(block.id);val next=ids.indexOf(block.id);if(old!=next)store.moveBlock(block.id,next-old)}} }
                 if(block.kind=="toggle")Pressable(Modifier.size(36.dp),"Expand or collapse toggle",onClick={store.changeBlock(block.id){it.copy(collapsed=it.collapsed!=true)}}){Label(if(block.collapsed==true || draggingBlock==block.id)"▸" else "▾",20)}
                 if(block.kind=="check") Pressable(Modifier.size(36.dp),if(block.checked)"Uncheck item" else "Check item",onClick={store.changeBlock(block.id){it.copy(checked=!it.checked)}}){Box(Modifier.size(22.dp).then(if(block.checked)Modifier.background(c.accent,CircleShape)else Modifier.border(1.3.dp,c.tertiary,CircleShape)),contentAlignment=Alignment.Center){if(block.checked)Glyph("done",size=15,tint=Color.White)}}
                 else if(block.kind in listOf("bullet","number")) Label(if(block.kind=="bullet")"•" else "${note.document.take(index+1).count{it.kind=="number"}}.",18,color=c.secondary,modifier=Modifier.width(30.dp).padding(top=4.dp))
                 AndroidView(factory={context->EditText(context).apply {
-                    textSize=metrics.size("body").toFloat();editorMetrics[this]=metrics;gravity=Gravity.TOP;setBackgroundColor(android.graphics.Color.TRANSPARENT);setPadding(0,0,0,0);minLines=1;setLineSpacing(3*resources.displayMetrics.density,1f);typeface=Typeface.create("sans-serif",Typeface.NORMAL)
+                    textSize=metrics.size("body").toFloat();editorMetrics[this]=metrics;gravity=Gravity.TOP;setBackgroundColor(android.graphics.Color.TRANSPARENT);setPadding(0,0,0,0);minimumHeight=0;minHeight=0;includeFontPadding=false;minLines=1;setLineSpacing(2*resources.displayMetrics.density,1f);typeface=Typeface.create("sans-serif",Typeface.NORMAL)
                     inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
                     var insertedBreak=-1;var inlineBreak=false
                     hint="Press / for commands…";tag=false;setText(attributed(block.renderedNote,metrics))
@@ -86,7 +86,6 @@ import java.util.Date
                 } else Pressable(Modifier.fillMaxWidth(),"Open "+a.name,onClick={filePreview=a}){Label(a.name,17,modifier=Modifier.fillMaxWidth().background(c.fill,RoundedCornerShape(16.dp)).padding(18.dp))}
                 BasicTextField(block.caption,{value->store.editing?.let{store.update(it.editBlock(block.id){b->b.copy(caption=value)},"caption:"+block.id)}},textStyle=TextStyle(color=c.secondary,fontSize=15.sp),cursorBrush=SolidColor(c.accent),modifier=Modifier.fillMaxWidth().padding(top=8.dp),decorationBox={inner->if(block.caption.isEmpty())Label("Add a caption…",15,color=c.tertiary);inner()})
             }
-            if(block.kind=="toggle" && block.collapsed!=true && draggingBlock!=block.id)SheetRow("Add inside toggle","plus"){store.addChild(block.id);focusNext=store.activeBlock}
             if(slashBlock==block.id){val commands=suggestions(slashQuery)
                 Column(Modifier.fillMaxWidth().padding(top=8.dp).clip(RoundedCornerShape(16.dp)).background(c.paper).border(.7.dp,c.separator,RoundedCornerShape(16.dp)).heightIn(max=260.dp).verticalScroll(rememberScrollState()).padding(horizontal=12.dp,vertical=8.dp)) {
                     Label("Blocks",14,color=c.secondary,modifier=Modifier.padding(start=8.dp,bottom=4.dp))

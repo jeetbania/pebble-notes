@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
     Box(modifier.widthIn(max=340.dp).fillMaxWidth().height(176.dp).clearAndSetSemantics{},contentAlignment=Alignment.Center) {
         listOf(Triple(-34,-22,-7f),Triple(40,19,8f),Triple(-12,12,-3f)).forEachIndexed { i,(x,y,angle) ->
             val shape=RoundedCornerShape(14.dp)
-            Canvas(Modifier.offset(x.dp,y.dp).width(232.dp).height(112.dp).graphicsLayer{rotationZ=angle;alpha=if(i==2)1f else .65f}.shadow(14.dp,shape,ambientColor=c.text.copy(alpha=.04f),spotColor=c.text.copy(alpha=.04f)).background(c.paper.copy(alpha=if(c.dark).55f else .72f),shape).border(.7.dp,c.text.copy(alpha=.075f),shape).padding(16.dp)) {
+            Canvas(Modifier.offset(x.dp,y.dp).width(232.dp).height(112.dp).graphicsLayer{rotationZ=angle}.shadow(14.dp,shape,ambientColor=c.text.copy(alpha=.04f),spotColor=c.text.copy(alpha=.04f)).background(if(c.dark)Color(0xFF17171A) else Color(0xFFF9F9FB),shape).border(.7.dp,c.text.copy(alpha=.075f),shape).padding(16.dp)) {
                 val ink=c.text.copy(alpha=.08f);val tint=Color(0xFF9451E8).copy(alpha=if(c.dark).15f else .09f)
                 fun line(x:Float,y:Float,w:Float)=drawRoundRect(ink,Offset(x,y),Size(w,5.dp.toPx()),cornerRadius=androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()))
                 val unit=1.dp.toPx();val h=size.height;val w=size.width
