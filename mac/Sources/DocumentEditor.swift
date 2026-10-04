@@ -238,12 +238,12 @@ struct DocumentEditor: View {
         }
     }
     @ViewBuilder func blockMenu(_ block: DocumentBlock) -> some View {
-        Button("Move Up") { store.moveBlock(block.id, by: -1) }; Button("Move Down") { store.moveBlock(block.id, by: 1) }
-        Button("Duplicate") { store.duplicateBlock(block.id) }
-        if block.isText { Button("Indent") { store.changeBlock(block.id) { $0.indent = min(8, $0.indent + 1) } }; Button("Outdent") { store.changeBlock(block.id) { $0.indent = max(0, $0.indent - 1) } }; Button("Highlight Text") { store.changeBlock(block.id) { if $0.spans.contains(where: { $0.kind == "highlight" }) { $0.spans.removeAll { $0.kind == "highlight" } } else { $0.spans.append(TextSpan(start: 0, length: $0.text.utf16.count, kind: "highlight")) } } } }
+        Button("Move Up", systemImage: "arrow.up") { store.moveBlock(block.id, by: -1) }.labelStyle(.titleAndIcon); Button("Move Down", systemImage: "arrow.down") { store.moveBlock(block.id, by: 1) }.labelStyle(.titleAndIcon)
+        Button("Duplicate", systemImage: "doc.on.doc") { store.duplicateBlock(block.id) }.labelStyle(.titleAndIcon)
+        if block.isText { Button("Indent", systemImage: "increase.indent") { store.changeBlock(block.id) { $0.indent = min(8, $0.indent + 1) } }.labelStyle(.titleAndIcon); Button("Outdent", systemImage: "decrease.indent") { store.changeBlock(block.id) { $0.indent = max(0, $0.indent - 1) } }.labelStyle(.titleAndIcon); Button("Highlight Text", systemImage: "highlighter") { store.changeBlock(block.id) { if $0.spans.contains(where: { $0.kind == "highlight" }) { $0.spans.removeAll { $0.kind == "highlight" } } else { $0.spans.append(TextSpan(start: 0, length: $0.text.utf16.count, kind: "highlight")) } } }.labelStyle(.titleAndIcon) }
         if block.kind == "image" { Button(block.presentation == "large" ? "Small Image" : "Large Image") { store.changeBlock(block.id) { $0.presentation = $0.presentation == "large" ? "small" : "large" } } }
-        if block.kind == "table" { Button("Remove Last Row") { store.changeBlock(block.id) { if $0.cells.count > 1 { $0.cells.removeLast() } } }; Button("Remove Last Column") { store.changeBlock(block.id) { if $0.cells[0].count > 1 { $0.cells = $0.cells.map { Array($0.dropLast()) } } } } }
-        Divider(); Button("Delete block", role: .destructive) { store.removeBlock(block.id) }
+        if block.kind == "table" { Button("Remove Last Row", systemImage: "rectangle.split.1x2") { store.changeBlock(block.id) { if $0.cells.count > 1 { $0.cells.removeLast() } } }.labelStyle(.titleAndIcon); Button("Remove Last Column", systemImage: "rectangle.split.2x1") { store.changeBlock(block.id) { if $0.cells[0].count > 1 { $0.cells = $0.cells.map { Array($0.dropLast()) } } } }.labelStyle(.titleAndIcon) }
+        Divider(); Button("Delete block", systemImage: "trash", role: .destructive) { store.removeBlock(block.id) }.labelStyle(.titleAndIcon)
     }
 }
 struct DailyTools: View {

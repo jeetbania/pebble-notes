@@ -19,15 +19,15 @@ struct LeafNotesApp: App {
         .windowStyle(.hiddenTitleBar).defaultSize(width: 1000, height: 740)
         .commands {
             CommandGroup(replacing: .appSettings) { Button("Settings…") { NotificationCenter.default.post(name: Notification.Name("leafSettings"), object: nil) }.keyboardShortcut(",") }
-            CommandGroup(replacing: .newItem) { Button("New Note") { PebbleShortcuts.send("new") }.keyboardShortcut("n") }
+            CommandGroup(replacing: .newItem) { Button("New Note", systemImage: "square.and.pencil") { PebbleShortcuts.send("new") }.labelStyle(.titleAndIcon).keyboardShortcut("n") }
             CommandMenu("Navigate") {
                 ForEach(PebbleShortcuts.entries.filter { $0.id != "new" }) { shortcut in
                     Button(shortcut.title) { PebbleShortcuts.send(shortcut.id) }.keyboardShortcut(KeyEquivalent(shortcut.key.first!), modifiers: shortcut.shift ? [.command, .shift] : [.command])
                 }
             }
             CommandGroup(after: .saveItem) {
-                Button("Export Backup…") { store.exportBackup() }.keyboardShortcut("e", modifiers: [.command, .shift])
-                Button("Import Backup…") { store.importBackup() }
+                Button("Export Backup…", systemImage: "archivebox") { store.exportBackup() }.labelStyle(.titleAndIcon).keyboardShortcut("e", modifiers: [.command, .shift])
+                Button("Import Backup…", systemImage: "tray.and.arrow.down") { store.importBackup() }.labelStyle(.titleAndIcon)
             }
         }
 
@@ -99,7 +99,7 @@ struct LibraryView: View {
     var filtered: [Revision] {
         store.uniqueHeads.filter { r in
             let n = r.note
-            if n.task != nil && section != "Trash" && section != "Archive" { return false }
+            if n.task != nil && !section.hasPrefix("#") && section != "Trash" && section != "Archive" { return false }
             if section == "Trash" { if !n.deleted { return false } } else if n.deleted { return false }
             if section == "Archive" { if !n.archived { return false } } else if section != "Trash" && n.archived { return false }
             if section.hasPrefix("#") && !n.tags.contains(String(section.dropFirst())) { return false }
@@ -123,9 +123,9 @@ struct LibraryView: View {
                     if section == "Tasks" {
                         ZStack {
                             TasksHome(query: search, dismissSearch: { searchFocused = false; NSApp.keyWindow?.makeFirstResponder(nil) }, clearSearch: { search = ""; searchFocused = false; NSApp.keyWindow?.makeFirstResponder(nil) }).environmentObject(store).opacity(store.current == nil ? 1 : 0).allowsHitTesting(store.current == nil).accessibilityHidden(store.current != nil)
-                            if let note = store.current, let id = store.selected { editor(note, id) }
+                            if let note = store.current, note.task == nil, let id = store.selected { editor(note, id) }
                         }
-                    } else if let note = store.current, let id = store.selected { editor(note, id) }
+                    } else if let note = store.current, note.task == nil, let id = store.selected { editor(note, id) }
                     else { gallery }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped().allowsHitTesting(preview == nil).accessibilityHidden(preview != nil)
                 topBar.allowsHitTesting(preview == nil).accessibilityHidden(preview != nil).background { if reducedTransparency { Color(nsColor: .windowBackgroundColor) } else { ContentBlur() } }
@@ -133,6 +133,7 @@ struct LibraryView: View {
 
             .panePresented(isPresented: $showConflicts) { conflicts }
 
+            .panePresented(isPresented: Binding(get: { store.current?.task != nil }, set: { if !$0 { store.select(nil) } })) { if let n = store.current { TaskComposer(initial: n, save: { value in store.update { $0 = value }; store.flush(); store.select(nil) }, cancel: { store.select(nil) }) } }
             .panePresented(isPresented: $dailyTools) { DailyTools(store: store, onDone: { dailyTools = false }) }
             .panePresented(isPresented: Binding(get: { updater.visible && !showOnboarding && !showWhatsNew }, set: { updater.visible = $0 })) { PebbleUpdateDialog() }
             .panePresented(isPresented: Binding(get: { showWhatsNew && !showOnboarding }, set: { showWhatsNew = $0 })) { WhatsNew(history: releaseHistory) { ReleaseNotes.acknowledge(); showWhatsNew = false } }
@@ -140,10 +141,11 @@ struct LibraryView: View {
                 if let attachment = preview { PhotoViewer(initial: attachment, items: photoItems, store: store, leadingInset: sidebarVisible ? 10 : 150, done: { navigate(-1) }, openNote: { id in preview = nil; store.select(id) }).background(.ultraThinMaterial).transition(.opacity) }
             }
             .background(scheme == .dark ? Color.black.opacity(0.13) : Color.white.opacity(0.26))
-            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
             .padding(.vertical, 8).padding(.trailing, 8).padding(.leading, sidebarVisible ? 0 : 8)
 
         }
+        .clipShape(RoundedRectangle(cornerRadius: 22))
         .overlay(alignment: .topLeading) {
             if let r = grabbedRevision, dragging != nil {
                 Group { if let a = grabbedImage { ImageCard(attachment: a, collection: r.note.collection, media: store.media) } else { NoteCard(revision: r, conflict: false) } }
@@ -156,6 +158,7 @@ struct LibraryView: View {
             if reducedTransparency { Color(nsColor: .windowBackgroundColor) }
             else { WindowMaterial().overlay(scheme == .dark ? Color.black.opacity(0.28) : Color.white.opacity(0.28)) }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 22))
         .overlay { if showOnboarding { PebbleOnboarding(finish: { showOnboarding = false }, connect: { settingsPage = "Sync"; showSettings = true }).frame(width: 680).frame(maxWidth: .infinity, maxHeight: .infinity).background(WindowMaterial().overlay(scheme == .dark ? Color.black.opacity(0.38) : Color.white.opacity(0.65))) } }
         .overlay(alignment: .bottomTrailing) { if preview == nil && !showWhatsNew && !showOnboarding { ClipboardToast(capture: clipboard).transition(.opacity.combined(with: .move(edge: .bottom))) } }
         .animation(motion, value: clipboard.item?.id)
@@ -227,7 +230,7 @@ struct LibraryView: View {
             ForEach(allCollections, id: \.self) { name in
                 Button { preview = nil; store.select(nil); section = "Collection"; collection = name } label: {
                     HStack(spacing: 10) { collectionIcon(name).frame(width: 28, height: 28).modifier(IconDepth(active: section == "Collection" && collection == name)); Text(name.split(separator: "/").last.map(String.init) ?? name).font(.system(size: 13, weight: .medium)); Spacer() }.padding(.horizontal, 7).frame(height: 34).background(Color.primary.opacity(section == "Collection" && collection == name ? 0.10 : 0), in: RoundedRectangle(cornerRadius: 8))
-                }.overlay(RoundedRectangle(cornerRadius: 8).fill(LeafPalette.accent.opacity(folderDropTarget == name ? 0.14 : 0)).allowsHitTesting(false)).overlay(RoundedRectangle(cornerRadius: 8).stroke(LeafPalette.accent.opacity(folderDropTarget == name ? 0.5 : 0), lineWidth: 1).allowsHitTesting(false)).background(GeometryReader { proxy in Color.clear.preference(key: CollectionDropFrames.self, value: [name: proxy.frame(in: .named("libraryDrag"))]) }).opacity(draggedFolder == name ? 0 : 1).background(GeometryReader { proxy in Color.clear.preference(key: GalleryFrames.self, value: [name: proxy.frame(in: .named("folders"))]) }).highPriorityGesture(folderGrab(name)).padding(.leading, CGFloat(name.split(separator: "/").count - 1) * 12).buttonStyle(SidebarButtonStyle()).contextMenu { Button("Edit collection…") { editCollection(name) }; if name != "Personal" { Button("Delete Collection") { deletingFolder = name } } }
+                }.overlay(RoundedRectangle(cornerRadius: 8).fill(LeafPalette.accent.opacity(folderDropTarget == name ? 0.14 : 0)).allowsHitTesting(false)).overlay(RoundedRectangle(cornerRadius: 8).stroke(LeafPalette.accent.opacity(folderDropTarget == name ? 0.5 : 0), lineWidth: 1).allowsHitTesting(false)).background(GeometryReader { proxy in Color.clear.preference(key: CollectionDropFrames.self, value: [name: proxy.frame(in: .named("libraryDrag"))]) }).opacity(draggedFolder == name ? 0 : 1).background(GeometryReader { proxy in Color.clear.preference(key: GalleryFrames.self, value: [name: proxy.frame(in: .named("folders"))]) }).highPriorityGesture(folderGrab(name)).padding(.leading, CGFloat(name.split(separator: "/").count - 1) * 12).buttonStyle(SidebarButtonStyle()).contextMenu { Button("Edit collection…", systemImage: "pencil") { editCollection(name) }.labelStyle(.titleAndIcon); if name != "Personal" { Button("Delete Collection", systemImage: "trash") { deletingFolder = name }.labelStyle(.titleAndIcon) } }
             }
             if !Set(store.uniqueHeads.flatMap { $0.note.tags }).isEmpty { Text("Tags").font(.system(size: 12, weight: .medium)).foregroundStyle(.tertiary).padding(.horizontal, 8).padding(.top, 16); ForEach(Array(Set(store.uniqueHeads.filter { !$0.note.deleted }.flatMap { $0.note.tags })).sorted(), id: \.self) { tag in nav("#" + tag, "number") } }
             } }.scrollIndicators(.never)
@@ -282,50 +285,50 @@ struct LibraryView: View {
     }
     @ViewBuilder var contextualMenu: some View {
         if let id = store.selected {
-            Button(formattingVisible ? "Hide Formatting Bar" : "Show Formatting Bar") { withAnimation(motion) { formattingVisible.toggle() } }
-            Button("Find, Tags & History…") { dailyTools = true }
-            Button("Export Note with Attachments…") { store.exportMarkdown() }
-            Button("Add File or PDF…") { store.addFiles() }
-            Button("Insert Table") { store.addBlock("table") }
-            Menu("Note Text Size · \(Int((store.current?.textScale ?? 1) * 100))%") {
-                Button("Larger Text") { store.update { $0.textScale = min(1.6, $0.textScale + 0.1) } }
-                Button("Smaller Text") { store.update { $0.textScale = max(0.8, $0.textScale - 0.1) } }
-                Button("Use Default Size") { store.update { $0.textScale = 1 } }
-            }
-            Button("Undo") { store.undo() }.disabled(!store.canUndo)
-            Button("Redo") { store.redo() }.disabled(!store.canRedo)
+            Button(formattingVisible ? "Hide Formatting Bar" : "Show Formatting Bar", systemImage: "textformat") { withAnimation(motion) { formattingVisible.toggle() } }.labelStyle(.titleAndIcon)
+            Button("Find, Tags & History…", systemImage: "tag") { dailyTools = true }.labelStyle(.titleAndIcon)
+            Button("Export Note with Attachments…", systemImage: "square.and.arrow.up") { store.exportMarkdown() }.labelStyle(.titleAndIcon)
+            Button("Add File or PDF…", systemImage: "paperclip") { store.addFiles() }.labelStyle(.titleAndIcon)
+            Button("Insert Table", systemImage: "tablecells") { store.addBlock("table") }.labelStyle(.titleAndIcon)
+            Menu("Note Text Size · \(Int((store.current?.textScale ?? 1) * 100))%", systemImage: "textformat.size") {
+                Button("Larger Text", systemImage: "plus.magnifyingglass") { store.update { $0.textScale = min(1.6, $0.textScale + 0.1) } }.labelStyle(.titleAndIcon)
+                Button("Smaller Text", systemImage: "minus.magnifyingglass") { store.update { $0.textScale = max(0.8, $0.textScale - 0.1) } }.labelStyle(.titleAndIcon)
+                Button("Use Default Size", systemImage: "arrow.counterclockwise") { store.update { $0.textScale = 1 } }.labelStyle(.titleAndIcon)
+            }.labelStyle(.titleAndIcon)
+            Button("Undo", systemImage: "arrow.uturn.backward") { store.undo() }.labelStyle(.titleAndIcon).disabled(!store.canUndo)
+            Button("Redo", systemImage: "arrow.uturn.forward") { store.redo() }.labelStyle(.titleAndIcon).disabled(!store.canRedo)
             Divider(); itemMenu(id)
         } else {
-            Button(selecting ? "Done Selecting" : "Select Items") { selecting.toggle(); selectedItems = [] }
-            Button("Select All") { selecting = true; selectedItems = Set(filtered.map(\.noteId)) }.keyboardShortcut("a", modifiers: .command)
+            Button(selecting ? "Done Selecting" : "Select Items", systemImage: "checkmark.circle") { selecting.toggle(); selectedItems = [] }.labelStyle(.titleAndIcon)
+            Button("Select All", systemImage: "checkmark.circle.fill") { selecting = true; selectedItems = Set(filtered.map(\.noteId)) }.labelStyle(.titleAndIcon).keyboardShortcut("a", modifiers: .command)
             if selecting && !selectedItems.isEmpty {
-                if section == "Trash" { Button("Delete Selected permanently…", role: .destructive) { erasing = Array(selectedItems) }; Button("Restore Selected") { for id in selectedItems { store.mutate(id) { $0.deleted = false } }; selectedItems = []; selecting = false } }
+                if section == "Trash" { Button("Delete Selected permanently…", systemImage: "trash", role: .destructive) { erasing = Array(selectedItems) }.labelStyle(.titleAndIcon); Button("Restore Selected", systemImage: "arrow.uturn.backward") { for id in selectedItems { store.mutate(id) { $0.deleted = false } }; selectedItems = []; selecting = false }.labelStyle(.titleAndIcon) }
                 else {
-                    Button("Archive Selected") { for id in selectedItems { store.mutate(id) { $0.archived = true } }; selectedItems = []; selecting = false }
-                    Button("Move Selected to Trash") { for id in selectedItems { store.mutate(id) { $0.deleted = true } }; selectedItems = []; selecting = false }
+                    Button("Archive Selected", systemImage: "archivebox") { for id in selectedItems { store.mutate(id) { $0.archived = true } }; selectedItems = []; selecting = false }.labelStyle(.titleAndIcon)
+                    Button("Move Selected to Trash", systemImage: "trash") { for id in selectedItems { store.mutate(id) { $0.deleted = true } }; selectedItems = []; selecting = false }.labelStyle(.titleAndIcon)
                 }
             }
-            Menu("Sort By") {
+            Menu("Sort By", systemImage: "arrow.up.arrow.down") {
                 ForEach([("manual", "Default (Manual)"), ("edited", "Recently Edited"), ("added", "Recently Added")], id: \.0) { value in
-                    Button { sortOrder = value.0; UserDefaults.standard.set(sortOrder, forKey: "librarySort") } label: { if sortOrder == value.0 { Label(value.1, systemImage: "checkmark") } else { Text(value.1) } }
+                    Button { sortOrder = value.0; UserDefaults.standard.set(sortOrder, forKey: "librarySort") } label: { if sortOrder == value.0 { Label(value.1, systemImage: "checkmark") } else { Label(value.1, systemImage: value.0 == "manual" ? "hand.draw" : "clock") } }
                 }
-            }
-            if section == "Trash" { Button("Empty Trash…", role: .destructive) { erasing = filtered.map(\.noteId) } }; Divider(); Button("New Note") { createNote() }; Button("Sync Now") { Task { await store.sync() } }
-            Divider(); Button("Export Backup…") { store.exportBackup() }; Button("Import Backup…") { store.importBackup() }
+            }.labelStyle(.titleAndIcon)
+            if section == "Trash" { Button("Empty Trash…", systemImage: "trash", role: .destructive) { erasing = filtered.map(\.noteId) }.labelStyle(.titleAndIcon) }; Divider(); Button("New Note", systemImage: "square.and.pencil") { createNote() }.labelStyle(.titleAndIcon); Button("Sync Now", systemImage: "arrow.triangle.2.circlepath") { Task { await store.sync() } }.labelStyle(.titleAndIcon)
+            Divider(); Button("Export Backup…", systemImage: "archivebox") { store.exportBackup() }.labelStyle(.titleAndIcon); Button("Import Backup…", systemImage: "tray.and.arrow.down") { store.importBackup() }.labelStyle(.titleAndIcon)
         }
     }
     @ViewBuilder func itemMenu(_ id: String) -> some View {
         if let revision = store.uniqueHeads.first(where: { $0.noteId == id }) {
-            Button("Open in Window") { openWindow(id) }
-            Button("Select") { store.select(nil); selecting = true; selectedItems.insert(id) }
-            Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(revision.note.displayTitle + "\n\n" + revision.note.text, forType: .string) }
-            Divider(); Button("Move…") { moveTarget = id; moveCollection = true }
-            Divider(); Button(revision.note.pinned ? "Unpin" : "Pin") { store.mutate(id) { $0.pinned.toggle() } }
-            Button("Duplicate") { store.duplicate(id) }
-            Menu("Order") { Button("Move to Beginning") { order(id, first: true) }; Button("Move to End") { order(id, first: false) } }
-            Divider(); Button(revision.note.archived ? "Unarchive" : "Archive") { store.mutate(id) { $0.archived.toggle() }; if store.selected == id { store.select(nil) } }
-            if revision.note.deleted { Button("Delete permanently…", role: .destructive) { erasing = selectedItems.contains(id) ? Array(selectedItems) : [id] } }
-            Button(revision.note.deleted ? "Restore" : "Move to Trash") { let ids = selectedItems.contains(id) ? Array(selectedItems) : [id]; for target in ids { store.mutate(target) { $0.deleted = !revision.note.deleted } }; selectedItems.subtract(ids); if store.selected == id { store.select(nil) } }
+            Button("Open in Window", systemImage: "macwindow") { openWindow(id) }.labelStyle(.titleAndIcon)
+            Button("Select", systemImage: "checkmark.circle") { store.select(nil); selecting = true; selectedItems.insert(id) }.labelStyle(.titleAndIcon)
+            Button("Copy", systemImage: "doc.on.doc") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(revision.note.displayTitle + "\n\n" + revision.note.text, forType: .string) }.labelStyle(.titleAndIcon)
+            Divider(); Button("Move…", systemImage: "folder") { moveTarget = id; moveCollection = true }.labelStyle(.titleAndIcon)
+            Divider(); Button(revision.note.pinned ? "Unpin" : "Pin", systemImage: "pin") { store.mutate(id) { $0.pinned.toggle() } }.labelStyle(.titleAndIcon)
+            Button("Duplicate", systemImage: "doc.on.doc") { store.duplicate(id) }.labelStyle(.titleAndIcon)
+            Menu("Order", systemImage: "arrow.up.arrow.down") { Button("Move to Beginning", systemImage: "arrow.up.to.line") { order(id, first: true) }.labelStyle(.titleAndIcon); Button("Move to End", systemImage: "arrow.down.to.line") { order(id, first: false) }.labelStyle(.titleAndIcon) }.labelStyle(.titleAndIcon)
+            Divider(); Button(revision.note.archived ? "Unarchive" : "Archive", systemImage: "archivebox") { store.mutate(id) { $0.archived.toggle() }; if store.selected == id { store.select(nil) } }.labelStyle(.titleAndIcon)
+            if revision.note.deleted { Button("Delete permanently…", systemImage: "trash", role: .destructive) { erasing = selectedItems.contains(id) ? Array(selectedItems) : [id] }.labelStyle(.titleAndIcon) }
+            Button(revision.note.deleted ? "Restore" : "Move to Trash", systemImage: revision.note.deleted ? "arrow.uturn.backward" : "trash") { let ids = selectedItems.contains(id) ? Array(selectedItems) : [id]; for target in ids { store.mutate(target) { $0.deleted = !revision.note.deleted } }; selectedItems.subtract(ids); if store.selected == id { store.select(nil) } }.labelStyle(.titleAndIcon)
         }
     }
     var formatting: some View { EditorToolbar(store: store) }
@@ -343,7 +346,7 @@ struct LibraryView: View {
                                     ForEach(r.note.attachments.filter { $0.mime.hasPrefix("image/") }) { a in
                                         CardInteraction(selected: selectedItems.contains(r.noteId), action: { openCard(r.noteId, image: a) }) {
                                             ImageCard(attachment: a, collection: r.note.collection, media: store.media)
-                                        } menu: { Button("View Image") { preview = a }; Button("Copy Image") { copyImage(a) }; Divider(); itemMenu(r.noteId) }.frame(width: width).modifier(GalleryGrab(id: r.noteId, dragging: dragging, gesture: grab(r, image: a)))
+                                        } menu: { Button("View Image", systemImage: "photo") { preview = a }.labelStyle(.titleAndIcon); Button("Copy Image", systemImage: "doc.on.doc") { copyImage(a) }.labelStyle(.titleAndIcon); Divider(); itemMenu(r.noteId) }.frame(width: width).modifier(GalleryGrab(id: r.noteId, dragging: dragging, gesture: grab(r, image: a)))
                                     }
                                 } else {
                                     CardInteraction(selected: selectedItems.contains(r.noteId), action: { openCard(r.noteId) }) {

@@ -40,6 +40,7 @@ data class Block(val id:String=uid(),val kind:String="text",val text:String="",v
 fun readSpans(array:JSONArray)=(0 until array.length()).map { val s=array.getJSONObject(it); Span(s.getInt("start"),s.getInt("length"),s.getString("kind")) }
 fun clipSpans(spans:List<Span>,start:Int,length:Int)=spans.mapNotNull{val a=maxOf(it.start,start);val b=minOf(it.start+it.length,start+length);if(b>a)Span(a-start,b-a,it.kind) else null}
 data class Note(val title:String="",val text:String="",val spans:List<Span> = emptyList(),val attachments:List<Media> = emptyList(),val collection:String="Personal",val pinned:Boolean=false,val archived:Boolean=false,val deleted:Boolean=false,val blocks:List<Block>?=null,val tags:List<String> = emptyList(),val recordType:String="note",val folderEmoji:String="",val folderImage:String="",val textScale:Double=1.0,val task:TaskDetails?=null,val deletedAt:Long?=null,val purgedAt:Long?=null) {
+    val isCompletelyBlank get()=recordType=="note" && task==null && title.isBlank() && text.isBlank() && attachments.isEmpty() && tags.isEmpty() && document.all{it.isText && it.text.isBlank()}
     val displayTitle get()=title.ifBlank{"Untitled note"}
     val document get()=blocks ?: if(recordType=="folder") emptyList() else listOf(Block(id="body",text=text,spans=spans))+attachments.map{Block(id="media-"+it.id,kind=if(it.mime.startsWith("image/"))"image" else "file",mediaId=it.id)}
     fun prepared(previous:Note?=null):Note {
@@ -130,8 +131,9 @@ class Store(val context: Context) {
     @Synchronized fun ingest(raw: String, remote: Boolean) { check(NativeStore.put(db, raw.toByteArray(Charsets.UTF_8), remote) != 0) { String(NativeStore.error(db), Charsets.UTF_8) } }
     @Synchronized fun acknowledge(id: String) { check(NativeStore.ack(db, id.toByteArray(Charsets.UTF_8)) != 0) { "Could not save sync progress" } }
     @Synchronized fun reload() { heads = revisions(headsOnly = true); expireTrash(); scheduleTaskAlerts(this); if (draft == null && selected != null) editing = allHeads.firstOrNull { it.noteId == selected }?.note }
-    @Synchronized fun select(id: String?) { flush(); undoNotes.clear();redoNotes.clear();canUndo=false;canRedo=false;activeBlock=null;insertionOffset=null; if (draft != null) return; selected = id; editing = allHeads.firstOrNull { it.noteId == id }?.note }
-    @Synchronized fun create() { flush(); if (draft != null) return; selected = uid(); editing = Note().prepared(); undoNotes.clear();redoNotes.clear();canUndo=false;canRedo=false;activeBlock=null;insertionOffset=null; draft = JSONObject().put("noteId", selected).put("parents", JSONArray()).put("note", editing!!.json()); saveDraft(); flush() }
+    private fun discardBlankOnLeave(){editing?.takeIf{it.isCompletelyBlank && !it.deleted}?.let{update(it.copy(deleted=true),remember=false);flush()}}
+    @Synchronized fun select(id: String?) { if(selected!=id)discardBlankOnLeave();flush(); undoNotes.clear();redoNotes.clear();canUndo=false;canRedo=false;activeBlock=null;insertionOffset=null; if (draft != null) return; selected = id; editing = allHeads.firstOrNull { it.noteId == id }?.note }
+    @Synchronized fun create() { discardBlankOnLeave();flush(); if (draft != null) return; selected = uid(); editing = Note().prepared(); undoNotes.clear();redoNotes.clear();canUndo=false;canRedo=false;activeBlock=null;insertionOffset=null; draft = JSONObject().put("noteId", selected).put("parents", JSONArray()).put("note", editing!!.json()); saveDraft(); flush() }
     @Synchronized fun update(value: Note, undoKey:String="", remember:Boolean=true) {
         val note=value.prepared(editing)
         val id = selected ?: return; if (editing == note) return

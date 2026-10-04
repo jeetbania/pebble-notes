@@ -82,14 +82,16 @@ struct ClipboardToast: View {
     @ObservedObject var capture: ClipboardCapture
     var body: some View {
         if let item = capture.item {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack { Label("Save from clipboard?", systemImage: "clipboard").font(.system(size: 13, weight: .semibold)); Spacer(); Button { capture.dismiss() } label: { Image(systemName: "xmark").font(.system(size: 11)) }.buttonStyle(SoftButtonStyle()).help("Dismiss clipboard suggestion") }
-                HStack(alignment: .top, spacing: 12) {
-                    if let image = capture.thumbnail { Image(nsImage: image).resizable().scaledToFill().frame(width: 40, height: 40).clipped().clipShape(RoundedRectangle(cornerRadius: 9)) }
-                    VStack(alignment: .leading, spacing: 5) { Text(capture.linkTitle.isEmpty ? item.title : capture.linkTitle).font(.system(size: 13, weight: .medium)).lineLimit(1); Text(item.image != nil ? "Create a note with this image." : item.text).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1) }
-                }
-                HStack { Text("⌘V in the library to save").font(.system(size: 11)).foregroundStyle(.secondary); Spacer(); Button("Save note") { capture.save() }.buttonStyle(.borderedProminent) }
-            }.padding(12).frame(width: 272).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.primary.opacity(0.08))).shadow(color: .black.opacity(0.15), radius: 18, y: 8).padding(20)
+            HStack(spacing: 10) {
+                if let image = capture.thumbnail { Image(nsImage: image).resizable().scaledToFill().frame(width: 40, height: 40).clipShape(RoundedRectangle(cornerRadius: 9)) }
+                else { Image(systemName: "clipboard").font(.system(size: 20)).foregroundStyle(.secondary).frame(width: 32) }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(capture.linkTitle.isEmpty ? item.title : capture.linkTitle).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                    if item.image == nil && !item.text.isEmpty { Text(item.text).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1) }
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                Button("Save", systemImage: "plus") { capture.save() }.labelStyle(.titleAndIcon).buttonStyle(SoftButtonStyle(radius: 18))
+                GlassIcon(icon: "xmark", label: "Dismiss clipboard suggestion") { capture.dismiss() }
+            }.padding(12).frame(width: 340).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.primary.opacity(0.08))).shadow(color: .black.opacity(0.15), radius: 18, y: 8).padding(20)
         }
     }
 }

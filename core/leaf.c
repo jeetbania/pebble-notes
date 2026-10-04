@@ -53,7 +53,7 @@ int leaf_put(leaf_store *s, const char *payload, int remote) {
         "json_type(?1,'$.note.task.priority')='integer' AND json_extract(?1,'$.note.task.priority') BETWEEN 0 AND 3 AND "
         "json_type(?1,'$.note.task.list')='text' AND length(json_extract(?1,'$.note.task.list')) BETWEEN 1 AND 128 AND "
         "(json_type(?1,'$.note.task.status') IS NULL OR json_extract(?1,'$.note.task.status') IN ('todo','progress','review','done')) AND "
-        "json_extract(?1,'$.note.task.repeatRule') IN ('none','daily','weekly','monthly'))) AND "
+        "json_extract(?1,'$.note.task.repeatRule') IN ('none','daily','weekly','monthly','yearly'))) AND "
         "json_type(?1,'$.note.pinned') IN ('true','false') AND "
         "json_type(?1,'$.note.archived') IN ('true','false') AND "
         "json_type(?1,'$.note.deleted') IN ('true','false') AND "

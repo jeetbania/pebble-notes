@@ -58,9 +58,9 @@ struct PhotoViewer: View {
                 Spacer(); Text(current?.attachment.name ?? initial.name).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary).lineLimit(1); Spacer()
                 Menu {
                     if let p = current {
-                        Button("Open Note") { commitCaption(); openNote(p.noteId) }
-                        Button("Copy Image") { if let image = NSImage(contentsOf: store.media.appendingPathComponent(p.attachment.id)) { NSPasteboard.general.clearContents(); NSPasteboard.general.writeObjects([image]) } }
-                        Button("Save Image…") { let panel = NSSavePanel(); panel.nameFieldStringValue = p.attachment.name; if panel.runModal() == .OK, let url = panel.url { do { try Data(contentsOf: store.media.appendingPathComponent(p.attachment.id)).write(to: url, options: .atomic) } catch { store.error = error.localizedDescription } } }
+                        Button("Open Note", systemImage: "note.text") { commitCaption(); openNote(p.noteId) }.labelStyle(.titleAndIcon)
+                        Button("Copy Image", systemImage: "doc.on.doc") { if let image = NSImage(contentsOf: store.media.appendingPathComponent(p.attachment.id)) { NSPasteboard.general.clearContents(); NSPasteboard.general.writeObjects([image]) } }.labelStyle(.titleAndIcon)
+                        Button("Save Image…", systemImage: "square.and.arrow.down") { let panel = NSSavePanel(); panel.nameFieldStringValue = p.attachment.name; if panel.runModal() == .OK, let url = panel.url { do { try Data(contentsOf: store.media.appendingPathComponent(p.attachment.id)).write(to: url, options: .atomic) } catch { store.error = error.localizedDescription } } }.labelStyle(.titleAndIcon)
                     }
                 } label: { Image(systemName: "ellipsis").font(.system(size: 16, weight: .medium)).frame(width: 36, height: 36) }
                     .menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).menuIndicator(.hidden).frame(width: 36, height: 36).modifier(HoverSurface()).leafGlass(in: Circle()).accessibilityLabel("Image options")

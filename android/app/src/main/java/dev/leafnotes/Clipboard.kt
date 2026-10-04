@@ -74,7 +74,7 @@ fun decodeClipImage(bytes:ByteArray):Bitmap? {
     LaunchedEffect(candidate?.fingerprint){val value=candidate; if(value!=null){delay(5000);if(candidate?.fingerprint==value.fingerprint&&!saving)candidate=null}}
     AnimatedVisibility(candidate!=null,modifier,enter=fadeIn(tween(if(calm)0 else 180))+slideInVertically(spring(dampingRatio=1f,stiffness=550f)){if(calm)0 else 20},exit=fadeOut(tween(if(calm)0 else 150))) {
         Column(Modifier.padding(horizontal=16.dp).padding(bottom=80.dp).widthIn(max=290.dp).shadow(18.dp,RoundedCornerShape(22.dp)).background(c.paper,RoundedCornerShape(22.dp)).border(.5.dp,c.separator,RoundedCornerShape(22.dp)).padding(12.dp)) {
-            Row(verticalAlignment=Alignment.CenterVertically){Label("Save from clipboard?",16,androidx.compose.ui.text.font.FontWeight.SemiBold,modifier=Modifier.weight(1f));Pressable(Modifier.size(44.dp),"Dismiss suggestion",onClick={candidate=null}){Glyph("close",size=18)}}
+            Row(verticalAlignment=Alignment.CenterVertically){Label("Clipboard",16,androidx.compose.ui.text.font.FontWeight.SemiBold,modifier=Modifier.weight(1f));Pressable(Modifier.size(44.dp),"Dismiss suggestion",onClick={candidate=null}){Glyph("close",size=18)}}
             Row(Modifier.padding(top=6.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)){
                 preview.bitmap?.let{Image(it.asImageBitmap(),"Clipboard preview",Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)),contentScale=ContentScale.Crop)}
                 Column(Modifier.weight(1f)){Label(preview.title.ifBlank{if(candidate?.uri!=null)"Copied image" else if(candidate?.link!=null)"Copied link" else "Copied text"},14,lines=1);Label(candidate?.text ?: "",13,color=c.secondary,lines=1)}
@@ -87,7 +87,7 @@ fun decodeClipImage(bytes:ByteArray):Bitmap? {
                     if(media!=null)store.update(note.copy(title="Copied image").insertMedia(listOf(media),null,null))else store.update(note.copy(title=snapshot.title.takeIf{value.link!=null && it.isNotBlank()} ?: value.link?.let{Uri.parse(it).host} ?: value.text.lineSequence().first().take(70),text=value.text,spans=value.link?.let{listOf(Span(0,value.text.length,"link:"+it))} ?: emptyList()))
                     store.flush();candidate=null
                 }catch(e:Exception){store.error=e.message}finally{saving=false}}
-            }){Label(if(saving)"Saving…" else "Save note",15,androidx.compose.ui.text.font.FontWeight.SemiBold,c.accent)}
+            }){Label(if(saving)"Saving…" else "Save",15,androidx.compose.ui.text.font.FontWeight.SemiBold,c.accent)}
         }
     }
 }

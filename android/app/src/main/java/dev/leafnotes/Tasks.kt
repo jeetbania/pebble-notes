@@ -2,6 +2,7 @@ package dev.leafnotes
 
 import android.app.DatePickerDialog
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
@@ -48,7 +49,7 @@ data class TaskDetails(val dueAt:Long=0,val hasTime:Boolean=false,val priority:I
     fun json()=JSONObject().put("dueAt",dueAt).put("hasTime",hasTime).put("priority",priority).put("repeatRule",repeatRule).put("list",list).put("completed",completed).put("remind",remind).apply{status?.let{put("status",it)}}
     fun complete(now:Long=System.currentTimeMillis()):TaskDetails {
         if(repeatRule=="none" || dueAt==0L)return copy(completed=!completed,status=if(completed)"todo" else "done")
-        val c=Calendar.getInstance().apply{timeInMillis=dueAt};val field=if(repeatRule=="monthly")Calendar.MONTH else Calendar.DAY_OF_MONTH;val amount=if(repeatRule=="weekly")7 else 1
+        val c=Calendar.getInstance().apply{timeInMillis=dueAt};val field=if(repeatRule=="yearly")Calendar.YEAR else if(repeatRule=="monthly")Calendar.MONTH else Calendar.DAY_OF_MONTH;val amount=if(repeatRule=="weekly")7 else 1
         c.add(field,amount);while(c.timeInMillis<=now)c.add(field,amount)
         return copy(dueAt=c.timeInMillis,completed=false,status="todo")
     }
@@ -59,6 +60,7 @@ fun nextDayStart(time:Long)=Calendar.getInstance().apply{timeInMillis=dayStart(t
 fun taskDate(t:TaskDetails)=if(t.dueAt==0L)"Anytime" else SimpleDateFormat(if(t.hasTime)"MMM d · h:mm a" else "MMM d",Locale.getDefault()).format(Date(t.dueAt))
 fun Store.taskChange(id:String,change:(Note)->Note){val previous=selected;select(id);editing?.let{update(change(it));flush()};select(previous)}
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable fun TasksHome(store:Store,onBack:()->Unit) {
     val c=LocalLeafColors.current;val haptic=androidx.compose.ui.platform.LocalHapticFeedback.current
     var filter by remember{mutableIntStateOf(0)};var layout by remember{mutableIntStateOf(store.preferences.getInt("taskView",0))};var list by remember{mutableStateOf("All lists")};var chooseList by remember{mutableStateOf(false)}
@@ -71,7 +73,7 @@ fun Store.taskChange(id:String,change:(Note)->Note){val previous=selected;select
     val boardScroll=rememberScrollState()
     LaunchedEffect(dragged){while(dragged!=null){val edge=56f;val speed=when{dragPointer.x<boardBounds.left+edge->-18f;dragPointer.x>boardBounds.right-edge->18f;else->0f};if(speed!=0f)boardScroll.scrollTo((boardScroll.value+speed.roundToInt()).coerceIn(0,boardScroll.maxValue));delay(16)}}
     @Composable fun TaskCard(r:Revision,modifier:Modifier=Modifier){val t=r.note.task!!
-        Row(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(c.paper).border(.5.dp,c.separator,RoundedCornerShape(20.dp)).padding(16.dp),verticalAlignment=Alignment.CenterVertically){
+        Row(modifier.fillMaxWidth().combinedClickable(onClick={editing=r},onLongClick={options=r}).clip(RoundedCornerShape(20.dp)).background(c.paper).border(.5.dp,c.separator,RoundedCornerShape(20.dp)).padding(16.dp),verticalAlignment=Alignment.CenterVertically){
             Pressable(Modifier.size(44.dp),"Complete task",onClick={store.taskChange(r.noteId){it.copy(task=t.complete())}}){Box(Modifier.size(24.dp).then(if(t.completed)Modifier.background(c.accent,CircleShape)else Modifier.border(1.3.dp,c.tertiary,CircleShape)),contentAlignment=Alignment.Center){if(t.completed)Glyph("done",size=16,tint=androidx.compose.ui.graphics.Color.White)}}
             Spacer(Modifier.width(12.dp))
             Pressable(Modifier.weight(1f),"Edit ${r.note.displayTitle}",onClick={editing=r},onLongClick={options=r}){Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(6.dp)){androidx.compose.material3.Text(r.note.displayTitle,style=TextStyle(fontSize=17.sp,fontWeight=FontWeight.Medium,color=if(t.completed)c.secondary else c.text,textDecoration=if(t.completed)TextDecoration.LineThrough else null));Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)){Glyph("clock",size=14,tint=c.tertiary);Label(taskDate(t),12,color=if(t.dueAt>0&&t.dueAt<System.currentTimeMillis()&&!t.completed)c.danger else c.secondary)};if(layout==1)Label(t.list,11,color=c.tertiary)}}
@@ -108,7 +110,7 @@ fun Store.taskChange(id:String,change:(Note)->Note){val previous=selected;select
     }
     if(chooseList)IosSheet("Lists",onDismiss={chooseList=false}){(listOf("All lists")+tasks.map{it.note.task!!.list}.distinct().sorted()).forEach{name->SheetRow(name,"folder"){list=name;chooseList=false}}}
     if(adding||editing!=null)TaskComposer(store,editing?.note ?: Note(task=TaskDetails(completed=addingStage=="done",status=addingStage)),onCancel={adding=false;editing=null}){n->val r=editing;if(r==null){store.create();store.update(n);store.flush();store.select(null)}else store.taskChange(r.noteId){n};adding=false;editing=null}
-    options?.let{r->TaskOptions(r,onDismiss={options=null},onEdit={editing=r;options=null},onOpen={store.select(r.noteId);options=null},onChange={change->store.taskChange(r.noteId,change);options=null},onDuplicate={store.create();store.update(r.note.copy(task=r.note.task!!.copy(completed=false,status="todo")));store.flush();store.select(null);options=null})}
+    options?.let{r->TaskOptions(r,onDismiss={options=null},onEdit={editing=r;options=null},onOpen={editing=r;options=null},onChange={change->store.taskChange(r.noteId,change);options=null},onDuplicate={store.create();store.update(r.note.copy(task=r.note.task!!.copy(completed=false,status="todo")));store.flush();store.select(null);options=null})}
 
 }
 fun taskStageColor(stage:String)=when(stage){"progress"->Color(0xFFCE9A33);"review"->Color(0xFF9874CF);"done"->Color(0xFF5FA77E);else->Color(0xFF6393CF)}
@@ -152,12 +154,13 @@ fun taskTagColour(text:String,dark:Boolean):Color {val colours=if(dark)listOf(0x
             IosSegments(listOf("No alert","Notify me"),if(t.remind)1 else 0){index->if(index==0)t=t.copy(remind=false) else if(android.os.Build.VERSION.SDK_INT>=33&&androidx.core.content.ContextCompat.checkSelfPermission(activityContext,android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)permission.launch(android.Manifest.permission.POST_NOTIFICATIONS) else t=t.copy(remind=true)}
 
             if(alertMessage.isNotEmpty())Label(alertMessage,12,color=c.danger)
-            Label("Repeat",13,color=c.secondary,modifier=Modifier.padding(top=12.dp,bottom=8.dp));IosSegments(listOf("None","Daily","Weekly","Monthly"),listOf("none","daily","weekly","monthly").indexOf(t.repeatRule).coerceAtLeast(0)){t=t.copy(repeatRule=listOf("none","daily","weekly","monthly")[it])}
+
         }
+        RepeatPicker(t.repeatRule){rule->t=t.copy(repeatRule=rule);if(rule!="none")dated=true}
         Label("Priority",13,color=c.secondary,modifier=Modifier.padding(top=12.dp,bottom=8.dp));TaskPriorityControl(t.priority){t=t.copy(priority=it)}
         TaskSection("Description","edit")
         Row(Modifier.padding(bottom=8.dp),horizontalArrangement=Arrangement.spacedBy(6.dp)) {listOf("bold" to "B","italic" to "I","underline" to "U").forEach{(style,label)->Pressable(Modifier.size(44.dp).background(c.text.copy(alpha=.05f),CircleShape),style,onClick={taskEditorView?.let{format(it,style);taskEditorId?.let{id->body=body.editBlock(id){b->b.copy(text=it.text.toString(),spans=spansFrom(it.text))}}}}){Label(label,17,if(style=="bold")FontWeight.Bold else FontWeight.Medium)}}}
-        body.document.filter{it.isText&&it.kind!="check"}.forEach{b->key(b.id){androidx.compose.ui.viewinterop.AndroidView(factory={context->android.widget.EditText(context).apply{setBackgroundColor(android.graphics.Color.TRANSPARENT);minLines=3;hint="Add a description…";inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE;setText(attributed(Note(text=b.text,spans=b.spans)));setOnFocusChangeListener{_,focused->if(focused){taskEditorView=this;taskEditorId=b.id}};addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){if(tag!=true)applyTypingStyle(this@apply,start,count)};override fun afterTextChanged(s:android.text.Editable?){if(s!=null&&tag!=true)body=body.editBlock(b.id){it.copy(text=s.toString(),spans=spansFrom(s))}}})}},update={it.setTextColor(c.text.toArgb());it.setHintTextColor(c.secondary.toArgb())},modifier=Modifier.fillMaxWidth().heightIn(min=110.dp).clip(RoundedCornerShape(12.dp)).background(c.text.copy(alpha=.04f)).border(.7.dp,c.separator,RoundedCornerShape(12.dp)).padding(12.dp))}}
+        body.document.filter{it.isText&&it.kind!="check"}.forEach{b->key(b.id){androidx.compose.ui.viewinterop.AndroidView(factory={context->android.widget.EditText(context).apply{setBackgroundColor(android.graphics.Color.TRANSPARENT);minLines=6;hint="Add a description…";inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE;setText(attributed(Note(text=b.text,spans=b.spans)));setOnFocusChangeListener{_,focused->if(focused){taskEditorView=this;taskEditorId=b.id}};addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){if(tag!=true)applyTypingStyle(this@apply,start,count)};override fun afterTextChanged(s:android.text.Editable?){if(s!=null&&tag!=true)body=body.editBlock(b.id){it.copy(text=s.toString(),spans=spansFrom(s))}}})}},update={it.setTextColor(c.text.toArgb());it.setHintTextColor(c.secondary.toArgb())},modifier=Modifier.fillMaxWidth().heightIn(min=180.dp).clip(RoundedCornerShape(12.dp)).background(c.text.copy(alpha=.04f)).border(.7.dp,c.separator,RoundedCornerShape(12.dp)).padding(12.dp))}}
         if(body.document.none{it.isText&&it.kind!="check"})SheetRow("Add description","plus"){body=body.copy(blocks=body.document+Block())}
         TaskSection("Subtasks","check")
         body.document.filter{it.kind=="check"}.forEach{b->Row(verticalAlignment=Alignment.CenterVertically){Pressable(Modifier.size(44.dp),"Complete subtask",onClick={body=body.editBlock(b.id){it.copy(checked=!it.checked)}}){Glyph(if(b.checked)"done" else "check")};Box(Modifier.weight(1f)){TaskField(b.text,"Subtask"){value->body=body.editBlock(b.id){it.copy(text=value)}}};Pressable(Modifier.size(44.dp),"Remove subtask",onClick={body=body.copy(blocks=body.document.filter{it.id!=b.id})}){Glyph("close")}}}

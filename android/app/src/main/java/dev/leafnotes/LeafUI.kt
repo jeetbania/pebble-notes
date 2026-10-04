@@ -87,18 +87,18 @@ val LocalLeafColors = staticCompositionLocalOf { lightLeafColors }
     androidx.compose.material3.Text(text, modifier, color=color, fontSize=size.sp, fontWeight=weight, lineHeight=(size*1.32).sp, letterSpacing=if(size>=28) (-0.7).sp else (-0.15).sp, maxLines=lines, overflow=TextOverflow.Ellipsis)
 }
 fun iconResource(name: String): Int = when(name) {
-    "calendar" -> R.drawable.leaf_calendar; "clock" -> R.drawable.leaf_clock; "minus" -> R.drawable.leaf_minus; "flag" -> R.drawable.leaf_flag
-    "check" -> R.drawable.lucide_list_checks; "edit" -> R.drawable.lucide_square_pen; "next" -> R.drawable.lucide_chevron_right
+    "calendar" -> R.drawable.leaf_calendar; "clock" -> R.drawable.leaf_clock; "minus" -> R.drawable.leaf_minus; "flag" -> R.drawable.pebble_filled_flag
+    "check" -> R.drawable.lucide_list_checks; "edit" -> R.drawable.pebble_filled_edit; "next" -> R.drawable.lucide_chevron_right
     "sun" -> R.drawable.lucide_sun; "moon" -> R.drawable.lucide_moon; "sort" -> R.drawable.lucide_arrow_down_up
     "forward" -> R.drawable.lucide_chevron_right; "back" -> R.drawable.lucide_chevron_left; "down" -> R.drawable.lucide_chevron_down; "more" -> R.drawable.lucide_ellipsis
-    "compose" -> R.drawable.lucide_square_pen; "search" -> R.drawable.lucide_search; "folder" -> R.drawable.lucide_folder
+    "compose" -> R.drawable.pebble_filled_edit; "search" -> R.drawable.lucide_search; "folder" -> R.drawable.pebble_filled_folder
     "folderPlus" -> R.drawable.lucide_folder_plus; "image" -> R.drawable.lucide_image; "images" -> R.drawable.lucide_images
-    "list" -> R.drawable.lucide_list; "grid" -> R.drawable.lucide_layout_grid; "archive" -> R.drawable.lucide_archive
-    "trash" -> R.drawable.lucide_trash_2; "settings" -> R.drawable.lucide_settings_2; "pin" -> R.drawable.lucide_pin
+    "list" -> R.drawable.lucide_list; "grid" -> R.drawable.lucide_layout_grid; "archive" -> R.drawable.pebble_filled_archive
+    "trash" -> R.drawable.pebble_filled_trash; "settings" -> R.drawable.lucide_settings_2; "pin" -> R.drawable.pebble_filled_pin
     "share" -> R.drawable.lucide_arrow_up_from_line; "undo" -> R.drawable.lucide_undo_2; "clip" -> R.drawable.lucide_paperclip
     "done" -> R.drawable.lucide_check; "close" -> R.drawable.lucide_x; "number" -> R.drawable.lucide_list_ordered
     "download" -> R.drawable.pebble_download; "bell" -> R.drawable.pebble_bell; "info" -> R.drawable.pebble_info; "sparkle" -> R.drawable.pebble_sparkle; "sync" -> R.drawable.lucide_arrow_left_right
-    "copy" -> R.drawable.pebble_copy; "note" -> R.drawable.pebble_note; "todo" -> R.drawable.pebble_status_todo; "progress" -> R.drawable.pebble_status_progress; "review" -> R.drawable.pebble_status_review; "tray" -> R.drawable.pebble_tray; "plus" -> R.drawable.lucide_plus; else -> R.drawable.lucide_folder
+    "copy" -> R.drawable.pebble_filled_copy; "note" -> R.drawable.pebble_note; "todo" -> R.drawable.pebble_filled_todo; "progress" -> R.drawable.pebble_filled_progress; "review" -> R.drawable.pebble_filled_review; "tray" -> R.drawable.pebble_tray; "plus" -> R.drawable.lucide_plus; else -> R.drawable.pebble_filled_folder
 }
 @Composable fun Glyph(name: String, description: String? = null, size: Int = 23, tint: Color = LocalLeafColors.current.text) {
     if(name == "format") Label("Aa", size, FontWeight.Medium, tint)
@@ -133,6 +133,7 @@ fun iconResource(name: String): Int = when(name) {
     var batch by remember { mutableStateOf(false) }; var selectedNotes by remember { mutableStateOf(setOf<String>()) }; var oldFolder by remember { mutableStateOf("") }; var deletingFolder by remember { mutableStateOf<String?>(null) }
     var linking by remember { mutableStateOf(false) }; var linkUrl by remember { mutableStateOf("https://") }
     var typographySettings by remember { mutableStateOf(false) }
+    var taskDetail by remember{mutableStateOf<Revision?>(null)}
     var dailyTools by remember { mutableStateOf(false) }; var newFolder by remember { mutableStateOf(false) }; var folderEmoji by remember { mutableStateOf("") }
     var gallery by remember { mutableStateOf(store.preferences.getBoolean("gallery",false)) }
     var editor by remember(store.selected) { mutableStateOf<EditText?>(null) }
@@ -142,7 +143,7 @@ fun iconResource(name: String): Int = when(name) {
     val backup=androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> if(uri!=null) scope.launch { try { val bytes=withContext(Dispatchers.IO){store.backup()}; withContext(Dispatchers.IO){store.context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) } ?: error("Could not write backup")}; store.status="Backup exported" }catch(e:Exception){store.error=e.message} } }
     val restore=androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if(uri!=null) scope.launch { try { withContext(Dispatchers.IO){store.context.contentResolver.openInputStream(uri)?.use { store.restore(it.readBytes()) } ?: error("Could not read backup") } }catch(e:Exception){store.error=e.message} } }
     val noteExport=androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")){uri->if(uri!=null){store.flush();val value=store.editing;scope.launch{try{withContext(Dispatchers.IO){if(value!=null)store.context.contentResolver.openOutputStream(uri)?.use{exportNote(store,value,it)}}}catch(e:Exception){store.error=e.message}}}}
-    val records=store.visibleHeads.filter { r -> val n=r.note; (n.task==null || section in listOf("Trash","Archive")) && (if(section=="Trash")n.deleted else !n.deleted) && (if(section=="Archive")n.archived else section=="Trash" || !n.archived) && (section!="Images" || n.attachments.any{it.mime.startsWith("image/")}) && (section in listOf("Notes","Everything","Images","Archive","Trash") || section=="Pinned" && n.pinned || section=="Checklists" && n.document.any{it.kind=="check"} || section.startsWith("#") && section.removePrefix("#") in n.tags || n.collection==section || n.collection.startsWith(section+"/")) && (search.isEmpty() || "${n.title} ${n.text} ${n.collection} ${n.tags.joinToString(" "){"#"+it}}".contains(search,true)) }.sortedWith(compareByDescending<Revision>{it.note.pinned}.thenByDescending{it.createdAt})
+    val records=store.visibleHeads.filter { r -> val n=r.note; (n.task==null || section.startsWith("#") || section in listOf("Trash","Archive")) && (if(section=="Trash")n.deleted else !n.deleted) && (if(section=="Archive")n.archived else section=="Trash" || !n.archived) && (section!="Images" || n.attachments.any{it.mime.startsWith("image/")}) && (section in listOf("Notes","Everything","Images","Archive","Trash") || section=="Pinned" && n.pinned || section=="Checklists" && n.document.any{it.kind=="check"} || section.startsWith("#") && section.removePrefix("#") in n.tags || n.collection==section || n.collection.startsWith(section+"/")) && (search.isEmpty() || "${n.title} ${n.text} ${n.collection} ${n.tags.joinToString(" "){"#"+it}}".contains(search,true)) }.sortedWith(compareByDescending<Revision>{it.note.pinned}.thenByDescending{it.createdAt})
     var lastNote by remember { mutableStateOf<Note?>(null) }; var lastId by remember { mutableStateOf<String?>(null) }
     SideEffect { if(store.editing!=null) {lastNote=store.editing;lastId=store.selected} }
     val width=with(LocalDensity.current){LocalConfiguration.current.screenWidthDp.dp.toPx()}
@@ -159,7 +160,7 @@ fun iconResource(name: String): Int = when(name) {
     val libraryHome=store.selected==null && section !in listOf("Settings","Tasks")
     val statusHeight=WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     Box(Modifier.fillMaxSize().background(if(store.selected!=null)c.canvas else c.page).drawBehind {if(libraryHome){drawRect(homeGlowColor(c.dark),size=androidx.compose.ui.geometry.Size(size.width,statusHeight.toPx()))}}.statusBarsPadding().navigationBarsPadding().imePadding()) {
-        Box(Modifier.fillMaxSize().graphicsLayer{val progress=(1f-navigation.value/width).coerceIn(0f,1f);translationX=if(calm)0f else -20f*progress;scaleX=if(calm)1f else 1f-.015f*progress;scaleY=scaleX}) { if(section=="Settings") MobileSettings(store,onTour={onboarding=true},onBack={section="Notes"},onWriting={typographySettings=true},onWhatsNew={releaseHistory=true;whatsNew=true},onConnect=connect,onExport={backup.launch("Pebble Notes Backup.leafbackup")},onImport={restore.launch(arrayOf("*/*"))}) else if(section=="Tasks"&&!folders) TasksHome(store){section="Notes"} else LibraryScreen(store,section,records,search,{search=it},folders,{folders=it},gallery,{gallery=!gallery;store.preferences.edit().putBoolean("gallery",gallery).apply()},enabled=store.selected==null,onSection={section=it;folders=false},onMore={menu=true},onOpen={if(store.selected==null)store.select(it)},onNew={store.create();if(section in store.collections)store.editing?.let{store.update(it.copy(collection=section))}},onImage={if(store.selected==null)preview=it}) }
+        Box(Modifier.fillMaxSize().graphicsLayer{val progress=(1f-navigation.value/width).coerceIn(0f,1f);translationX=if(calm)0f else -20f*progress;scaleX=if(calm)1f else 1f-.015f*progress;scaleY=scaleX}) { if(section=="Settings") MobileSettings(store,onTour={onboarding=true},onBack={section="Notes"},onWriting={typographySettings=true},onWhatsNew={releaseHistory=true;whatsNew=true},onConnect=connect,onExport={backup.launch("Pebble Notes Backup.leafbackup")},onImport={restore.launch(arrayOf("*/*"))}) else if(section=="Tasks"&&!folders) TasksHome(store){section="Notes"} else LibraryScreen(store,section,records,search,{search=it},folders,{folders=it},gallery,{gallery=!gallery;store.preferences.edit().putBoolean("gallery",gallery).apply()},enabled=store.selected==null,onSection={section=it;folders=false},onMore={menu=true},onOpen={id->if(store.selected==null){val r=store.visibleHeads.firstOrNull{it.noteId==id};if(r?.note?.task!=null)taskDetail=r else store.select(id)}},onNew={store.create();if(section in store.collections)store.editing?.let{store.update(it.copy(collection=section))}},onImage={if(store.selected==null)preview=it}) }
         if(updater.visible && !whatsNew) UpdateDialog(updater)
         val note=store.editing ?: lastNote
         if(note!=null && (store.selected!=null || navigation.value<width-.5f)) {
@@ -219,6 +220,7 @@ fun iconResource(name: String): Int = when(name) {
         BasicTextField(linkUrl,{linkUrl=it},textStyle=TextStyle(color=c.text,fontSize=17.sp),modifier=Modifier.fillMaxWidth().background(c.fill,RoundedCornerShape(14.dp)).padding(14.dp))
         SheetRow("Add link","done"){val uri=android.net.Uri.parse(linkUrl);if(uri.scheme in listOf("http","https","mailto")){editor?.let{view->val start=view.selectionStart.coerceAtLeast(0);var end=view.selectionEnd.coerceAtLeast(start);if(end==start){view.text.insert(start,linkUrl);end=start+linkUrl.length};view.text.setSpan(android.text.style.URLSpan(linkUrl),start,end,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);store.activeBlock?.let{id->store.editBlock(id,view.text.toString(),spansFrom(view.text))}};linking=false}else store.error="Use an http, https, or mailto link"}
     }
+    taskDetail?.let{r->TaskComposer(store,r.note,onCancel={taskDetail=null},onSave={n->store.taskChange(r.noteId){n};taskDetail=null})}
     if(typographySettings)TypographySettings(store){typographySettings=false}
     if(dailyTools)DailySheet(store){dailyTools=false}
     deletingFolder?.let{name->IosSheet("Delete Collection?",onDismiss={deletingFolder=null},translucent=true){Label("Your notes will be kept in the library. Only this collection and its subcollections will be removed.",16,color=c.secondary);Row(Modifier.fillMaxWidth().padding(top=22.dp),horizontalArrangement=Arrangement.spacedBy(12.dp)){Pressable(Modifier.weight(1f).padding(12.dp),"Cancel",onClick={deletingFolder=null}){Label("Cancel",16)};Pressable(Modifier.weight(1f).background(c.danger.copy(alpha=.14f),RoundedCornerShape(22.dp)).padding(12.dp),"Delete",onClick={store.deleteFolder(name);oldFolder="";folderName="";deletingFolder=null}){Label("Delete",16,color=c.danger)}}}}
@@ -427,22 +429,26 @@ fun prefixLine(view:EditText,prefix:String) {
     }
 }
 @Composable fun SheetRow(label:String,icon:String,tint:Color=LocalLeafColors.current.text,onClick:()->Unit) {
-    Pressable(Modifier.fillMaxWidth(),label,onClick=onClick){Row(Modifier.fillMaxWidth().padding(vertical=13.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(17.dp)){Glyph(icon,size=22,tint=tint);Label(label,17,color=tint)}}
+    val c=LocalLeafColors.current
+    Column {
+        Pressable(Modifier.fillMaxWidth().heightIn(min=48.dp),label,onClick=onClick){Row(Modifier.fillMaxWidth().padding(vertical=9.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){Box(Modifier.size(32.dp).background(tint.copy(alpha=.065f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Glyph(icon,size=19,tint=tint)};Label(label,15,color=tint,modifier=Modifier.weight(1f))}}
+        Box(Modifier.fillMaxWidth().padding(start=44.dp).height(.5.dp).background(c.separator))
+    }
 }
 val LocalSheetAction=compositionLocalOf<((()->Unit)->Unit)>{ {action->action()} }
 @Composable fun IosSheet(title:String,onDismiss:()->Unit,translucent:Boolean=false,footer:(@Composable ()->Unit)?=null,content:@Composable ColumnScope.()->Unit) {
     val c=LocalLeafColors.current;val calm=LocalCalmMotion.current;val progress=remember{Animatable(0f)};var closing by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
     val finish:((()->Unit)->Unit)={action->if(!closing){closing=true;scope.launch{progress.animateTo(0f,tween(if(calm)0 else 180));action()}}}
     val close:()->Unit={finish(onDismiss)}
-    LaunchedEffect(Unit){progress.animateTo(1f,tween(if(calm)0 else 260, easing=androidx.compose.animation.core.FastOutSlowInEasing))}
-    val sheetProgress=progress.value
+    LaunchedEffect(Unit){progress.animateTo(1f,if(calm)snap() else spring(dampingRatio=.9f,stiffness=480f))}
+    val sheetProgress=progress.value.coerceIn(0f,1f)
     Dialog(onDismissRequest=close,properties=DialogProperties(usePlatformDefaultWidth=false,decorFitsSystemWindows=false)) {
         val view=LocalView.current
         SideEffect {(view.parent as? DialogWindowProvider)?.window?.let{window->window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));window.attributes=window.attributes.apply{windowAnimations=0};window.setDimAmount(.18f*sheetProgress);if(Build.VERSION.SDK_INT>=31){window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND);window.attributes=window.attributes.apply{blurBehindRadius=((if(translucent)32 else 16)*sheetProgress).toInt()}}}}
         Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().padding(bottom=20.dp),contentAlignment=Alignment.BottomCenter) {
             Box(Modifier.fillMaxSize().clickable(indication=null,interactionSource=remember{MutableInteractionSource()}){close()})
-            Box(Modifier.graphicsLayer{alpha=progress.value;translationY=if(calm)0f else (1f-progress.value)*64.dp.toPx()}) {
-            Column(Modifier.fillMaxWidth().padding(start=10.dp,end=10.dp,bottom=10.dp).heightIn(max=650.dp).shadow(24.dp,RoundedCornerShape(32.dp)).background(if(translucent)c.paper.copy(alpha=.94f) else c.paper,RoundedCornerShape(32.dp)).padding(start=24.dp,end=24.dp,top=20.dp,bottom=48.dp)) {
+            Box(Modifier.graphicsLayer{alpha=progress.value.coerceIn(0f,1f);translationY=if(calm)0f else (1f-progress.value)*64.dp.toPx()}) {
+            Column(Modifier.fillMaxWidth().padding(start=10.dp,end=10.dp,bottom=10.dp).heightIn(max=650.dp).shadow(24.dp,RoundedCornerShape(32.dp)).background(if(translucent)c.paper.copy(alpha=.94f) else c.paper,RoundedCornerShape(32.dp)).border(.7.dp,c.separator,RoundedCornerShape(32.dp)).padding(start=24.dp,end=24.dp,top=20.dp,bottom=48.dp)) {
                 Box(Modifier.align(Alignment.CenterHorizontally).width(34.dp).height(4.dp).background(c.tertiary.copy(alpha=.25f),CircleShape))
                 Row(Modifier.padding(top=18.dp,bottom=16.dp),verticalAlignment=Alignment.CenterVertically){Label(title,25,FontWeight.SemiBold,modifier=Modifier.weight(1f));Pressable(Modifier.size(44.dp).background(c.fill,CircleShape),"Close",onClick=close){Glyph("close",size=21)}}
                 CompositionLocalProvider(LocalSheetAction provides finish){Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState()),content=content)}

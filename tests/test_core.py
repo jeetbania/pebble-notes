@@ -47,6 +47,7 @@ class CoreTests(unittest.TestCase):
         self.assertTrue(self.s.put(r));self.assertIn(r,self.s.list())
         for key,value in [('dueAt',-1),('dueAt','tomorrow'),('priority',4),('priority',True),('repeatRule','hourly'),('completed',1),('hasTime',None),('list',''),('remind','yes'),('status','unknown'),('status',5)]:
             invalid=revision();invalid['note']['task']=dict(task,**{key:value});self.assertFalse(self.s.put(invalid),(key,value))
+        yearly=revision();yearly['note']['task']=dict(task,repeatRule='yearly');self.assertTrue(self.s.put(yearly));self.assertIn(yearly,self.s.list())
         staged=revision();staged['note']['task']=dict(task,status='review');self.assertTrue(self.s.put(staged));self.assertIn(staged,self.s.list())
         invalid=revision();invalid['note']['task']=None;self.assertFalse(self.s.put(invalid))
     def test_text_scale_round_trip_and_validation(self):

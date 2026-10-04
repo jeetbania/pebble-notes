@@ -38,7 +38,7 @@ struct TaskDetails: Codable, Equatable {
     mutating func complete(now: Date = Date()) {
         guard repeatRule != "none", dueAt > 0 else { completed.toggle(); status = completed ? "done" : "todo"; return }
         let calendar = Calendar.current
-        let component: Calendar.Component = repeatRule == "monthly" ? .month : .day
+        let component: Calendar.Component = repeatRule == "yearly" ? .year : repeatRule == "monthly" ? .month : .day
         let amount = repeatRule == "weekly" ? 7 : 1
         var next = calendar.date(byAdding: component, value: amount, to: date) ?? now
         while next <= now { next = calendar.date(byAdding: component, value: amount, to: next) ?? now.addingTimeInterval(86400) }
@@ -74,6 +74,7 @@ struct Note: Codable, Equatable {
         folderEmoji = try c.decodeIfPresent(String.self, forKey: .folderEmoji) ?? ""
         folderImage = try c.decodeIfPresent(String.self, forKey: .folderImage) ?? ""
     }
+    var isCompletelyBlank: Bool { recordType == "note" && task == nil && title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty && tags.isEmpty && document.allSatisfy { $0.isText && $0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } }
     var displayTitle: String { title.isEmpty ? "Untitled note" : title }
     var document: [DocumentBlock] {
         if let blocks { return blocks }

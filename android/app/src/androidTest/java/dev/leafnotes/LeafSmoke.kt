@@ -4,6 +4,7 @@ import android.app.Instrumentation
 import android.content.ContextWrapper
 import android.os.Bundle
 import java.io.File
+import java.util.Calendar
 
 /** Runs production storage and text adapters on Android; no simulated Android APIs. */
 class LeafSmoke : Instrumentation() {
@@ -27,6 +28,13 @@ class LeafSmoke : Instrumentation() {
                 check(staged.moveTo("done").completed);check(staged.moveTo("done").moveTo("todo").stage=="todo")
                 check(TaskDetails.from(org.json.JSONObject().put("dueAt",0).put("hasTime",false).put("priority",0).put("repeatRule","none").put("list","Reminders").put("completed",false).put("remind",false)).stage=="todo")
                 results.append("PASS: Android task statuses persist, completed tasks reopen, and older tasks remain compatible\n")
+                val yearly=taskNote.task!!.copy(repeatRule="yearly");val nextYear=yearly.complete(yearly.dueAt)
+                check(Calendar.getInstance().apply{timeInMillis=nextYear.dueAt}.get(Calendar.YEAR)==Calendar.getInstance().apply{timeInMillis=yearly.dueAt}.get(Calendar.YEAR)+1)
+                taskStore.taskChange(taskId){it.copy(task=nextYear)};check(taskStore.visibleHeads.first{it.noteId==taskId}.note.task!!.repeatRule=="yearly")
+                val blankStore=Store(object:ContextWrapper(targetContext){override fun getFilesDir()=File(root,"blank-notes").apply{mkdirs()}});blankStore.create();val blankId=blankStore.selected!!;blankStore.select(null);check(blankStore.visibleHeads.first{it.noteId==blankId}.note.deleted)
+                blankStore.create();val titledId=blankStore.selected!!;blankStore.update(blankStore.editing!!.copy(title="Keep"));blankStore.select(null);check(!blankStore.visibleHeads.first{it.noteId==titledId}.note.deleted)
+                check(!Note(blocks=listOf(Block(kind="table"))).isCompletelyBlank)
+                results.append("PASS: blank notes move to Trash on leave; titles and tables survive; yearly repeats persist and advance\n")
                 results.append("PASS: Android task persistence, backup, completion, and repeat rollover\n")
                 store.create()
                 val note = Note(title = "Android restart", text = "Hello 👋 नमस्ते", spans = listOf(Span(6, 2, "bold"), Span(6, 2, "italic")))

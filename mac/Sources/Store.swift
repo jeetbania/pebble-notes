@@ -73,9 +73,12 @@ import UniformTypeIdentifiers
         guard let db, leaf_ack(db, id) != 0 else { throw LeafError.message("Could not record sync progress") }
     }
     func reload() { do { heads = try revisions(headsOnly: true); expireTrash(); if automaticBackups { TaskAlerts.refresh(uniqueHeads) } } catch { self.error = error.localizedDescription } }
-    func select(_ id: String?) { flush(); if draft == nil { selected = id; undoNotes = []; redoNotes = []; canUndo = false; canRedo = false; activeBlock = nil; insertionOffset = nil } }
+    func select(_ id: String?) { if selected != id { discardBlankOnLeave() }; flush(); if draft == nil { selected = id; undoNotes = []; redoNotes = []; canUndo = false; canRedo = false; activeBlock = nil; insertionOffset = nil } }
+    func discardBlankOnLeave() {
+        if let note = current, note.isCompletelyBlank, !note.deleted { update(remember: false) { $0.deleted = true }; flush() }
+    }
     func create() {
-        flush(); guard draft == nil else { return }
+        discardBlankOnLeave(); flush(); guard draft == nil else { return }
         selected = UUID().uuidString.lowercased()
         var note = Note(); note.prepare(); undoNotes = []; redoNotes = []; canUndo = false; canRedo = false; activeBlock = nil; insertionOffset = nil; draft = Draft(noteId: selected!, parents: [], note: note); persistDraft(); flush()
     }

@@ -29,7 +29,7 @@ struct SettingsHome: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack { if let url = Bundle.main.url(forResource: "Leaf", withExtension: "icns"), let image = NSImage(contentsOf: url) { Image(nsImage: image).resizable().frame(width: 34, height: 34) }; Text("Pebble Notes").font(.headline) }.padding(.bottom, 14)
                 LeafScrollView { VStack(alignment: .leading, spacing: 4) { ForEach(sections, id: \.0) { label, icon in Button { page = label } label: { Label(label, systemImage: icon).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(Color.primary.opacity(page == label ? 0.09 : 0), in: RoundedRectangle(cornerRadius: 10)) }.buttonStyle(SoftButtonStyle()) } } }.scrollIndicators(.never)
-                Spacer(minLength: 0); Button("What’s New · " + ReleaseNotes.version) { onWhatsNew() }.buttonStyle(SoftButtonStyle()).font(.caption).foregroundStyle(Color.primary.opacity(0.85)).frame(maxWidth: .infinity, minHeight: 36, alignment: .leading).contentShape(Rectangle())
+                Spacer(minLength: 0); Button("What’s New") { onWhatsNew() }.buttonStyle(SoftButtonStyle()).font(.caption).foregroundStyle(Color.primary.opacity(0.85)).frame(maxWidth: .infinity, minHeight: 36, alignment: .leading).contentShape(Rectangle())
             }.padding(20).frame(width: 180).background(Color.clear)
             LeafScrollView {
                 VStack(alignment: .leading, spacing: 24) {
@@ -71,10 +71,9 @@ struct SettingsHome: View {
                         if updater.available != nil { Button("View available update") { updater.visible = true; onClose() } }
                     } else if page == "About" {
                         Text("Pebble Notes").font(.system(size: 32, weight: .bold))
-                        Text("A quieter home for thoughts, images, and what comes next.").font(.system(size: 17)).foregroundStyle(Color.primary.opacity(0.72))
-                        caption("Yours, even offline", "Your library saves on this device first. Google Drive sync is optional, and your original images stay at their original quality.")
-                        caption("One space, many ways to think", "Write rich notes, collect visual inspiration, and plan tasks with dates, reminders, and a board. Arrange your library around the way you work.")
-                        caption("Room to change your mind", "Note history, Trash, and local backups help you return to earlier work. Export your library whenever you want.")
+                        Label("On this device, with optional Drive sync", systemImage: "externaldrive.fill").foregroundStyle(.secondary)
+                        Label("Notes, images and tasks", systemImage: "square.stack.3d.up.fill").foregroundStyle(.secondary)
+                        Label("History, Trash and backups", systemImage: "clock.arrow.circlepath").foregroundStyle(.secondary)
                         Button("Replay welcome tour") { NotificationCenter.default.post(name: Notification.Name("pebbleOnboarding"), object: nil) }
                         Text("Version " + ReleaseNotes.version).font(.caption).foregroundStyle(Color.primary.opacity(0.72))
                     } else {

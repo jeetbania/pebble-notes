@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
@@ -46,7 +48,18 @@ private val stageIcons=listOf("todo","progress","review","done")
         if(task.dueAt>0)SheetRow("Remove date","minus"){change{it.copy(task=it.task!!.copy(dueAt=0,hasTime=false,remind=false))}}
         Spacer(Modifier.height(14.dp));SubtleDivider();Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-            listOf(Triple("Edit task","edit",onEdit),Triple("Open note","list",onOpen),Triple("Duplicate task","copy",onDuplicate),Triple("Convert to note","note",{onChange{it.copy(task=null)}}),Triple("Move to Trash","trash",{onChange{it.copy(deleted=true)}})).forEach{(label,icon,action)->Pressable(Modifier.weight(1f).height(48.dp).background(c.fill,CircleShape),label,onClick={finish(action)}){Glyph(icon,size=21,tint=if(icon=="trash")c.danger else c.text)}}
+            listOf(Triple("Edit task","edit",onEdit),Triple("Task details","list",onOpen),Triple("Duplicate task","copy",onDuplicate),Triple("Convert to note","note",{onChange{it.copy(task=null)}}),Triple("Move to Trash","trash",{onChange{it.copy(deleted=true)}})).forEach{(label,icon,action)->Pressable(Modifier.weight(1f).height(48.dp).background(c.fill,CircleShape),label,onClick={finish(action)}){Glyph(icon,size=21,tint=if(icon=="trash")c.danger else c.text)}}
         }
+    }
+}
+
+@Composable fun RepeatPicker(value:String,onSelect:(String)->Unit){
+    val c=LocalLeafColors.current
+    var expanded by androidx.compose.runtime.remember{androidx.compose.runtime.mutableStateOf(false)}
+    val values=listOf("none","daily","weekly","monthly","yearly")
+    val labels=listOf("Never","Every day","Every week","Every month","Every year")
+    Box(Modifier.fillMaxWidth().padding(top=12.dp)){
+        Pressable(Modifier.fillMaxWidth().heightIn(min=48.dp).background(c.fill,CircleShape).padding(horizontal=14.dp),"Repeat",onClick={expanded=true}){Row(verticalAlignment=Alignment.CenterVertically){Glyph("sync",size=20);Spacer(Modifier.width(10.dp));Label("Repeat",15,modifier=Modifier.weight(1f));Label(labels[values.indexOf(value).coerceAtLeast(0)],14,color=c.secondary);Spacer(Modifier.width(8.dp));Glyph("down",size=12)}}
+        androidx.compose.material3.DropdownMenu(expanded,{expanded=false},containerColor=c.paper){values.forEachIndexed{i,rule->androidx.compose.material3.DropdownMenuItem(text={Label(labels[i],15)},leadingIcon={Glyph(if(rule==value)"done" else "sync",size=18,tint=if(rule==value)c.accent else c.secondary)},onClick={expanded=false;onSelect(rule)})}}
     }
 }

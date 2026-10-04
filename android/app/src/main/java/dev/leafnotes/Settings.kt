@@ -63,7 +63,7 @@ import java.io.File
                             SettingsRow("Welcome tour","next",onTour)
                             SettingsRow("About","info"){page="About"}
                         }
-                        Label("Version "+ReleaseNotes.version(store.context),12,color=c.secondary,modifier=Modifier.align(Alignment.CenterHorizontally))
+
                     }
                     "Profile" -> {
                         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(18.dp)){Avatar(72);Column{SheetRow("Choose picture","image"){choosePicture.launch("image/*")};if(avatarFile.exists())SheetRow("Remove picture","close"){avatarFile.delete();avatarVersion++}}}

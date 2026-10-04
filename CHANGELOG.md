@@ -1,5 +1,15 @@
 # Pebble Notes changelog
 
+## 0.14.5 · Tasks, together
+
+- Task cards open the task editor on Mac and Android, including from tag pages. Descriptions have more room to write.
+- Repeat offers daily, weekly, monthly and yearly schedules, even before choosing a date. Completing a repeating task advances its due date.
+- Tag pages include matching tasks alongside notes.
+- Mac menus show action icons; task menus include Delete. The inner frame follows the outer corner radius.
+- Completely blank notes move to Trash when you leave them. Titles, tags, attachments and tables are preserved.
+- Android menus use compact icon tiles and subtle dividers, with more filled icons and restrained spring motion.
+- About and clipboard suggestions use shorter copy, and About shows the version once.
+
 ## 0.14.4 · A calmer phone
 
 - Phone task options use compact status and priority icons, grouped scheduling controls and a concise action toolbar.
