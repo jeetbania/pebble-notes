@@ -2,10 +2,12 @@
 
 ## 0.14.2 · Room for what comes next
 
-- Android task navigation blends into one page surface without a separate frosted strip or duplicate system-bar inset.
-- Contextual ghost previews now fill empty tasks, notes, galleries, images, search, pinned notes, checklists, collections, archive and trash on Android and Mac.
-- Update cards use a stronger single material with more blur and transparent dialog windows, without a solid backdrop behind the text.
-- Note body text and heading defaults are larger, along with slash commands, captions and add-block suggestions. Explicit custom text sizes are preserved.
+- Task navigation on Android now blends smoothly with the page and status bar.
+- Soft ghost illustrations and useful actions fill empty tasks, notes, images, search, pinned notes, checklists, collections, archive and trash on both apps.
+- The update welcome card has richer glass and stronger blur, with no separate background behind the text.
+- Notes, slash commands, captions and add-block controls are larger. Your custom text sizes stay as you set them.
+- Kanban cards have clear titles, short descriptions and coloured chips. Hold and drag a card on mobile to move it between states.
+- Mobile list filters now use an icon and pill button. Note cards and images have softer depth, and notes open with rounded top corners.
 
 ## 0.14.1 · A calmer phone interface
 

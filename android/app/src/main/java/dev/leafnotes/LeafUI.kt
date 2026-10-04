@@ -98,7 +98,7 @@ fun iconResource(name: String): Int = when(name) {
     "share" -> R.drawable.lucide_arrow_up_from_line; "undo" -> R.drawable.lucide_undo_2; "clip" -> R.drawable.lucide_paperclip
     "done" -> R.drawable.lucide_check; "close" -> R.drawable.lucide_x; "number" -> R.drawable.lucide_list_ordered
     "download" -> R.drawable.pebble_download; "bell" -> R.drawable.pebble_bell; "info" -> R.drawable.pebble_info; "sparkle" -> R.drawable.pebble_sparkle; "sync" -> R.drawable.lucide_arrow_left_right
-    "plus" -> R.drawable.lucide_plus; else -> R.drawable.lucide_folder
+    "tray" -> R.drawable.pebble_tray; "plus" -> R.drawable.lucide_plus; else -> R.drawable.lucide_folder
 }
 @Composable fun Glyph(name: String, description: String? = null, size: Int = 23, tint: Color = LocalLeafColors.current.text) {
     if(name == "format") Label("Aa", size, FontWeight.Medium, tint)
@@ -163,7 +163,7 @@ fun iconResource(name: String): Int = when(name) {
         if(updater.visible && !whatsNew) UpdateDialog(updater)
         val note=store.editing ?: lastNote
         if(note!=null && (store.selected!=null || navigation.value<width-.5f)) {
-            Box(Modifier.fillMaxSize().graphicsLayer { translationX=navigation.value }.shadow(16.dp)) {
+            Box(Modifier.fillMaxSize().graphicsLayer { translationX=navigation.value }.shadow(10.dp,RoundedCornerShape(topStart=30.dp,topEnd=30.dp)).clip(RoundedCornerShape(topStart=30.dp,topEnd=30.dp))) {
                 EditorScreen(store,note,lastId,onBack={back()},onMore={menu=true},onFormat={keyboard?.hide();formatPanel=!formatPanel},onImages={store.insertionOffset=editor?.selectionStart;images.launch(arrayOf("*/*"))},onCompose={store.create()},onPreview={preview=it},onEditor={editor=it},onConflict={conflicts=true},onShare={
                     store.flush(); val intent=Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT,note.displayTitle+"\n\n"+note.text) }; store.context.startActivity(Intent.createChooser(intent,"Share note").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 })
@@ -261,7 +261,7 @@ fun iconResource(name: String): Int = when(name) {
             } else if(section=="Images" || galleryMode) {
                 LazyVerticalStaggeredGrid(modifier=Modifier.backdropSource(),columns=StaggeredGridCells.Fixed(2),contentPadding=PaddingValues(22.dp,headerHeight+12.dp,22.dp,120.dp),horizontalArrangement=Arrangement.spacedBy(14.dp),verticalItemSpacing=16.dp) {
                     if(records.isEmpty())item(span=StaggeredGridItemSpan.FullLine){LibraryEmpty(section,search,{onSearch("")},onNew,{onSection("Notes")})}
-                    if(section=="Images") records.forEach {r->items(r.note.attachments.filter{it.mime.startsWith("image/")},key={r.noteId+it.id}){a->Pressable(Modifier.clip(RoundedCornerShape(23.dp)).background(c.paper),description="View ${a.name}",onClick={if(enabled)onImage(a)},onLongClick={if(enabled)held=r.noteId}){Column(Modifier.padding(8.dp)){MediaImage(File(store.media,a.id),Modifier.fillMaxWidth().aspectRatio(1f),radius=17);Label(r.note.collection,11,color=c.secondary,modifier=Modifier.align(Alignment.CenterHorizontally).padding(top=7.dp,bottom=3.dp),lines=1)}}}}
+                    if(section=="Images") records.forEach {r->items(r.note.attachments.filter{it.mime.startsWith("image/")},key={r.noteId+it.id}){a->Pressable(Modifier.clip(RoundedCornerShape(23.dp)).background(Brush.verticalGradient(listOf(c.paper.copy(alpha=.98f),c.paper.copy(alpha=if(c.dark).72f else .78f)))).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),description="View ${a.name}",onClick={if(enabled)onImage(a)},onLongClick={if(enabled)held=r.noteId}){Column(Modifier.padding(8.dp)){MediaImage(File(store.media,a.id),Modifier.fillMaxWidth().aspectRatio(1f),radius=17);Label(r.note.collection,11,color=c.secondary,modifier=Modifier.align(Alignment.CenterHorizontally).padding(top=7.dp,bottom=3.dp),lines=1)}}}}
                     else items(records,key={it.noteId}){r->GalleryCard(r,store,onHold={if(enabled)held=r.noteId}){if(enabled)onOpen(r.noteId)}}
                 }
             } else {
@@ -342,7 +342,7 @@ fun dateGroup(millis:Long):String {
 }
 @Composable fun GalleryCard(r:Revision,store:Store,onHold:()->Unit,onClick:()->Unit) {
     val c=LocalLeafColors.current
-    Pressable(Modifier.fillMaxWidth().shadow(8.dp,RoundedCornerShape(23.dp),ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.06f)).clip(RoundedCornerShape(23.dp)).background(c.paper),r.note.displayTitle,onClick=onClick,onLongClick=onHold) {
+    Pressable(Modifier.fillMaxWidth().shadow(8.dp,RoundedCornerShape(23.dp),ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.06f)).clip(RoundedCornerShape(23.dp)).background(Brush.verticalGradient(listOf(c.paper.copy(alpha=.98f),c.paper.copy(alpha=if(c.dark).72f else .78f)))).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),r.note.displayTitle,onClick=onClick,onLongClick=onHold) {
         Column(Modifier.fillMaxWidth().padding(17.dp).heightIn(min=150.dp,max=300.dp)) {
             Label(r.note.displayTitle,19,FontWeight.SemiBold,lines=2);Spacer(Modifier.height(10.dp))
             r.note.attachments.firstOrNull{it.mime.startsWith("image/")}?.let{MediaImage(File(store.media,it.id),Modifier.fillMaxWidth().height(110.dp),radius=12);Spacer(Modifier.height(10.dp))}
@@ -452,7 +452,7 @@ fun prefixLine(view:EditText,prefix:String) {
 @Composable fun MediaImage(file:File,modifier:Modifier,fit:Boolean=false,radius:Int=14) {
     val c=LocalLeafColors.current
     val bitmap by produceState<android.graphics.Bitmap?>(null,file,fit){value=withContext(Dispatchers.IO){val b=BitmapFactory.Options().apply{inJustDecodeBounds=true};BitmapFactory.decodeFile(file.path,b);var sample=1;val max=if(fit)1800 else 650;while(b.outWidth/sample>max||b.outHeight/sample>max)sample*=2;BitmapFactory.decodeFile(file.path,BitmapFactory.Options().apply{inSampleSize=sample})}}
-    Box(modifier.clip(RoundedCornerShape(radius.dp)).background(c.fill)){bitmap?.let{Image(it.asImageBitmap(),"Attached image",Modifier.fillMaxSize(),contentScale=if(fit)ContentScale.Fit else ContentScale.Crop)}}
+    Box(modifier.then(if(fit)Modifier else Modifier.shadow(7.dp,RoundedCornerShape(radius.dp),ambientColor=Color.Black.copy(alpha=.035f),spotColor=Color.Black.copy(alpha=.07f))).clip(RoundedCornerShape(radius.dp)).background(c.fill).then(if(fit)Modifier else Modifier.border(.6.dp,c.text.copy(alpha=.08f),RoundedCornerShape(radius.dp)))){bitmap?.let{Image(it.asImageBitmap(),"Attached image",Modifier.fillMaxSize(),contentScale=if(fit)ContentScale.Fit else ContentScale.Crop)}}
 }
 object WorkCanceller {fun cancel(context:android.content.Context){androidx.work.WorkManager.getInstance(context).cancelUniqueWork("leaf-sync");androidx.work.WorkManager.getInstance(context).cancelUniqueWork("leaf-periodic")}}
 

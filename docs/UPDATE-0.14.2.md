@@ -25,6 +25,8 @@ Android update sheets now use a transparent native dialog background, stronger w
 
 Writing defaults are body 18, heading 21, subtitle 24 and title 30. Explicit custom text sizes are preserved. Slash commands, add-block controls, table cells and captions are larger.
 
+Kanban now uses separate cards on both apps: titles, short descriptions, tinted tag/priority/date chips, and compact list/attachment footers. Completion circles remain in List only. Android supports whole-card long-press lifting and horizontal edge scrolling, with column hover feedback and one floating card. Its list picker matches the desktop tray capsule. Gallery cards and thumbnails gain restrained gradients, borders and shadows, and the opening note panel clips both top corners.
+
 ## Validation
 
 - Native Mac app and Android APK builds succeeded.
@@ -32,6 +34,8 @@ Writing defaults are body 18, heading 21, subtitle 24 and title 30. Explicit cus
 - All 18 Android instrumentation checks passed on the Pixel 9 API 37.1 emulator using isolated libraries.
 - Emulator interaction: seamless light Tasks header; filtered Board ghost state; Show all tasks restores existing cards; empty gallery search and Clear search restore the library; light/dark release sheets; enlarged body and add-block controls; `/check` suggests Checklist with an icon and inset spacing.
 - Mac isolated native visual preview: task/image artwork in light appearance and release card in dark appearance.
+- Mac Kanban interaction in an isolated library: dragging a task from To Do into In Progress changed the status and column counts. Board metadata and tags were checked visually.
+- Android Kanban preview: priority action produces a red High chip; list filter has the tray capsule; note opening has rounded corners; gallery cards show subtle fading and depth.
 - Release-note consistency and whitespace checks passed.
 
-The Vivo was unavailable; this release was checked on the emulator as requested. Physical-device blur and keyboard rendering still need a follow-up check when the phone is available.
+The Vivo was unavailable; this release was checked on the emulator as requested. Physical-device blur, keyboard rendering and whole-card long-press dragging still need a follow-up check when the phone is available. The current computer-use drag control starts moving immediately and could not exercise Android’s required stationary long press; the gesture is implemented, but that interaction is not claimed as verified.

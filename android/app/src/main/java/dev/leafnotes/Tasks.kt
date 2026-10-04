@@ -13,6 +13,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.draw.shadow
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -60,6 +67,9 @@ fun Store.taskChange(id:String,change:(Note)->Note){val previous=selected;select
     val states=listOf("todo","progress","review","done");val names=listOf("To Do","In Progress","In Review","Done")
     val visible=tasks.filter{r->val t=r.note.task!!;(list=="All lists"||t.list==list)&&(filter==0||t.stage==listOf("todo","progress","done")[filter-1])}.sortedWith(compareBy<Revision>{if(it.note.task!!.dueAt==0L)Long.MAX_VALUE else it.note.task!!.dueAt}.thenByDescending{it.note.task!!.priority})
     val columns=remember{mutableStateMapOf<String,Rect>()};var dragged by remember{mutableStateOf<String?>(null)};var delta by remember{mutableStateOf(Offset.Zero)}
+    var dragOrigin by remember{mutableStateOf(Offset.Zero)};var dragPointer by remember{mutableStateOf(Offset.Zero)};var boardBounds by remember{mutableStateOf(Rect.Zero)}
+    val boardScroll=rememberScrollState()
+    LaunchedEffect(dragged){while(dragged!=null){val edge=56f;val speed=when{dragPointer.x<boardBounds.left+edge->-18f;dragPointer.x>boardBounds.right-edge->18f;else->0f};if(speed!=0f)boardScroll.scrollTo((boardScroll.value+speed.roundToInt()).coerceIn(0,boardScroll.maxValue));delay(16)}}
     @Composable fun TaskCard(r:Revision,modifier:Modifier=Modifier){val t=r.note.task!!
         Row(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(c.paper).border(.5.dp,c.separator,RoundedCornerShape(20.dp)).padding(16.dp),verticalAlignment=Alignment.CenterVertically){
             Pressable(Modifier.size(44.dp),"Complete task",onClick={store.taskChange(r.noteId){it.copy(task=t.complete())}}){Box(Modifier.size(24.dp).then(if(t.completed)Modifier.background(c.accent,CircleShape)else Modifier.border(1.3.dp,c.tertiary,CircleShape)),contentAlignment=Alignment.Center){if(t.completed)Glyph("done",size=16,tint=androidx.compose.ui.graphics.Color.White)}}
@@ -70,24 +80,52 @@ fun Store.taskChange(id:String,change:(Note)->Note){val previous=selected;select
     }
     Column(Modifier.fillMaxSize().background(c.page)) {
         Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically){ChromeButton("back","Back",onClick=onBack);Spacer(Modifier.weight(1f));ChromeButton("plus","New task",onClick={addingStage="todo";adding=true})}
-        Column(Modifier.padding(horizontal=24.dp)){Label("My Tasks",30,FontWeight.Bold);Label(SimpleDateFormat("EEEE, MMM d",Locale.getDefault()).format(Date()),13,color=c.secondary,modifier=Modifier.padding(top=4.dp,bottom=12.dp));IosSegments(listOf("List","Board"),layout){layout=it;store.preferences.edit().putInt("taskView",it).apply()};IosSegments(listOf("All","To Do","In Progress","Done"),filter){filter=it};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End){Pressable(Modifier.heightIn(min=44.dp),onClick={chooseList=true}){Label(list+" ▾",13,color=c.secondary,modifier=Modifier.padding(horizontal=8.dp))}}}
+        Column(Modifier.padding(horizontal=24.dp)){Label("My Tasks",30,FontWeight.Bold);Label(SimpleDateFormat("EEEE, MMM d",Locale.getDefault()).format(Date()),13,color=c.secondary,modifier=Modifier.padding(top=4.dp,bottom=12.dp));IosSegments(listOf("List","Board"),layout){layout=it;store.preferences.edit().putInt("taskView",it).apply()};IosSegments(listOf("All","To Do","In Progress","Done"),filter){filter=it};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End){Pressable(Modifier.heightIn(min=44.dp).background(c.text.copy(alpha=.035f),CircleShape).border(.5.dp,c.separator,CircleShape).padding(horizontal=14.dp),"Choose task list",onClick={chooseList=true}){Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){Glyph("tray",size=17,tint=c.secondary);Label(list,13,color=c.text);Glyph("down",size=12,tint=c.secondary)}}}}
         if(layout==0)LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(24.dp,16.dp,24.dp,90.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             if(visible.isEmpty())item{GhostEmpty("tasks",if(tasks.isEmpty())"A little room for what’s next" else "No tasks in this view",if(tasks.isEmpty())"Give your next step a place." else "Try another list or status.",if(tasks.isEmpty())"Create a task" else "Show all tasks",{if(tasks.isEmpty()){addingStage="todo";adding=true}else{filter=0;list="All lists"}})}
             items(visible,key={it.noteId}){r->TaskCard(r,Modifier.animateItem())}
             if(visible.isNotEmpty())item{Pressable(Modifier.fillMaxWidth().background(c.fill,CircleShape).padding(20.dp),"Add task",onClick={addingStage="todo";adding=true}){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(16.dp)){Glyph("plus",tint=c.tertiary);Label("Add a new task…",16,color=c.secondary)}}}
-        } else if(visible.isEmpty())Box(Modifier.fillMaxSize().padding(horizontal=24.dp)){GhostEmpty("tasks",if(tasks.isEmpty())"A little room for what’s next" else "No tasks in this view",if(tasks.isEmpty())"Give your next step a place." else "Try another list or status.",if(tasks.isEmpty())"Create a task" else "Show all tasks",{if(tasks.isEmpty()){addingStage="todo";adding=true}else{filter=0;list="All lists"}})} else Row(Modifier.fillMaxSize().horizontalScroll(rememberScrollState()).padding(horizontal=20.dp,vertical=16.dp),horizontalArrangement=Arrangement.spacedBy(14.dp)) {
-            states.forEachIndexed{i,state->Column(Modifier.width(290.dp).fillMaxHeight().onGloballyPositioned{columns[state]=it.boundsInRoot()}.background(c.text.copy(alpha=.045f),RoundedCornerShape(24.dp)).padding(14.dp)){
-                Row(Modifier.fillMaxWidth().padding(bottom=16.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(6.dp).background(c.accent.copy(alpha=.7f),CircleShape));Spacer(Modifier.width(8.dp));Label(names[i],15,FontWeight.SemiBold,modifier=Modifier.weight(1f));Label(visible.count{it.note.task!!.stage==state}.toString(),12,color=c.tertiary)}
-                LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp)){items(visible.filter{it.note.task!!.stage==state},key={it.noteId}){r->var bounds by remember{mutableStateOf(Rect.Zero)};Column(Modifier.animateItem().onGloballyPositioned{bounds=it.boundsInRoot()}.graphicsLayer{if(dragged==r.noteId){translationX=delta.x;translationY=delta.y;scaleX=.95f;scaleY=.95f}}){
-                    TaskCard(r)
-                    Box(Modifier.fillMaxWidth().height(28.dp).pointerInput(r.noteId){var origin=Offset.Zero;detectDragGesturesAfterLongPress(onDragStart={origin=bounds.center;dragged=r.noteId;delta=Offset.Zero;haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)},onDrag={change,amount->change.consume();delta+=amount},onDragEnd={val center=origin+delta;columns.entries.firstOrNull{it.value.contains(center)}?.key?.let{target->store.taskChange(r.noteId){it.copy(task=it.task!!.moveTo(target))}};dragged=null;delta=Offset.Zero},onDragCancel={dragged=null;delta=Offset.Zero})},contentAlignment=Alignment.Center){Label("⋮⋮",13,color=c.tertiary)}
-                }};item{Pressable(Modifier.fillMaxWidth().padding(14.dp),"Add task",onClick={addingStage=state;adding=true}){Label("+ Add task",14,color=c.secondary)}}}
-            }}
+        } else if(visible.isEmpty())Box(Modifier.fillMaxSize().padding(horizontal=24.dp)){GhostEmpty("tasks",if(tasks.isEmpty())"A little room for what’s next" else "No tasks in this view",if(tasks.isEmpty())"Give your next step a place." else "Try another list or status.",if(tasks.isEmpty())"Create a task" else "Show all tasks",{if(tasks.isEmpty()){addingStage="todo";adding=true}else{filter=0;list="All lists"}})} else Box(Modifier.fillMaxSize().onGloballyPositioned{boardBounds=it.boundsInRoot()}) {
+            Row(Modifier.fillMaxSize().horizontalScroll(boardScroll).padding(horizontal=20.dp,vertical=16.dp),horizontalArrangement=Arrangement.spacedBy(14.dp)) {
+                states.forEachIndexed{i,state->
+                    val tint=taskStageColor(state);val hovered=dragged!=null&&columns[state]?.contains(dragPointer)==true
+                    Column(Modifier.width(270.dp).fillMaxHeight().zIndex(if(tasks.firstOrNull{it.noteId==dragged}?.note?.task?.stage==state)1f else 0f).onGloballyPositioned{columns[state]=it.boundsInRoot()}.background(c.text.copy(alpha=if(hovered).065f else .025f),RoundedCornerShape(24.dp)).border(if(hovered)1.dp else .5.dp,if(hovered)tint.copy(alpha=.3f)else c.text.copy(alpha=.055f),RoundedCornerShape(24.dp)).padding(12.dp)) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal=2.dp,vertical=4.dp).padding(bottom=10.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(7.dp).background(tint,CircleShape));Spacer(Modifier.width(8.dp));Label(names[i],14,FontWeight.SemiBold,modifier=Modifier.weight(1f));Label(visible.count{it.note.task!!.stage==state}.toString(),12,color=c.tertiary)}
+                        LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                            items(visible.filter{it.note.task!!.stage==state},key={it.noteId}){r->
+                                var bounds by remember{mutableStateOf(Rect.Zero)}
+                                Box(Modifier.animateItem().onGloballyPositioned{bounds=it.boundsInRoot()}.graphicsLayer{alpha=if(dragged==r.noteId)0f else 1f}.pointerInput(r.noteId){detectDragGesturesAfterLongPress(onDragStart={local->dragOrigin=bounds.topLeft;dragPointer=bounds.topLeft+local;dragged=r.noteId;delta=Offset.Zero;haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)},onDrag={change,amount->change.consume();delta+=amount;dragPointer+=amount},onDragEnd={columns.entries.firstOrNull{it.value.contains(dragPointer)}?.key?.let{target->store.taskChange(r.noteId){it.copy(task=it.task!!.moveTo(target))}};dragged=null;delta=Offset.Zero},onDragCancel={dragged=null;delta=Offset.Zero})}) {
+                                    KanbanTaskCard(r,onEdit={editing=r},onOptions={options=r})
+                                }
+                            }
+                            item{Pressable(Modifier.fillMaxWidth().heightIn(min=48.dp),"Add task",onClick={addingStage=state;adding=true}){Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){Glyph("plus",size=16,tint=c.secondary);Label("Add task",14,color=c.secondary)}}}
+                        }
+                    }
+                }
+            }
+            tasks.firstOrNull{it.noteId==dragged}?.let{r->Box(Modifier.offset{IntOffset((dragOrigin.x+delta.x-boardBounds.left).roundToInt(),(dragOrigin.y+delta.y-boardBounds.top).roundToInt())}.width(246.dp).zIndex(20f).graphicsLayer{rotationZ=1.5f;scaleX=1.025f;scaleY=1.025f}){KanbanTaskCard(r,lifted=true,onEdit={},onOptions={})}}
         }
     }
     if(chooseList)IosSheet("Lists",onDismiss={chooseList=false}){(listOf("All lists")+tasks.map{it.note.task!!.list}.distinct().sorted()).forEach{name->SheetRow(name,"folder"){list=name;chooseList=false}}}
     if(adding||editing!=null)TaskComposer(store,editing?.note ?: Note(task=TaskDetails(completed=addingStage=="done",status=addingStage)),onCancel={adding=false;editing=null}){n->val r=editing;if(r==null){store.create();store.update(n);store.flush();store.select(null)}else store.taskChange(r.noteId){n};adding=false;editing=null}
     options?.let{r->IosSheet("Task options",onDismiss={options=null}){listOf("None","Low","Medium","High").forEachIndexed{priority,name->SheetRow("Priority · "+name,"flag"){store.taskChange(r.noteId){it.copy(task=it.task!!.copy(priority=priority))};options=null}};listOf("Today" to 0,"Tomorrow" to 1).forEach{(name,days)->SheetRow(name,"calendar"){store.taskChange(r.noteId){n->val old=n.task!!;val chosen=Calendar.getInstance().apply{add(Calendar.DAY_OF_MONTH,days);val prior=Calendar.getInstance().apply{timeInMillis=old.dueAt};set(Calendar.HOUR_OF_DAY,if(old.hasTime)prior.get(Calendar.HOUR_OF_DAY)else 0);set(Calendar.MINUTE,if(old.hasTime)prior.get(Calendar.MINUTE)else 0);set(Calendar.SECOND,0);set(Calendar.MILLISECOND,0)}.timeInMillis;n.copy(task=old.copy(dueAt=chosen))};options=null}};SheetRow("Custom date & time","calendar"){editing=r;options=null};SheetRow("Edit task","edit"){editing=r;options=null};listOf("todo","progress","review","done").forEachIndexed{i,state->SheetRow("Move to "+listOf("To Do","In Progress","In Review","Done")[i],"list"){store.taskChange(r.noteId){it.copy(task=it.task!!.moveTo(state))};options=null}};SheetRow("Open details & subtasks","list"){store.select(r.noteId);options=null};SheetRow("Duplicate","plus"){store.create();store.update(r.note.copy(task=r.note.task!!.copy(completed=false,status="todo")));store.flush();store.select(null);options=null};SheetRow("Convert to note","edit"){store.taskChange(r.noteId){it.copy(task=null)};options=null};SheetRow("Move to Trash","trash"){store.taskChange(r.noteId){it.copy(deleted=true)};options=null}}}
+}
+fun taskStageColor(stage:String)=when(stage){"progress"->Color(0xFFCE9A33);"review"->Color(0xFF9874CF);"done"->Color(0xFF5FA77E);else->Color(0xFF6393CF)}
+fun taskTagColour(text:String,dark:Boolean):Color {val colours=if(dark)listOf(0xFF8AB9ED,0xFFB49CE1,0xFFDF9DBA,0xFF86BE9E,0xFFE1B867)else listOf(0xFF477DB9,0xFF8262BA,0xFFAF6081,0xFF4D8B65,0xFF9F7321);val index=text.toByteArray(Charsets.UTF_8).fold(0){sum,b->(sum+(b.toInt()and 255))%colours.size};return Color(colours[index])}
+@Composable fun TaskChip(text:String,icon:String,tint:Color){Row(Modifier.background(tint.copy(alpha=.10f),CircleShape).padding(horizontal=7.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(4.dp)){Glyph(icon,size=12,tint=tint);Label(text,11,color=tint,lines=1)}}
+@OptIn(ExperimentalLayoutApi::class)
+@Composable fun KanbanTaskCard(r:Revision,lifted:Boolean=false,onEdit:()->Unit,onOptions:()->Unit){
+    val c=LocalLeafColors.current;val t=r.note.task!!;val shape=RoundedCornerShape(18.dp)
+    Column(Modifier.fillMaxWidth().shadow(if(lifted)18.dp else 4.dp,shape,ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.08f)).clip(shape).background(Brush.verticalGradient(listOf(c.paper,c.paper.copy(alpha=.85f)))).border(if(lifted)1.dp else .5.dp,if(lifted)taskStageColor(t.stage).copy(alpha=.28f)else c.separator,shape).padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        Pressable(Modifier.fillMaxWidth(),"Edit ${r.note.displayTitle}",onClick=onEdit){Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(5.dp)){Label(r.note.displayTitle,16,FontWeight.SemiBold,lines=3);val description=r.note.document.filter{it.isText&&it.kind!="check"}.joinToString(" "){it.text}.trim();if(description.isNotEmpty())Label(description,12,color=c.secondary,lines=2)}}
+        if(r.note.tags.any{it.isNotBlank()})FlowRow(horizontalArrangement=Arrangement.spacedBy(5.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){r.note.tags.map{it.trim().removePrefix("#")}.filter{it.isNotBlank()}.take(2).forEach{TaskChip(it,"tag",taskTagColour(it,c.dark))}}
+        if(t.priority>0||t.dueAt>0||t.repeatRule!="none")FlowRow(horizontalArrangement=Arrangement.spacedBy(5.dp),verticalArrangement=Arrangement.spacedBy(5.dp)) {
+            if(t.priority>0)TaskChip(listOf("","Low","Medium","High")[t.priority.coerceIn(0,3)],"flag",when(t.priority){3->c.danger;2->Color(if(c.dark)0xFFE1B867 else 0xFF9F7321);else->Color(if(c.dark)0xFF8AB9ED else 0xFF477DB9)})
+            if(t.dueAt>0)TaskChip(taskDate(t),"calendar",if(t.dueAt<dayStart(System.currentTimeMillis())&&!t.completed)c.danger else c.secondary)
+            if(t.repeatRule!="none")TaskChip(t.repeatRule.replaceFirstChar{it.uppercase()},"sync",c.secondary)
+        }
+        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)){Glyph("tray",size=12,tint=c.tertiary);Label(t.list,11,color=c.secondary,modifier=Modifier.weight(1f),lines=1);if(r.note.attachments.isNotEmpty()){Glyph("clip",size=12,tint=c.secondary);Label(r.note.attachments.size.toString(),11,color=c.secondary)};Pressable(Modifier.size(32.dp),"Task options",onClick=onOptions){Glyph("more",size=18,tint=c.secondary)}}
+    }
 }
 @Composable fun TaskComposer(store:Store,initial:Note,onCancel:()->Unit,onSave:(Note)->Unit) {
     val c=LocalLeafColors.current
