@@ -5,7 +5,11 @@ import UniformTypeIdentifiers
 
 extension NoteStore {
     func editBlock(_ id: String, text: String, spans: [TextSpan]) { update(undoKey: "typing:" + id) { $0.editBlock(id) { $0.text = text; $0.spans = spans } } }
-    func setList(_ kind: String) { guard let block = activeBlock ?? current?.document.first(where: { $0.isText })?.id else { return }; update { $0.editBlock(block) { $0.kind = $0.kind == kind ? "text" : kind } } }
+    func setList(_ kind: String) { let view = EditorActions.shared.view; guard let block = activeBlock ?? current?.document.first(where: { $0.isText })?.id else { return }; update { note in
+            var blocks = note.document; guard let index = blocks.firstIndex(where: { $0.id == block }) else { return }
+            if blocks[index].kind == "toggle" { let parent = blocks[index].parentId; for child in blocks.indices where blocks[child].parentId == block { blocks[child].parentId = parent } }
+            blocks[index].kind = blocks[index].kind == kind ? "text" : kind; blocks[index].collapsed = false; note.blocks = blocks
+        }; view?.window?.makeFirstResponder(view) }
     func addBlock(_ kind: String) {
         var block = DocumentBlock(); block.kind = kind
         if kind == "table" { block.cells = [["", ""], ["", ""]] }

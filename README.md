@@ -11,7 +11,7 @@ A calm, offline-first home for notes, images, checklists, and tasks on Mac and A
 - Collections, tags, pinned notes, search, archive, 30-day Trash, revision history, and portable backups.
 - Tasks with status, dates, priorities, reminders, repeating dates, subtasks, and board/list views.
 - Optional Google Drive sync, local draft recovery, and conflict review.
-- A skippable welcome tour, optional local name, accent choices, and light/dark appearance.
+- A skippable welcome tour, local profile with a picture on Mac, accent choices, and light/dark appearance.
 - Signed update information, in-app downloads, package verification, changelogs, and Android update notifications.
 
 ## Install and update
@@ -24,7 +24,7 @@ These are personal development builds: Mac is locally signed, not Apple-notarize
 
 ## Privacy and recovery
 
-Your optional name stays on that device. Notes save locally first; Google Drive sync is optional. The public release service receives ordinary download/check requests, not your note contents. Notes are not end-to-end encrypted, and locked notes are not implemented. Export a backup to another device to protect against device loss.
+Your optional profile stays on that device. Notes save locally first; Google Drive sync is optional. The public release service receives ordinary download/check requests, not your note contents. Notes are not end-to-end encrypted, and locked notes are not implemented. Export a backup to another device to protect against device loss.
 
 Concurrent edits keep both revisions for review. Permanent Trash deletion removes retained local revisions and unreferenced media while preserving a deletion marker against stale synced copies.
 
@@ -36,6 +36,8 @@ Checks use production storage and editor adapters: `tests/test_core.py`, `tests/
 
 ## Still being verified
 
-The physical Vivo passed all 17 Android automated checks; live welcome navigation, keyboard resizing/dismissal and preserved library were checked over USB. Future-version installation, live simultaneous-device conflicts, interrupted image uploads, cloud cleanup after permanent deletion, and sleep/background timing still need acceptance. OCR/scanning, drawings, audio, widgets, encrypted locks, and collaborative editing are later work. Google OAuth long-term configuration is separate from app distribution.
+Version 0.14.0 passed 19 core, 26 Mac and 18 Android emulator checks; see [the acceptance record](docs/UPDATE-0.14.md). The desktop interaction pass covers the editor, Profile, tasks and batch selection. The broader phone UI and physical keyboard pass are next.
+
+The physical Vivo previously passed all 17 Android automated checks on 0.13.1; live welcome navigation, keyboard resizing/dismissal and preserved library were checked over USB. Future-version installation, live simultaneous-device conflicts, interrupted image uploads, cloud cleanup after permanent deletion, and sleep/background timing still need acceptance. OCR/scanning, drawings, audio, widgets, encrypted locks, and collaborative editing are later work. Google OAuth long-term configuration is separate from app distribution.
 
 SQLite is public domain; Lucide vectors retain their MIT license in `assets/LUCIDE-LICENSE`. Dependencies retain their upstream licenses.

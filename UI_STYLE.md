@@ -1,0 +1,18 @@
+# Pebble interface rules
+
+Read this before changing any user-facing UI. The user’s explicit direction takes precedence.
+
+- A window has one seamless translucent frame. Sidebars inherit it; never draw a separate sidebar card or blur layer. Inner content can use a stronger neutral material.
+- Inputs are visible, spacious rounded fields: semantic primary text, secondary placeholders, subtle neutral fill and border. Never use the platform’s opaque black rounded text-field default inside glass settings.
+- Buttons use restrained translucent neutral surfaces. Dividers use primary at roughly 8–10% opacity. All colours adapt to light and dark; never hard-code gray text for both.
+- Tags use tinted translucent capsules. Accent choices are deliberate; maintain readable foregrounds.
+- Profile settings belong in Profile. Names and profile pictures are local unless an explicit sync feature is implemented. Avatar fallback uses a persisted colour and first letter.
+- Clickable text has at least a 36-point desktop target; phone targets at least 44–48 dp. Caption areas reserve top and bottom padding at every window size.
+- Do not place a gradient in a smaller rectangular container where it exposes hard edges. Desktop onboarding may omit the background gradient.
+- Text hierarchy combines size and weight. Heading 1/2/3 are distinct and semibold. Return after a title or heading begins body text; Option–Return inserts an internal line break. Lists continue until empty; toggles insert an indented body child.
+- Block markers and six-dot grips align to the text line, vertically centred for one line and aligned to the first line for wrapped content. Toggle children alone are indented; top-level toggles align to other blocks.
+- Reordering tracks one grouped object with the pointer. Highlight the grabbed object subtly; peers move as it crosses them. No duplicate destination preview. Apply transforms to the whole folder row, never icon and text independently.
+- Block options stay inside the window and offer type conversion, duplication and deletion. Preserve text and nested children when changing type; converting a toggle must not hide its children.
+- Tables clip their complete content at all four corners, including after rows/columns are added.
+- Selection actions operate on the entire selected set. Permanent deletion confirms the count and captures the full set before mutation.
+- Playtest all affected controls in an isolated library, including empty blocks, wrapping, nested toggles, persistence, light/dark appearance and narrow windows. Automated checks supplement real interaction, not replace it.

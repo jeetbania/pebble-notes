@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.14.0",
+    "title": "A clearer desktop",
+    "changes": [
+      "Desktop welcome screens have a seamless background. Settings now includes Profile with a name, bio, photo, and initial avatar.",
+      "Task subtasks have visible fields, tags use translucent colour pills, and image captions reserve space above and below.",
+      "Headings retain their size and weight. Return creates body text, lists continue properly, and slash suggestions format blocks on Mac and Android.",
+      "Block grips align with the first text line. Dragging highlights and moves the whole block, while an in-window menu converts, duplicates, or deletes it.",
+      "Folder rows drag as one group. Tables keep all four corners rounded, and batch actions delete the entire selection.",
+      "Task quick actions offer priority, Today, Tomorrow, and custom scheduling. A faded rolling time picker works on both platforms."
+    ]
+  },
+  {
     "version": "0.13.1",
     "title": "Updates in view",
     "changes": [
@@ -16,7 +28,7 @@
       "Android checks periodically for updates and can notify you. Choose Download now, Later, or Install after verification.",
       "Mac downloads signed updates and offers Install and restart. Updates are distributed through free public GitHub releases.",
       "A new welcome tour introduces notes, visual inspiration, and tasks. Choose an optional name and accent, then start offline or connect Google Drive.",
-      "Android’s home header has a soft accent glow that fades into the page."
+      "Android\u2019s home header has a soft accent glow that fades into the page."
     ]
   },
   {
@@ -72,7 +84,7 @@
     "version": "0.8.0",
     "title": "A little news with every update",
     "changes": [
-      "What’s New now appears once after an update, so you can see what changed.",
+      "What\u2019s New now appears once after an update, so you can see what changed.",
       "A translucent release panel keeps the app softly visible behind it.",
       "Reopen the changelog from Settings whenever you like."
     ]

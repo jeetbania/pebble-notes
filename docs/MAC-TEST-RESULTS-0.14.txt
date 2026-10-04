@@ -1,0 +1,26 @@
+PASS: task statuses persist, completed tasks reopen, and older tasks remain compatible
+PASS: task persistence, backup, completion, and repeat rollover
+PASS: overlapping rich-text styles remain stable
+PASS: atomic draft recovery, Unicode, and native rich-text round trip
+PASS: saved heading/link spans, selected text sizes, and insertion style
+PASS: empty headings persist, body spans stay valid, and fast block-transition typing is buffered
+PASS: duplication retains rich text
+PASS: synced note size retains semantic styles and rich text
+PASS: clipboard links create a note and concealed clips are skipped
+PASS: clipboard file URLs are captured without opening stale file providers
+PASS: separate windows keep independent durable drafts
+PASS: clipboard image capture creates a durable PNG attachment
+PASS: imported image integrity and deduplication
+PASS: conflict review preserves the unchosen history
+PASS: mixed blocks, caret image insertion, Unicode spans, checklists, tables, tags, undo/redo, and portable export
+PASS: nested folder records and icons survive the shared revision store
+PASS: automatic portable backup restores mixed content into a fresh library
+PASS: starter refresh preserves old notes in Trash, original photos, pre-refresh backup, and one-time idempotence
+PASS: nested folder deletion preserves notes/history and completion strike remains presentation-only
+PASS: nested toggles move, duplicate, collapse, and remove as complete groups
+PASS: converting a toggle preserves and reveals its children
+PASS: Trash expires exactly after 30 days and erased note history cannot return from sync
+PASS: permanent deletion purges every item in a captured selection
+PASS: slash prefixes and aliases suggest checklist, toggle, and heading commands
+PASS: Enter reads the live toggle kind, creates a real child, collapse hides it, and empty-toggle deletion keeps child content
+PASS: signed updater metadata verifies, rejects tampering, and includes skipped changelogs

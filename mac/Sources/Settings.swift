@@ -23,7 +23,7 @@ struct SettingsHome: View {
     @LeafState<String> private var page = "Appearance"
     @LeafState<Bool> private var connecting = false
     @LeafState<String> private var message = ""
-    let sections = [("Appearance", "paintpalette"), ("Writing", "textformat"), ("Sync", "arrow.triangle.2.circlepath"), ("Backups", "archivebox"), ("Updates", "arrow.down.circle"), ("About", "info.circle")]
+    let sections = [("Profile", "person.crop.circle"), ("Appearance", "paintpalette"), ("Writing", "textformat"), ("Sync", "arrow.triangle.2.circlepath"), ("Backups", "archivebox"), ("Updates", "arrow.down.circle"), ("About", "info.circle")]
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
@@ -34,7 +34,9 @@ struct SettingsHome: View {
             LeafScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     HStack { Text(page).font(.system(size: 25, weight: .semibold)); Spacer(); GlassIcon(icon: "xmark", label: "Close Settings", action: onClose).leafGlass(in: Circle()) }.padding(.bottom, 4)
-                    if page == "Appearance" {
+                    if page == "Profile" {
+                        ProfileSettings(name: $profileName)
+                    } else if page == "Appearance" {
                         caption("Interface theme", "Choose the light, dark, or system appearance.")
                         HStack(spacing: 10) { ForEach([("light", "Light", "sun.max"), ("dark", "Dark", "moon"), ("system", "System", "desktopcomputer")], id: \.0) { value, label, icon in
                             Button { appearance = value } label: { HStack(spacing: 7) { Image(systemName: icon).font(.system(size: 14)); Text(label).font(.system(size: 13)) }.frame(maxWidth: .infinity).frame(height: 40).background(Color.primary.opacity(appearance == value ? 0.09 : 0.035), in: Capsule()).overlay(Capsule().strokeBorder(appearance == value ? LeafPalette.accent.opacity(0.8) : Color.primary.opacity(0.08), lineWidth: appearance == value ? 1.5 : 0.5)) }.buttonStyle(SoftButtonStyle(radius: 20)).accessibilityLabel(label + " theme").accessibilityValue(appearance == value ? "Selected" : "")
@@ -59,7 +61,7 @@ struct SettingsHome: View {
                         Text(store.status).font(.headline)
                         HStack { Button(connecting ? "Connecting…" : "Connect Google") { connecting = true; Task { do { try await GoogleAuth.connect(clientId: clientId.trimmingCharacters(in: .whitespacesAndNewlines), secret: secret.trimmingCharacters(in: .whitespacesAndNewlines)); await store.sync(); message = "Connected" } catch { message = error.localizedDescription }; connecting = false } }.disabled(connecting); Button("Sync now") { Task { await store.sync() } }.disabled(store.busy); Button("Disconnect") { TokenVault.remove(); store.status = "Saved on this Mac"; message = "Local notes are kept." }.disabled(store.busy || connecting) }
                         Text(message).font(.caption).foregroundStyle(Color.primary.opacity(0.72))
-                        DisclosureGroup("Advanced connection settings") { VStack { TextField("Desktop OAuth client ID", text: $clientId); SecureField("Desktop OAuth client secret", text: $secret) }.textFieldStyle(.roundedBorder).padding(.top, 10) }
+                        DisclosureGroup("Advanced connection settings") { VStack { TextField("Desktop OAuth client ID", text: $clientId); SecureField("Desktop OAuth client secret", text: $secret) }.modifier(PebbleField()).padding(.top, 10) }
                     } else if page == "Updates" {
                         caption("Pebble Notes " + ReleaseNotes.version, "Updates download here, with release notes and your choice of when to install.")
                         Text(updater.message).font(.callout).foregroundStyle(.secondary)
@@ -71,7 +73,6 @@ struct SettingsHome: View {
                         caption("Yours, even offline", "Your library saves on this device first. Google Drive sync is optional, and your original images stay at their original quality.")
                         caption("One space, many ways to think", "Write rich notes, collect visual inspiration, and plan tasks with dates, reminders, and a board. Arrange your library around the way you work.")
                         caption("Room to change your mind", "Note history, Trash, and local backups help you return to earlier work. Export your library whenever you want.")
-                        TextField("Your name · optional", text: $profileName).onChange(of: profileName) { _, next in if next.count > 40 { profileName = String(next.prefix(40)) } }.textFieldStyle(.roundedBorder)
                         Button("Replay welcome tour") { NotificationCenter.default.post(name: Notification.Name("pebbleOnboarding"), object: nil) }
                         Text("Version " + ReleaseNotes.version).font(.caption).foregroundStyle(Color.primary.opacity(0.72))
                     } else {

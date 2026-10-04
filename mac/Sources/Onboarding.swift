@@ -20,7 +20,7 @@ struct PebbleOnboarding: View {
                     Text(titles[page]).font(.system(size: 32, weight: .bold))
                     Text(details[page]).font(.system(size: 15)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     if page == 2 {
-                        TextField("Your name · optional", text: $name).textFieldStyle(.roundedBorder).frame(height: 42).onChange(of: name) { _, next in if next.count > 40 { name = String(next.prefix(40)) } }
+                        TextField("Your name · optional", text: $name).modifier(PebbleField()).frame(minHeight: 42).onChange(of: name) { _, next in if next.count > 40 { name = String(next.prefix(40)) } }
                         Text("Choose your accent").font(.caption).foregroundStyle(.secondary)
                         HStack { ForEach(AccentPreference.choices, id: \.self) { choice in Button { accent.name = choice } label: { Circle().fill(LeafPalette.color("Accents", choice)).frame(width: 24, height: 24).overlay { if accent.name == choice { Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(choice == "Yellow" || choice == "Green" || choice == "Orange" ? .black : .white) } }.frame(width: 38, height: 40) }.accessibilityLabel(choice + " accent") } }
                     }
@@ -32,11 +32,10 @@ struct PebbleOnboarding: View {
                 Spacer(); if page > 0 { Button("Back") { page -= 1 } }
                 Button(page == 3 ? "Start using Pebble" : "Continue") { if page < 3 { page += 1 } else { complete() } }.keyboardShortcut(.defaultAction)
             }
-        }.padding(30).buttonStyle(MaterialActionStyle()).background { RadialGradient(colors: [.blue.opacity(scheme == .dark ? 0.12 : 0.08), .clear], center: .topLeading, startRadius: 0, endRadius: 480) }.animation(reducedMotion ? nil : .easeInOut(duration: 0.18), value: page)
+        }.padding(30).buttonStyle(MaterialActionStyle()).animation(reducedMotion ? nil : .easeInOut(duration: 0.18), value: page)
     }
     var artwork: some View {
         ZStack {
-            Circle().fill(.blue.opacity(0.08)).frame(width: 270).blur(radius: 20)
             VStack(alignment: .leading, spacing: 14) {
                 Image(systemName: page == 1 ? "checklist" : page == 2 ? "person.crop.circle" : page == 3 ? "checkmark.icloud" : "square.and.pencil").font(.system(size: 24)).foregroundStyle(.blue)
                 Text(page == 1 ? "A lighter tomorrow" : page == 2 ? (name.isEmpty ? "Your space" : "Hello, " + name) : page == 3 ? "Yours, even offline" : "A little perspective").font(.system(size: 20, weight: .semibold))

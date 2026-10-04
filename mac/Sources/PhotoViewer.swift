@@ -33,7 +33,7 @@ struct PhotoViewer: View {
                     ForEach(Array(photos.enumerated()), id: \.element.id) { i, p in
                         let distance = i - selection
                         if abs(distance) <= 2 {
-                            let size = fitted(p, maxWidth: g.size.width * 0.70, maxHeight: g.size.height - 80)
+                            let size = fitted(p, maxWidth: g.size.width * 0.70, maxHeight: max(60, g.size.height - 176))
                             Image(nsImage: NSImage(contentsOf: store.media.appendingPathComponent(p.attachment.id)) ?? NSImage()).resizable().aspectRatio(contentMode: .fit)
                                 .frame(width: size.width * (distance == 0 ? zoom : 1), height: size.height * (distance == 0 ? zoom : 1))
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -79,7 +79,7 @@ struct PhotoViewer: View {
                 }.padding(.horizontal, 6).padding(.vertical, 3).leafGlass(in: Capsule()).opacity(controlsVisible ? 1 : 0).allowsHitTesting(controlsVisible).animation(.easeOut(duration: 0.2), value: controlsVisible)
                 }.frame(width: 310, height: 58).contentShape(Rectangle()).onHover { hovering in controlsHovered = hovering; if hovering { revealControls() } else { scheduleControls() } }.simultaneousGesture(TapGesture().onEnded { revealControls() })
             } else {
-                TextField("Add caption", text: $caption, axis: .vertical).textFieldStyle(.plain).multilineTextAlignment(.center).font(.system(size: 14)).lineLimit(1...2).frame(maxWidth: 420).onSubmit { commitCaption() }.onChange(of: caption) { _, _ in if ready { commitCaption() } }.padding(8)
+                TextField("Add caption", text: $caption, axis: .vertical).textFieldStyle(.plain).multilineTextAlignment(.center).font(.system(size: 14)).lineLimit(1...2).frame(maxWidth: 420).onSubmit { commitCaption() }.onChange(of: caption) { _, _ in if ready { commitCaption() } }.padding(.horizontal, 12).padding(.vertical, 16).frame(minHeight: 64)
             }
             }.padding(.bottom, 18)
         }

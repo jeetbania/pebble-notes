@@ -21,6 +21,7 @@ struct DocumentEditor: View {
     @LeafState<String?> private var blockOptions = nil
     @LeafState<[String: CGRect]> private var blockFrames = [:]
     @LeafState<CGSize> private var blockTranslation = .zero
+    @LeafState<CGRect> private var blockOrigin = .zero
     @LeafState<[String: Double]> private var columnWidths = [:]
     @LeafState<Double?> private var columnStart = nil
     var body: some View {
@@ -29,20 +30,29 @@ struct DocumentEditor: View {
             LeafScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if store.heads.filter({ $0.noteId == noteId }).count > 1 { Button("Edits from both devices · review", action: onConflict).buttonStyle(.plain).foregroundStyle(.orange).font(.system(size: 12)) }
-                    TextField("Untitled note", text: Binding(get: { store.current?.title ?? "" }, set: { value in store.update(undoKey: "title") { $0.title = value } }), axis: .vertical).font(.system(size: typeTitle * note.textScale, weight: .bold)).textFieldStyle(.plain).padding(.bottom, 10)
+                    TextField("Untitled note", text: Binding(get: { store.current?.title ?? "" }, set: { value in store.update(undoKey: "title") { $0.title = value } })).onSubmit { beginBody() }.font(.system(size: typeTitle * note.textScale, weight: .bold)).textFieldStyle(.plain).padding(.bottom, 10)
                     if !note.tags.isEmpty { Text(note.tags.map { "#" + $0 }.joined(separator: "  ")).font(.system(size: 12)).foregroundStyle(.secondary) }
                     ForEach(Array(note.document.enumerated()).filter { note.isVisible($0.element, dragging: draggedBlock) }, id: \.element.id) { index, block in
                         ZStack(alignment: .topLeading) {
                             blockView(block, index: index, width: width).frame(maxWidth: .infinity, alignment: .leading)
                             Button { blockOptions = block.id } label: { SixDotHandle().frame(width: 26, height: 32).contentShape(Rectangle()) }
-                                .buttonStyle(.plain).contextMenu { blockMenu(block) }
+                                .buttonStyle(.plain)
                                 .opacity(hoveredBlock == block.id || draggedBlock == block.id || store.activeBlock == block.id ? 0.85 : 0)
-                                .offset(x: block.kind == "toggle" ? -62 : -30).help("Block options · drag to reorder")
+                                .offset(x: block.kind == "toggle" ? -62 : -30, y: markerOffset(block)).help("Block options · drag to reorder")
                                 .accessibilityLabel("Block options")
-                                .highPriorityGesture(DragGesture(minimumDistance: 5, coordinateSpace: .named("noteBlocks")).onChanged { value in draggedBlock = block.id; blockTranslation = value.translation }.onEnded { value in
-                                    if let target = blockFrames.first(where: { $0.key != block.id && $0.value.contains(value.location) })?.key { withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { store.update { $0.moveGroup(block.id, before: target) } } }; draggedBlock = nil; blockTranslation = .zero
-                                })
+                                .highPriorityGesture(DragGesture(minimumDistance: 5, coordinateSpace: .named("noteBlocks")).onChanged { value in
+                                    if draggedBlock == nil { blockOrigin = blockFrames[block.id] ?? .zero; draggedBlock = block.id; blockOptions = nil }
+                                    let current = blockFrames[block.id] ?? blockOrigin
+                                    blockTranslation = CGSize(width: value.translation.width, height: blockOrigin.minY + value.translation.height - current.minY)
+                                    guard let live = store.current else { return }
+                                    let peers = live.document.filter { $0.parentId == block.parentId }
+                                    if let target = peers.first(where: { $0.id != block.id && blockFrames[$0.id].map { value.location.y >= $0.minY && value.location.y <= $0.maxY } == true }),
+                                       let from = peers.firstIndex(where: { $0.id == block.id }), let to = peers.firstIndex(where: { $0.id == target.id }) {
+                                        withAnimation(.easeOut(duration: 0.16)) { store.moveBlock(block.id, by: to - from) }
+                                    }
+                                }.onEnded { _ in draggedBlock = nil; blockTranslation = .zero })
                         }
+                            .background(Color.primary.opacity(draggedBlock == block.id ? 0.08 : 0), in: RoundedRectangle(cornerRadius: 8))
                             .background(GeometryReader { proxy in Color.clear.preference(key: BlockFrames.self, value: [block.id: proxy.frame(in: .named("noteBlocks"))]) })
                             .offset(draggedBlock == block.id ? blockTranslation : .zero).zIndex(draggedBlock == block.id ? 10 : 0).padding(.leading, CGFloat(note.depth(block) * 18)).padding(.top, gap(before: index)).padding(.leading, 64).onHover { hoveredBlock = $0 ? block.id : nil }.padding(.leading, -64).animation(.easeOut(duration: 0.15), value: hoveredBlock)
                     }
@@ -54,33 +64,62 @@ struct DocumentEditor: View {
                     }.font(.system(size: 12)).buttonStyle(SoftButtonStyle()).foregroundStyle(.secondary).padding(.top, 12)
                 }.frame(width: width, alignment: .leading).padding(.top, 82).padding(.bottom, 90).frame(maxWidth: .infinity)
             }.scrollIndicators(.never).coordinateSpace(name: "noteBlocks").onPreferenceChange(BlockFrames.self) { blockFrames = $0 }
-        }.popover(isPresented: Binding(get: { blockOptions != nil }, set: { if !$0 { blockOptions = nil } })) {
-            VStack(alignment: .leading, spacing: 4) { if let id = blockOptions, let block = store.current?.document.first(where: { $0.id == id }) { blockMenu(block) } }.padding(12).frame(width: 200).buttonStyle(MaterialActionStyle())
-        }.onChange(of: store.current) { _, _ in blockOptions = nil }.panePresented(item: $filePreview) { a in FilePreview(attachment: a, media: store.media, onDone: { filePreview = nil }) }
+            .overlay(alignment: .topLeading) {
+                if let id = blockOptions, let block = store.current?.document.first(where: { $0.id == id }) {
+                    ZStack(alignment: .topLeading) {
+                        Color.clear.contentShape(Rectangle()).onTapGesture { blockOptions = nil }
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack { Text("Turn into").font(.headline); Spacer(); GlassIcon(icon: "xmark", label: "Close block options") { blockOptions = nil } }
+                            LeafScrollView { VStack(alignment: .leading, spacing: 2) {
+                                ForEach(BlockCommand.all.filter { $0.id != "table" || block.kind == "table" }) { command in
+                                    Button { applyCommand(command.id, to: id); blockOptions = nil; focusBlock(id) } label: { Label(command.title, systemImage: command.icon).frame(maxWidth: .infinity, alignment: .leading).padding(8).frame(minHeight: 36) }.buttonStyle(SoftButtonStyle())
+                                }
+                                SubtleDivider(); blockMenu(block)
+                            } }.frame(maxHeight: 420)
+                        }.padding(12).frame(width: 240).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)).buttonStyle(SoftButtonStyle())
+                        .offset(x: max(8, min(geometry.size.width - 272, (geometry.size.width - width) / 2 - 38)), y: max(64, min(geometry.size.height - 500, blockFrames[id]?.minY ?? 80)))
+                    }
+                }
+            }
+        }.onChange(of: noteId) { _, _ in blockOptions = nil }.panePresented(item: $filePreview) { a in FilePreview(attachment: a, media: store.media, onDone: { filePreview = nil }) }
     }
     func applyCommand(_ command: String, to id: String) {
-        store.changeBlock(id) { b in
-            b.kind = ["title", "subtitle", "headline", "quote"].contains(command) ? "text" : command
-            if command == "table" { b.cells = [["", ""], ["", ""]] }
-            if command == "toggle" { b.collapsed = false; b.indent = 0 }
-            if command == "quote" { b.indent = 1 }
+        store.update { n in
+            var blocks = n.document
+            guard let index = blocks.firstIndex(where: { $0.id == id }) else { return }
+            let kind = ["title", "subtitle", "headline", "quote"].contains(command) ? "text" : command
+            if blocks[index].kind == "toggle", kind != "toggle" {
+                let parent = blocks[index].parentId
+                for child in blocks.indices where blocks[child].parentId == id { blocks[child].parentId = parent }
+            }
+            blocks[index].kind = kind; blocks[index].collapsed = false
+            if command == "table" { blocks[index].cells = [["", ""], ["", ""]] }
+            if ["text", "title", "subtitle", "headline"].contains(command) { blocks[index].textStyle = command == "text" ? "body" : command; blocks[index].spans.removeAll { ["title", "subtitle", "headline"].contains($0.kind) } }
+            if command == "toggle" { blocks[index].indent = 0 }
+            if command == "quote" { blocks[index].indent = 1 }
+            n.blocks = blocks
         }
     }
+
+    func markerOffset(_ block: DocumentBlock) -> CGFloat {
+        let style = block.textStyle ?? block.spans.first(where: { ["title", "subtitle", "headline"].contains($0.kind) })?.kind ?? "body"
+        return min(0, (Typography.size(style) * note.textScale * 1.25 - 32) / 2)
+    }
     func styledBlock(_ block: DocumentBlock) -> Note { var value = block.asNote; value.textScale = note.textScale; return value }
-    func gap(before index: Int) -> CGFloat { guard index > 0 else { return 0 }; let block = note.document[index]; let previous = note.document[index - 1]; if block.spans.contains(where: { ["headline", "title", "subtitle"].contains($0.kind) }) { return 22 }; if ["check", "bullet", "number"].contains(block.kind) { return previous.kind == block.kind ? 3 : 7 }; return previous.spans.contains(where: { ["headline", "title", "subtitle"].contains($0.kind) }) ? 6 : 12 }
+    func gap(before index: Int) -> CGFloat { guard index > 0 else { return 0 }; let block = note.document[index]; let previous = note.document[index - 1]; if block.textStyle != nil && block.textStyle != "body" || block.spans.contains(where: { ["headline", "title", "subtitle"].contains($0.kind) }) { return 22 }; if ["check", "bullet", "number"].contains(block.kind) { return previous.kind == block.kind ? 3 : 7 }; return previous.kind == "toggle" ? 6 : (previous.textStyle != nil && previous.textStyle != "body") || previous.spans.contains(where: { ["headline", "title", "subtitle"].contains($0.kind) }) ? 6 : 12 }
     @ViewBuilder func blockView(_ block: DocumentBlock, index: Int, width: CGFloat) -> some View {
         if block.isText {
             let height = max(32, styledBlock(block).attributed.boundingRect(with: NSSize(width: width - 42 - CGFloat(block.indent * 18), height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading]).height + 4)
             VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: height <= 34 ? .center : .top, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
 
 
-                if block.kind == "check" { Button { store.changeBlock(block.id) { $0.checked.toggle() } } label: { Image(systemName: block.checked ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(block.checked ? LeafPalette.accent : Color.secondary) }.frame(width: 32, height: 32).buttonStyle(SoftButtonStyle()) }
-                else if block.kind == "bullet" || block.kind == "number" { Text(block.kind == "bullet" ? "•" : "\(note.document.prefix(index + 1).filter { $0.kind == "number" }.count).").foregroundStyle(.secondary).frame(minWidth: 20).padding(.top, 2) }
-                RichEditor(note: styledBlock(block), onEdit: { text, spans in store.editBlock(block.id, text: text, spans: spans) }, onImages: { store.importFiles($0) }, onFocus: { store.activeBlock = block.id }, onEnter: { splitList(block) }, completed: block.kind == "check" && block.checked, onCommand: { command in applyCommand(command, to: block.id) }, blockId: block.id, onBackspace: { backspace(block.id) }).id(noteId + block.id)
+                if block.kind == "check" { Button { store.changeBlock(block.id) { $0.checked.toggle() } } label: { Image(systemName: block.checked ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(block.checked ? LeafPalette.accent : Color.secondary) }.frame(width: 32, height: 32).buttonStyle(SoftButtonStyle()).offset(y: markerOffset(block)) }
+                else if block.kind == "bullet" || block.kind == "number" { Text(block.kind == "bullet" ? "•" : "\(note.document.prefix(index + 1).filter { $0.kind == "number" }.count).").foregroundStyle(.secondary).frame(width: 20, height: 32).offset(y: markerOffset(block)) }
+                RichEditor(note: styledBlock(block), onEdit: { text, spans in store.editBlock(block.id, text: text, spans: spans) }, onImages: { store.importFiles($0) }, onFocus: { store.activeBlock = block.id }, onEnter: { splitList(block) }, completed: block.kind == "check" && block.checked, onCommand: { command in applyCommand(command, to: block.id) }, blockId: block.id, blockStyle: block.textStyle ?? block.spans.first(where: { ["title", "subtitle", "headline"].contains($0.kind) })?.kind ?? "body", onStyle: { style in store.changeBlock(block.id) { $0.textStyle = style } }, onBackspace: { backspace(block.id) }).id(noteId + block.id)
                     .frame(maxWidth: .infinity).frame(height: height).opacity(block.checked ? 0.55 : 1)
-            }.padding(.leading, CGFloat(block.indent * 18)).overlay(alignment: .leading) {
-                if block.kind == "toggle" { GlassIcon(icon: block.collapsed == true || draggedBlock == block.id ? "arrowtriangle.right.fill" : "arrowtriangle.down.fill", label: "Expand or collapse toggle", size: 11) { store.changeBlock(block.id) { $0.collapsed = !($0.collapsed ?? false) } }.offset(x: -36) }
+            }.padding(.leading, CGFloat(block.indent * 18)).overlay(alignment: .topLeading) {
+                if block.kind == "toggle" { GlassIcon(icon: block.collapsed == true || draggedBlock == block.id ? "arrowtriangle.right.fill" : "arrowtriangle.down.fill", label: "Expand or collapse toggle", size: 11) { store.changeBlock(block.id) { $0.collapsed = !($0.collapsed ?? false) } }.offset(x: -36, y: markerOffset(block)) }
             }
             if block.kind == "toggle", block.collapsed != true, draggedBlock != block.id, note.descendants(of: block.id).count == 1 { Button { store.addChild(to: block.id); focusBlock(store.activeBlock) } label: { Label("Add inside toggle", systemImage: "plus").font(.caption).foregroundStyle(.secondary) }.buttonStyle(SoftButtonStyle()) }
             }
@@ -98,22 +137,37 @@ struct DocumentEditor: View {
     func splitList(_ block: DocumentBlock) -> Bool {
         guard let block = store.current?.document.first(where: { $0.id == block.id }) else { return false }
         if block.kind == "toggle" { store.addChild(to: block.id); focusBlock(store.activeBlock); return true }
-        guard block.kind != "text", let view = EditorActions.shared.view else { return false }
+        guard let view = EditorActions.shared.view else { return false }
         let position = min(view.selectedRange().location, block.text.utf16.count)
-        if block.text.isEmpty { store.changeBlock(block.id) { $0.kind = "text" }; return true }
+        if block.text.isEmpty && ["bullet", "number", "check"].contains(block.kind) { store.changeBlock(block.id) { $0.kind = "text"; $0.textStyle = "body" }; return true }
         let text = block.text as NSString
-        var next = DocumentBlock(); next.kind = block.kind; next.indent = block.indent; next.parentId = block.parentId; next.text = text.substring(from: position); next.spans = clippedSpans(block.spans, start: position, length: text.length - position)
+        var next = DocumentBlock(); next.kind = block.kind; next.indent = block.indent; next.parentId = block.parentId; next.text = text.substring(from: position); next.spans = clippedSpans(block.spans, start: position, length: text.length - position); if block.kind == "text" { next.spans.removeAll { ["title", "subtitle", "headline", "bold"].contains($0.kind) }; next.textStyle = "body" }
         store.update { n in var blocks = n.document; if let i = blocks.firstIndex(where: { $0.id == block.id }) { blocks[i].text = text.substring(to: position); blocks[i].spans = clippedSpans(block.spans, start: 0, length: position); blocks.insert(next, at: i + 1); n.blocks = blocks } }
         store.activeBlock = next.id
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { findNextEditor(after: view) }
+        focusBlock(next.id)
         return true
     }
+    func beginBody() {
+        if let block = store.current?.document.first(where: { $0.isText }) { focusBlock(block.id) }
+        else { store.addBlock("text"); focusBlock(store.activeBlock) }
+    }
     func focusBlock(_ id: String?, attempts: Int = 0) {
-        guard let id, attempts < 8 else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
-            guard let window = NSApp.keyWindow, let root = window.contentView else { return }
-            func find(_ node: NSView) -> LeafTextView? { if let text = node as? LeafTextView, text.identifier?.rawValue == id { return text }; return node.subviews.lazy.compactMap(find).first }
-            if let text = find(root) { window.makeFirstResponder(text); text.setSelectedRange(NSRange(location: 0, length: 0)) } else { focusBlock(id, attempts: attempts + 1) }
+        guard let id, attempts < 120, let window = NSApp.keyWindow, let root = window.contentView else { return }
+        func find(_ node: NSView) -> LeafTextView? { if let text = node as? LeafTextView, text.identifier?.rawValue == id { return text }; return node.subviews.lazy.compactMap(find).first }
+        if let text = find(root) {
+            let previous = window.firstResponder as? LeafTextView
+            let queued = previous?.queuedInput ?? []
+            previous?.awaitingBlock = false; previous?.queuedInput = []
+            window.makeFirstResponder(text); text.setSelectedRange(NSRange(location: 0, length: 0))
+            if text.string.isEmpty, let block = store.current?.document.first(where: { $0.id == id }) {
+                let style = block.textStyle ?? "body"
+                text.typingAttributes = [.font: NSFont.systemFont(ofSize: Typography.size(style) * (store.current?.textScale ?? 1), weight: style == "body" ? .regular : .semibold), .foregroundColor: NSColor.labelColor, NSAttributedString.Key("leafTextStyle"): style, NSAttributedString.Key("leafTextScale"): store.current?.textScale ?? 1]
+            }
+            for input in queued { if let target = window.firstResponder as? LeafTextView { if input == "\n" { target.insertNewline(nil) } else { target.insertText(input, replacementRange: target.selectedRange()) } } }
+        }
+        else {
+            (window.firstResponder as? LeafTextView)?.awaitingBlock = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) { focusBlock(id, attempts: attempts + 1) }
         }
     }
     func backspace(_ id: String) -> Bool {
@@ -129,7 +183,7 @@ struct DocumentEditor: View {
     func columnWidth(_ block: String, _ column: Int) -> Double { let key = "tableWidth:" + noteId + ":" + block + ":" + String(column); return columnWidths[key] ?? (UserDefaults.standard.object(forKey: key) as? Double ?? 160) }
     func table(_ block: DocumentBlock) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            LeafScrollView(.horizontal) { VStack(spacing: 0) { ForEach(block.cells.indices, id: \.self) { row in HStack(spacing: 0) { ForEach(block.cells[row].indices, id: \.self) { col in TextField("", text: Binding(get: { block.cells[row][col] }, set: { value in store.update(undoKey: "cell:\(block.id):\(row):\(col)") { $0.editBlock(block.id) { $0.cells[row][col] = value } } }), axis: .vertical).textFieldStyle(.plain).font(.system(size: 15, weight: row == 0 ? .medium : .regular)).padding(12).frame(width: columnWidth(block.id, col)).frame(minHeight: 42).background(Color.primary.opacity(row == 0 ? 0.05 : 0.02)).border(Color.primary.opacity(0.1), width: 0.5).overlay(alignment: .trailing) { Color.clear.frame(width: 6).contentShape(Rectangle()).onHover { if $0 { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }.gesture(DragGesture(minimumDistance: 0, coordinateSpace: .global).onChanged { v in let key = "tableWidth:" + noteId + ":" + block.id + ":" + String(col); if columnStart == nil { columnStart = columnWidth(block.id, col) }; let width = min(600, max(80, columnStart! + v.translation.width)); columnWidths[key] = width; UserDefaults.standard.set(width, forKey: key) }.onEnded { _ in columnStart = nil }) } } } } } }.clipShape(RoundedRectangle(cornerRadius: 10))
+            LeafScrollView(.horizontal) { VStack(spacing: 0) { ForEach(block.cells.indices, id: \.self) { row in HStack(spacing: 0) { ForEach(block.cells[row].indices, id: \.self) { col in TextField("", text: Binding(get: { block.cells[row][col] }, set: { value in store.update(undoKey: "cell:\(block.id):\(row):\(col)") { $0.editBlock(block.id) { $0.cells[row][col] = value } } }), axis: .vertical).textFieldStyle(.plain).font(.system(size: 15, weight: row == 0 ? .medium : .regular)).padding(12).frame(width: columnWidth(block.id, col)).frame(minHeight: 42).background(Color.primary.opacity(row == 0 ? 0.05 : 0.02)).border(Color.primary.opacity(0.1), width: 0.5).overlay(alignment: .trailing) { Color.clear.frame(width: 6).contentShape(Rectangle()).onHover { if $0 { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }.gesture(DragGesture(minimumDistance: 0, coordinateSpace: .global).onChanged { v in let key = "tableWidth:" + noteId + ":" + block.id + ":" + String(col); if columnStart == nil { columnStart = columnWidth(block.id, col) }; let width = min(600, max(80, columnStart! + v.translation.width)); columnWidths[key] = width; UserDefaults.standard.set(width, forKey: key) }.onEnded { _ in columnStart = nil }) } } } } }.clipShape(RoundedRectangle(cornerRadius: 10)) }.clipShape(RoundedRectangle(cornerRadius: 10))
             HStack { Button("+ Row") { store.changeBlock(block.id) { if $0.cells.count < 100 { $0.cells.append(Array(repeating: "", count: $0.cells[0].count)) } } }; Button("+ Column") { store.changeBlock(block.id) { if $0.cells[0].count < 12 { $0.cells = $0.cells.map { $0 + [""] } } } } }.font(.system(size: 12)).buttonStyle(SoftButtonStyle()).foregroundStyle(.secondary)
         }
     }

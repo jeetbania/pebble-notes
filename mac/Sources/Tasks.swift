@@ -15,6 +15,7 @@ struct TasksHome: View {
     @LeafState<Bool> private var adding = false
     @LeafState<String> private var addingStage = "todo"
     var newTask: Note { var n = Note(); n.task = TaskDetails(completed: addingStage == "done", status: addingStage); return n }
+    @LeafState<Revision?> private var scheduling = nil
     @LeafState<Revision?> private var editing = nil
     var tasks: [Revision] { store.uniqueHeads.filter { !$0.note.deleted && !$0.note.archived && $0.note.task != nil } }
     var lists: [String] { ["All lists"] + Array(Set(tasks.compactMap { $0.note.task?.list })).sorted() }
@@ -72,6 +73,7 @@ struct TasksHome: View {
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading).padding(.horizontal, 24).padding(.top, 78).padding(.bottom, 20).coordinateSpace(name: "taskBoard").onPreferenceChange(TaskColumnFrames.self) { columnFrames = $0 }.background(Color.clear.contentShape(Rectangle()).onTapGesture { dismissSearch() })
         .panePresented(isPresented: $adding) { TaskComposer(initial: newTask, save: { n in store.create(); store.update { $0 = n }; store.flush(); store.select(nil); adding = false }, cancel: { adding = false }) }
+        .panePresented(item: $scheduling) { r in QuickTaskSchedule(initial: r.note.task!, save: { value in store.mutate(r.noteId) { $0.task = value }; scheduling = nil }, cancel: { scheduling = nil }) }
         .panePresented(item: $editing) { r in TaskComposer(initial: r.note, save: { n in store.mutate(r.noteId) { $0 = n }; editing = nil }, cancel: { editing = nil }) }
     }
     var stagePills: some View { ViewThatFits(in: .horizontal) { stageButtons(iconsOnly: false); stageButtons(iconsOnly: true) } }
@@ -88,9 +90,21 @@ struct TasksHome: View {
                     HStack(spacing: 8) { Text(t.list); if t.dueAt > 0 { Text(t.date.formatted(date: .abbreviated, time: t.hasTime ? .shortened : .omitted)).foregroundStyle(t.date < Date() && !t.completed ? .red : .secondary) }; if t.priority > 0 { Image(systemName: "flag.fill").foregroundStyle(t.priority == 3 ? Color.red : t.priority == 2 ? Color.orange : Color.blue) }; if t.repeatRule != "none" { Label(t.repeatRule.capitalized, systemImage: "repeat") }; if !r.note.attachments.isEmpty { Image(systemName: "paperclip") }; let checks = r.note.document.filter { $0.kind == "check" }; if !checks.isEmpty { Text("\(checks.filter(\.checked).count)/\(checks.count)") } }.font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }.buttonStyle(.plain)
-            Menu { Menu("Status") { ForEach(["todo", "progress", "review", "done"], id: \.self) { state in Button(stageName(state)) { store.mutate(r.noteId) { $0.task?.move(to: state) } } } }; Button("Edit task…") { editing = r }; Button("Open details & subtasks") { store.select(r.noteId) }; Button("Duplicate") { var n = r.note; n.task?.completed = false; n.task?.status = "todo"; store.create(); store.update { $0 = n }; store.flush(); store.select(nil) }; Button("Convert to note") { store.mutate(r.noteId) { $0.task = nil } }; Divider(); Button("Move to Trash") { store.mutate(r.noteId) { $0.deleted = true } } } label: { Image(systemName: "ellipsis").frame(width: 36, height: 36) }.menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).frame(width: 36, height: 36)
-        }.padding(16).frame(maxWidth: .infinity, alignment: .leading).contentShape(RoundedRectangle(cornerRadius: 16)).modifier(TaskHover()).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 16)).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.055), lineWidth: 0.5))
+            Menu { quickTaskActions(r); Menu("Status") { ForEach(["todo", "progress", "review", "done"], id: \.self) { state in Button(stageName(state)) { store.mutate(r.noteId) { $0.task?.move(to: state) } } } }; Button("Edit task…") { editing = r }; Button("Open details & subtasks") { store.select(r.noteId) }; Button("Duplicate") { var n = r.note; n.task?.completed = false; n.task?.status = "todo"; store.create(); store.update { $0 = n }; store.flush(); store.select(nil) }; Button("Convert to note") { store.mutate(r.noteId) { $0.task = nil } }; Divider(); Button("Move to Trash") { store.mutate(r.noteId) { $0.deleted = true } } } label: { Image(systemName: "ellipsis").frame(width: 36, height: 36) }.menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).frame(width: 36, height: 36)
+        }.padding(16).frame(maxWidth: .infinity, alignment: .leading).contentShape(RoundedRectangle(cornerRadius: 16)).modifier(TaskHover()).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 16)).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.055), lineWidth: 0.5)).contextMenu { quickTaskActions(r); Button("Edit task…") { editing = r } }
     }
+    @ViewBuilder func quickTaskActions(_ revision: Revision) -> some View {
+        Menu("Priority") { ForEach(0...3, id: \.self) { priority in Button(["None", "Low", "Medium", "High"][priority]) { store.mutate(revision.noteId) { $0.task?.priority = priority } } } }
+        Button("Today") { shiftDate(revision.noteId, days: 0) }
+        Button("Tomorrow") { shiftDate(revision.noteId, days: 1) }
+        Button("Custom date & time…") { scheduling = revision }
+        Button("No date") { store.mutate(revision.noteId) { $0.task?.dueAt = 0; $0.task?.hasTime = false; $0.task?.remind = false; $0.task?.repeatRule = "none" } }
+        SubtleDivider()
+    }
+    func shiftDate(_ id: String, days: Int) {
+        store.mutate(id) { note in guard var task = note.task else { return }; var date = Calendar.current.date(byAdding: .day, value: days, to: Calendar.current.startOfDay(for: Date()))!; if task.hasTime && task.dueAt > 0 { let c = Calendar.current.dateComponents([.hour, .minute], from: task.date); date = Calendar.current.date(bySettingHour: c.hour ?? 9, minute: c.minute ?? 0, second: 0, of: date)! }; task.dueAt = Int64(date.timeIntervalSince1970 * 1000); note.task = task }
+    }
+
 }
 struct TaskComposer: View {
     @EnvironmentObject var store: NoteStore
@@ -113,12 +127,12 @@ struct TaskComposer: View {
             VStack(alignment: .leading, spacing: 12) {
                 property("Status", "circle.lefthalf.filled") { TaskPills(values: [("todo", "circle"), ("progress", "circle.lefthalf.filled"), ("review", "eye"), ("done", "checkmark.circle")], selected: Binding(get: { note.task!.stage }, set: { note.task!.move(to: $0) }), labels: ["To Do", "Progress", "Review", "Done"]) }
                 property("List", "tray") { TextField("Personal", text: Binding(get: { note.task!.list }, set: { note.task!.list = String($0.prefix(128)) })).textFieldStyle(.plain).padding(8).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8)) }
-                property("Tags", "tag") { TextField("Add tags, separated by commas", text: Binding(get: { note.tags.joined(separator: ", ") }, set: { note.tags = $0.split(separator: ",", omittingEmptySubsequences: false).map(String.init) })).textFieldStyle(.plain).padding(8) }
+                property("Tags", "tag") { VStack(alignment: .leading, spacing: 8) { HStack { ForEach(note.tags.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }, id: \.self) { TagPill(text: $0) } }; TextField("Add tags, separated by commas", text: Binding(get: { note.tags.joined(separator: ", ") }, set: { note.tags = $0.split(separator: ",", omittingEmptySubsequences: false).map(String.init) })).modifier(PebbleField()) } }
             }
             SubtleDivider()
             VStack(alignment: .leading, spacing: 12) {
                 property("Date", "calendar") {
-                    HStack { Button { calendarVisible.toggle() } label: { Label(dated ? date.formatted(date: .abbreviated, time: .omitted) : "Set date", systemImage: "calendar").padding(.horizontal, 10).frame(height: 36) }.buttonStyle(SoftButtonStyle(radius: 18)).leafGlass(in: Capsule()).popover(isPresented: $calendarVisible) { TaskCalendar(date: $date, dated: $dated).padding(16).frame(width: 300).presentationBackground(.ultraThinMaterial) }; if dated { Toggle("Time", isOn: Binding(get: { note.task!.hasTime }, set: { note.task!.hasTime = $0 })).toggleStyle(.switch); if note.task!.hasTime { DatePicker("Time", selection: $date, displayedComponents: .hourAndMinute).labelsHidden() } } }
+                    HStack { Button { calendarVisible.toggle() } label: { Label(dated ? date.formatted(date: .abbreviated, time: .omitted) : "Set date", systemImage: "calendar").padding(.horizontal, 10).frame(height: 36) }.buttonStyle(SoftButtonStyle(radius: 18)).leafGlass(in: Capsule()).popover(isPresented: $calendarVisible) { TaskCalendar(date: $date, dated: $dated).padding(16).frame(width: 300).presentationBackground(.ultraThinMaterial) }; if dated { Toggle("Time", isOn: Binding(get: { note.task!.hasTime }, set: { note.task!.hasTime = $0 })).toggleStyle(.switch); if note.task!.hasTime { RollingTimePicker(date: $date) } } }
                 }
                 property("Priority", "flag") { HStack(spacing: 8) { ForEach(0...3, id: \.self) { priority in Button { note.task!.priority = priority } label: { Image(systemName: priority == 0 ? "flag" : "flag.fill").foregroundStyle(priority == 3 ? Color.red : priority == 2 ? .orange : priority == 1 ? .blue : .secondary).frame(width: 36, height: 36).background(Color.primary.opacity(note.task!.priority == priority ? 0.10 : 0), in: Circle()) }.buttonStyle(SoftButtonStyle(radius: 18)).help(["None", "Low", "Medium", "High"][priority]) }; Spacer(); Menu { ForEach(["none", "daily", "weekly", "monthly"], id: \.self) { value in Button(value.capitalized) { note.task!.repeatRule = value } } } label: { Label(note.task!.repeatRule == "none" ? "Repeat" : note.task!.repeatRule.capitalized, systemImage: "repeat").padding(8) }.menuStyle(.button).buttonStyle(SoftButtonStyle()).disabled(!dated) } }
                 if dated { property("Reminder", "bell") { Toggle("Notify at the due time", isOn: Binding(get: { note.task!.remind }, set: { enabled in if enabled { Task { let granted = await TaskAlerts.authorize(); note.task!.remind = granted; alertStatus = granted ? "" : "Allow notifications for Pebble Notes in System Settings." } } else { note.task!.remind = false } })).toggleStyle(.switch) }; Text(note.task!.hasTime ? "Repeating tasks advance when completed." : "All-day reminders arrive at 9 AM. Repeats advance when completed.").font(.caption).foregroundStyle(.secondary); if !alertStatus.isEmpty { Text(alertStatus).font(.caption).foregroundStyle(.secondary) } }
@@ -136,7 +150,7 @@ struct TaskComposer: View {
             VStack(alignment: .leading, spacing: 10) {
                 Label("Subtasks", systemImage: "checklist").font(.headline)
                 ForEach(note.document.filter { $0.kind == "check" }) { block in HStack(spacing: 10) { GlassIcon(icon: block.checked ? "checkmark.circle.fill" : "circle", label: block.checked ? "Mark incomplete" : "Complete subtask") { note.editBlock(block.id) { $0.checked.toggle() } }; TextField("Subtask", text: Binding(get: { block.text }, set: { value in note.editBlock(block.id) { $0.text = value } }), axis: .vertical).textFieldStyle(.plain).strikethrough(block.checked); GlassIcon(icon: "minus.circle", label: "Remove subtask") { note.blocks = note.document.filter { $0.id != block.id } } } }
-                HStack { TextField("Add a subtask", text: $newSubtask).textFieldStyle(.plain).padding(8).onSubmit(addSubtask); Button("Add", action: addSubtask).disabled(newSubtask.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
+                HStack { TextField("Add a subtask", text: $newSubtask).modifier(PebbleField()).onSubmit(addSubtask); Button("Add", action: addSubtask).disabled(newSubtask.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
             }
             SubtleDivider()
             VStack(alignment: .leading, spacing: 10) { HStack { Label("Attachments", systemImage: "paperclip").font(.headline); Spacer(); Button("Add files…") { let panel = NSOpenPanel(); panel.allowsMultipleSelection = true; if panel.runModal() == .OK { attach(panel.urls) } } }; ForEach(note.attachments) { a in HStack { Image(systemName: a.mime.hasPrefix("image/") ? "photo" : "doc"); Text(a.name).lineLimit(1); Spacer(); GlassIcon(icon: "minus.circle", label: "Remove attachment") { note.blocks = note.document.filter { $0.mediaId != a.id }; note.prepare() } } } }

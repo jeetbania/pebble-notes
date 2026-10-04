@@ -16,7 +16,7 @@ val LocalTypeSizes=staticCompositionLocalOf { TextMetrics() }
 val LocalCalmMotion=staticCompositionLocalOf { false }
 val editorMetrics=java.util.WeakHashMap<EditText,TextMetrics>()
 class SemanticSize(val kind:String,size:Int):android.text.style.AbsoluteSizeSpan(size,true) {
-    private fun weight(paint:android.text.TextPaint){if(kind in listOf("title","headline"))paint.typeface=android.graphics.Typeface.create(paint.typeface,(paint.typeface?.style ?: 0) or android.graphics.Typeface.BOLD)}
+    private fun weight(paint:android.text.TextPaint){if(kind in listOf("title","subtitle","headline"))paint.typeface=android.graphics.Typeface.create(paint.typeface,(paint.typeface?.style ?: 0) or android.graphics.Typeface.BOLD)}
     override fun updateDrawState(paint:android.text.TextPaint){super.updateDrawState(paint);weight(paint)}
     override fun updateMeasureState(paint:android.text.TextPaint){super.updateMeasureState(paint);weight(paint)}
 }

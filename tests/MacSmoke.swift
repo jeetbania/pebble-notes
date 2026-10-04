@@ -54,6 +54,22 @@ import AppKit
         let linkSpans = spansFrom(view.attributedString()).filter { $0.kind.hasPrefix("link:") }
         precondition(linkSpans == styled.spans.filter { $0.kind.hasPrefix("link:") })
         print("PASS: saved heading/link spans, selected text sizes, and insertion style")
+        let bodyAttributes = NSAttributedString(string: "normal", attributes: [.font: NSFont.systemFont(ofSize: 15), NSAttributedString.Key("leafTextStyle"): "body"])
+        precondition(spansFrom(bodyAttributes).isEmpty, "Body must never serialize as an unsupported span")
+        for style in ["title", "subtitle", "headline"] {
+            var block = DocumentBlock(); block.textStyle = style
+            recovered.update { $0.blocks = [block] }; recovered.flush()
+            precondition(recovered.error == nil && recovered.current?.document[0].textStyle == style, "Empty heading style must save")
+            block.text = "Heading"; let text = block.asNote.attributed
+            precondition((text.attribute(.font, at: 0, effectiveRange: nil) as! NSFont).pointSize == Typography.size(style))
+            precondition(spansFrom(text).contains { $0.kind == style })
+        }
+        recovered.update { $0 = styled }; recovered.flush()
+        let buffer = LeafTextView(); buffer.awaitingBlock = true
+        buffer.insertText("next", replacementRange: NSRange(location: 0, length: 0)); buffer.insertNewline(nil)
+        precondition(buffer.string.isEmpty && buffer.queuedInput == ["next", "\n"], "Typing during block mounting must be queued")
+        print("PASS: empty headings persist, body spans stay valid, and fast block-transition typing is buffered")
+
         recovered.duplicate(recovered.selected!); precondition(recovered.current?.title == "Untitled note copy")
         print("PASS: duplication retains rich text")
         var enlarged = styled; enlarged.textScale = 1.3
@@ -135,7 +151,7 @@ import AppKit
         restored.reload(); restored.select(dailyId); precondition(restored.current == restarted.uniqueHeads.first { $0.noteId == dailyId }?.note)
         print("PASS: automatic portable backup restores mixed content into a fresh library")
 
-        let starterFolder = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("outputs/LeafNotes/assets/Starter")
+        let starterFolder = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("assets/Starter")
         try await restored.installStarterLibrary(from: starterFolder)
         let firstStarterCount = try restored.revisions().count
         precondition(restored.uniqueHeads.filter { !$0.note.deleted }.count == 5)
@@ -155,10 +171,21 @@ import AppKit
         restored.moveBlock(parent.id, by: 1); precondition(restored.current!.document.map(\.id) == [tail.id, parent.id, child.id]); restored.duplicateBlock(parent.id); let copies = restored.current!.document; precondition(copies.count == 5 && copies[4].parentId == copies[3].id)
         restored.changeBlock(parent.id) { $0.collapsed = true }; precondition(!restored.current!.isVisible(child)); restored.removeBlock(parent.id); precondition(!restored.current!.document.contains { $0.id == child.id }); restored.flush()
         print("PASS: nested toggles move, duplicate, collapse, and remove as complete groups")
+        var converted = Note(); converted.blocks = [parent, child, tail]; converted.editBlock(parent.id) { $0.kind = "text" }
+        precondition(converted.document[1].parentId == nil && converted.document[0].collapsed == false && converted.isVisible(converted.document[1]))
+        print("PASS: converting a toggle preserves and reveals its children")
         restored.mutate(groupId) { $0.deleted = true }; let trashRevision = restored.uniqueHeads.first { $0.noteId == groupId }!; precondition(trashRevision.note.deletedAt != nil)
         restored.expireTrash(now: trashRevision.note.deletedAt! + 30 * 86400000 - 1); precondition(restored.uniqueHeads.contains { $0.noteId == groupId }); restored.expireTrash(now: trashRevision.note.deletedAt! + 30 * 86400000)
         precondition(!restored.uniqueHeads.contains { $0.noteId == groupId }); try restored.ingest(try encode(trashRevision), remote: true); restored.reload(); precondition(!restored.uniqueHeads.contains { $0.noteId == groupId }); let erasedHistory = try restored.revisions().filter { $0.noteId == groupId }; precondition(erasedHistory.count == 1)
         print("PASS: Trash expires exactly after 30 days and erased note history cannot return from sync")
+        let batchStore = NoteStore(root: root.appendingPathComponent("batch-trash"), recoverDrafts: false)
+        var batchIDs: [String] = []
+        for name in ["First selected", "Second selected", "Third selected"] { batchStore.create(); batchStore.update { $0.title = name; $0.deleted = true }; batchStore.flush(); batchIDs.append(batchStore.selected!) }
+        batchStore.permanentlyDelete(batchIDs)
+        precondition(batchIDs.allSatisfy { id in !batchStore.uniqueHeads.contains { $0.noteId == id && $0.note.purgedAt == nil } })
+        precondition(batchStore.error == nil)
+        print("PASS: permanent deletion purges every item in a captured selection")
+
 
         precondition(BlockCommand.suggestions("che").first?.id == "check")
         precondition(BlockCommand.suggestions("check").first?.id == "check")

@@ -1,5 +1,14 @@
 # Pebble Notes changelog
 
+## 0.14.0 · A clearer desktop
+
+- Desktop welcome screens have a seamless background. Settings now includes Profile with a name, bio, photo, and initial avatar.
+- Task subtasks have visible fields, tags use translucent colour pills, and image captions reserve space above and below.
+- Headings retain their size and weight. Return creates body text, lists continue properly, and slash suggestions format blocks on Mac and Android.
+- Block grips align with the first text line. Dragging highlights and moves the whole block, while an in-window menu converts, duplicates, or deletes it.
+- Folder rows drag as one group. Tables keep all four corners rounded, and batch actions delete the entire selection.
+- Task quick actions offer priority, Today, Tomorrow, and custom scheduling. A faded rolling time picker works on both platforms.
+
 ## 0.13.1 · Updates in view
 
 - The Mac update dialog now opens in front when checking or viewing a new release from Settings.

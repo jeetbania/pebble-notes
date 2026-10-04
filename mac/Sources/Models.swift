@@ -9,6 +9,7 @@ struct DocumentBlock: Codable, Equatable, Identifiable {
     var id = UUID().uuidString.lowercased()
     var parentId: String? = nil
     var collapsed: Bool? = nil
+    var textStyle: String? = nil
     var kind = "text"
     var text = ""
     var spans: [TextSpan] = []
@@ -18,7 +19,7 @@ struct DocumentBlock: Codable, Equatable, Identifiable {
     var caption = ""
     var presentation = "large"
     var cells: [[String]] = []
-    var asNote: Note { var note = Note(); note.text = text; note.spans = spans; return note }
+    var asNote: Note { var note = Note(); note.text = text; note.spans = spans; if let textStyle, textStyle != "body", !text.isEmpty { note.spans = spans.filter { !["title", "subtitle", "headline"].contains($0.kind) } + [TextSpan(start: 0, length: text.utf16.count, kind: textStyle)] }; return note }
     var isText: Bool { ["text", "bullet", "number", "check", "toggle"].contains(kind) }
 }
 struct TaskDetails: Codable, Equatable {
@@ -104,12 +105,23 @@ struct Note: Codable, Equatable {
             let content = block.kind == "table" ? block.cells.map { $0.joined(separator: " | ") }.joined(separator: "\n") : block.isText ? block.text : block.caption
             let start = text.utf16.count + prefix.utf16.count
             text += prefix + content
-            if block.isText { spans += block.spans.map { TextSpan(start: start + $0.start, length: $0.length, kind: $0.kind) } }
+            if block.isText { spans += block.asNote.spans.map { TextSpan(start: start + $0.start, length: $0.length, kind: $0.kind) } }
         }
         let ids = Set((blocks ?? []).filter { ["image", "file"].contains($0.kind) }.map(\.mediaId))
         attachments.removeAll { !ids.contains($0.id) }
     }
-    mutating func editBlock(_ id: String, _ change: (inout DocumentBlock) -> Void) { if blocks == nil { blocks = document }; if let index = blocks?.firstIndex(where: { $0.id == id }) { change(&blocks![index]) }; prepare() }
+    mutating func editBlock(_ id: String, _ change: (inout DocumentBlock) -> Void) {
+        if blocks == nil { blocks = document }
+        if let index = blocks?.firstIndex(where: { $0.id == id }) {
+            let old = blocks![index]
+            change(&blocks![index])
+            if old.kind == "toggle", blocks![index].kind != "toggle" {
+                blocks![index].collapsed = false
+                for child in blocks!.indices where blocks![child].parentId == id { blocks![child].parentId = old.parentId }
+            }
+        }
+        prepare()
+    }
     mutating func insertMedia(_ media: [Attachment], at id: String?, offset: Int?) {
         if blocks == nil { blocks = document }
         var insertion = (id.flatMap { wanted in blocks?.firstIndex(where: { $0.id == wanted }) }).map { $0 + 1 } ?? blocks!.count
@@ -151,7 +163,7 @@ extension Note {
                     result.addAttribute(.font, value: NSFontManager.shared.convert((font as? NSFont) ?? .systemFont(ofSize: 17), toHaveTrait: mask), range: r)
                 }
             case "title", "subtitle", "headline":
-                result.addAttribute(.font, value: NSFont.systemFont(ofSize: Typography.size(span.kind) * textScale, weight: span.kind == "subtitle" ? .regular : .semibold), range: range)
+                result.addAttribute(.font, value: NSFont.systemFont(ofSize: Typography.size(span.kind) * textScale, weight: .semibold), range: range)
                 result.addAttribute(NSAttributedString.Key("leafTextStyle"), value: span.kind, range: range)
             case let kind where kind.hasPrefix("link:"):
                 result.addAttribute(.link, value: String(kind.dropFirst(5)), range: range)
@@ -169,10 +181,10 @@ func spansFrom(_ text: NSAttributedString) -> [TextSpan] {
     text.enumerateAttributes(in: NSRange(location: 0, length: text.length)) { attributes, range, _ in
         if let font = attributes[.font] as? NSFont {
             let traits = NSFontManager.shared.traits(of: font)
-            if traits.contains(.boldFontMask) && (attributes[NSAttributedString.Key("leafTextStyle")] == nil || attributes[NSAttributedString.Key("leafExplicitBold")] as? Bool == true) { spans.append(.init(start: range.location, length: range.length, kind: "bold")) }
+            if (traits.contains(.boldFontMask) || attributes[NSAttributedString.Key("leafExplicitBold")] as? Bool == true) && (attributes[NSAttributedString.Key("leafTextStyle")] == nil || attributes[NSAttributedString.Key("leafExplicitBold")] as? Bool == true) { spans.append(.init(start: range.location, length: range.length, kind: "bold")) }
             if traits.contains(.italicFontMask) { spans.append(.init(start: range.location, length: range.length, kind: "italic")) }
         }
-        if let style = attributes[NSAttributedString.Key("leafTextStyle")] as? String { spans.append(.init(start: range.location, length: range.length, kind: style)) }
+        if let style = attributes[NSAttributedString.Key("leafTextStyle")] as? String, ["title", "subtitle", "headline"].contains(style) { spans.append(.init(start: range.location, length: range.length, kind: style)) }
         if attributes[.backgroundColor] != nil { spans.append(.init(start: range.location, length: range.length, kind: "highlight")) }
         if let link = attributes[.link] { spans.append(.init(start: range.location, length: range.length, kind: "link:" + String(describing: link))) }
         for (key, kind) in [(NSAttributedString.Key.strikethroughStyle, "strike"), (.underlineStyle, "underline")] {

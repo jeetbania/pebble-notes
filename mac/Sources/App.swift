@@ -148,7 +148,7 @@ struct LibraryView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in store.reload() }
         .disabled(showSettings || deletingFolder != nil || newCollection || !erasing.isEmpty).accessibilityHidden(showSettings || deletingFolder != nil || newCollection || !erasing.isEmpty)
         .overlay { if newCollection { GlassDialog { VStack(alignment: .leading, spacing: 0) { Text(editingCollection.isEmpty ? "New collection" : "Edit collection").font(.title2.bold()).padding([.top, .horizontal], 28); collectionSheet }.buttonStyle(MaterialActionStyle()) } } }
-        .overlay { if !erasing.isEmpty { GlassDialog { VStack(alignment: .leading, spacing: 18) { Text("Delete permanently?").font(.title2.bold()); Text("These items and their saved versions will be removed. This cannot be undone.").foregroundStyle(.secondary); HStack { Button("Cancel") { erasing = [] }; Spacer(); Button("Delete", role: .destructive) { store.permanentlyDelete(erasing); erasing = [] } } }.padding(28).frame(width: 390).buttonStyle(MaterialActionStyle()) } } }
+        .overlay { if !erasing.isEmpty { GlassDialog { VStack(alignment: .leading, spacing: 18) { Text("Delete \(erasing.count) item\(erasing.count == 1 ? "" : "s") permanently?").font(.title2.bold()); Text("These items and their saved versions will be removed. This cannot be undone.").foregroundStyle(.secondary); HStack { Button("Cancel") { erasing = [] }; Spacer(); Button("Delete", role: .destructive) { store.permanentlyDelete(erasing); selectedItems.subtract(erasing); selecting = !selectedItems.isEmpty; erasing = [] } } }.padding(28).frame(width: 390).buttonStyle(MaterialActionStyle()) } } }
         .overlay { if showSettings { GlassDialog { SettingsHome(initialPage: settingsPage, onWhatsNew: { showSettings = false; releaseHistory = true; showWhatsNew = true }, onClose: { showSettings = false }).environmentObject(store).frame(width: 700, height: 560) } } }
         .overlay { if deletingFolder != nil { GlassDialog { VStack(alignment: .leading, spacing: 18) { Text("Delete Collection?").font(.title2.bold()); Text("Your notes will be kept in the library. Only this collection and its subcollections will be removed.").foregroundStyle(.secondary); HStack { Spacer(); Button("Cancel") { deletingFolder = nil }.keyboardShortcut(.cancelAction).buttonStyle(SoftButtonStyle()); Button("Delete", role: .destructive) { if let name = deletingFolder { store.deleteFolder(name); extraCollections.removeAll { $0 == name || $0.hasPrefix(name + "/") }; UserDefaults.standard.set(extraCollections, forKey: "extraCollections"); section = "Everything" }; deletingFolder = nil }.padding(.horizontal, 16).padding(.vertical, 8).background(Color.red.opacity(0.16), in: Capsule()).foregroundStyle(.red).buttonStyle(.plain) } }.padding(28).frame(width: 390) } } }
 
@@ -189,12 +189,12 @@ struct LibraryView: View {
             nav("Trash", "trash")
             HStack(spacing: 0) { Button { showSettings = true } label: { rowLabel("Settings", "gearshape") }.buttonStyle(SidebarButtonStyle()); SyncIndicator(store: store).padding(.trailing, 8) }
 
-        }.padding(.horizontal, 16).padding(.bottom, 12).coordinateSpace(name: "folders").onPreferenceChange(GalleryFrames.self) { folderFrames = $0 }.overlay(alignment: .topLeading) { if let name = draggedFolder { HStack(spacing: 10) { collectionIcon(name).frame(width: 28, height: 28).modifier(IconDepth()); Text(name.split(separator: "/").last.map(String.init) ?? name).font(.system(size: 13, weight: .medium)); Spacer() }.padding(.horizontal, 7).frame(width: folderOrigin.width, height: 34).compositingGroup().transaction { $0.animation = nil }.scaleEffect(0.94).position(x: folderOrigin.midX + folderTranslation.width, y: folderOrigin.midY + folderTranslation.height).allowsHitTesting(false) } }.background(Color.clear)
+        }.padding(.horizontal, 16).padding(.bottom, 12).coordinateSpace(name: "folders").onPreferenceChange(GalleryFrames.self) { folderFrames = $0 }.overlay(alignment: .topLeading) { if let name = draggedFolder { HStack(spacing: 10) { collectionIcon(name).frame(width: 28, height: 28).modifier(IconDepth()); Text(name.split(separator: "/").last.map(String.init) ?? name).font(.system(size: 13, weight: .medium)); Spacer() }.padding(.horizontal, 7).frame(width: folderOrigin.width, height: 34).background(Color.primary.opacity(0.10), in: RoundedRectangle(cornerRadius: 8)).drawingGroup().transaction { $0.animation = nil }.position(x: folderOrigin.midX + folderTranslation.width, y: folderOrigin.midY + folderTranslation.height).allowsHitTesting(false) } }.background(Color.clear)
     }
     func folderGrab(_ name: String) -> some Gesture {
         DragGesture(minimumDistance: 6, coordinateSpace: .named("folders")).onChanged { value in
             if draggedFolder == nil { draggedFolder = name; folderOrigin = folderFrames[name] ?? .zero }; folderTranslation = value.translation
-            if let target = folderFrames.first(where: { $0.key != name && $0.value.contains(value.location) })?.key, let from = allCollections.firstIndex(of: name), let to = allCollections.firstIndex(of: target) { var order = allCollections; order.remove(at: from); order.insert(name, at: to); withAnimation(motion) { folderOrder = order }; UserDefaults.standard.set(order, forKey: "folderOrder") }
+            if let target = folderFrames.first(where: { $0.key != name && $0.value.contains(value.location) })?.key, let from = allCollections.firstIndex(of: name), let to = allCollections.firstIndex(of: target) { var order = allCollections; order.remove(at: from); order.insert(name, at: to); withAnimation(.easeOut(duration: 0.18)) { folderOrder = order }; UserDefaults.standard.set(order, forKey: "folderOrder") }
         }.onEnded { _ in draggedFolder = nil; folderTranslation = .zero }
     }
     func reorder(_ ids: [String]) { manualOrder = ids + manualOrder.filter { !ids.contains($0) }; sortOrder = "manual"; UserDefaults.standard.set(manualOrder, forKey: "manualOrder"); UserDefaults.standard.set("manual", forKey: "librarySort") }
@@ -250,9 +250,13 @@ struct LibraryView: View {
             Divider(); itemMenu(id)
         } else {
             Button(selecting ? "Done Selecting" : "Select Items") { selecting.toggle(); selectedItems = [] }
+            Button("Select All") { selecting = true; selectedItems = Set(filtered.map(\.noteId)) }.keyboardShortcut("a", modifiers: .command)
             if selecting && !selectedItems.isEmpty {
-                Button("Archive Selected") { for id in selectedItems { store.mutate(id) { $0.archived = true } }; selectedItems = []; selecting = false }
-                Button("Move Selected to Trash") { for id in selectedItems { store.mutate(id) { $0.deleted = true } }; selectedItems = []; selecting = false }
+                if section == "Trash" { Button("Delete Selected permanently…", role: .destructive) { erasing = Array(selectedItems) }; Button("Restore Selected") { for id in selectedItems { store.mutate(id) { $0.deleted = false } }; selectedItems = []; selecting = false } }
+                else {
+                    Button("Archive Selected") { for id in selectedItems { store.mutate(id) { $0.archived = true } }; selectedItems = []; selecting = false }
+                    Button("Move Selected to Trash") { for id in selectedItems { store.mutate(id) { $0.deleted = true } }; selectedItems = []; selecting = false }
+                }
             }
             Menu("Sort By") {
                 ForEach([("manual", "Default (Manual)"), ("edited", "Recently Edited"), ("added", "Recently Added")], id: \.0) { value in
@@ -273,8 +277,8 @@ struct LibraryView: View {
             Button("Duplicate") { store.duplicate(id) }
             Menu("Order") { Button("Move to Beginning") { order(id, first: true) }; Button("Move to End") { order(id, first: false) } }
             Divider(); Button(revision.note.archived ? "Unarchive" : "Archive") { store.mutate(id) { $0.archived.toggle() }; if store.selected == id { store.select(nil) } }
-            if revision.note.deleted { Button("Delete permanently…", role: .destructive) { erasing = [id] } }
-            Button(revision.note.deleted ? "Restore" : "Move to Trash") { store.mutate(id) { $0.deleted.toggle() }; if store.selected == id { store.select(nil) } }
+            if revision.note.deleted { Button("Delete permanently…", role: .destructive) { erasing = selectedItems.contains(id) ? Array(selectedItems) : [id] } }
+            Button(revision.note.deleted ? "Restore" : "Move to Trash") { let ids = selectedItems.contains(id) ? Array(selectedItems) : [id]; for target in ids { store.mutate(target) { $0.deleted = !revision.note.deleted } }; selectedItems.subtract(ids); if store.selected == id { store.select(nil) } }
         }
     }
     var formatting: some View { EditorToolbar(store: store) }
@@ -519,10 +523,11 @@ struct Thumbnail: View {
     }
     func textStyle(_ style: String) {
         styleLabel = style.capitalized
+        (view as? LeafTextView)?.styleChanged?(style)
         guard let view, let storage = view.textStorage else { return }
         let selection = view.selectedRange()
         let range = selection.length > 0 ? selection : (view.string as NSString).paragraphRange(for: selection)
-        let font = NSFont.systemFont(ofSize: Typography.size(style) * (view.typingAttributes[NSAttributedString.Key("leafTextScale")] as? Double ?? 1), weight: style == "title" || style == "headline" ? .semibold : .regular)
+        let font = NSFont.systemFont(ofSize: Typography.size(style) * (view.typingAttributes[NSAttributedString.Key("leafTextScale")] as? Double ?? 1), weight: style == "body" ? .regular : .semibold)
         let key = NSAttributedString.Key("leafTextStyle")
         var attributes = view.typingAttributes; attributes[.font] = font
         if style == "body" { attributes.removeValue(forKey: key) } else { attributes[key] = style }
@@ -591,11 +596,18 @@ class LeafTextView: NSTextView {
     var focused: (() -> Void)?
     var enter: (() -> Bool)?
     var backspace: (() -> Bool)?
+    var styleChanged: ((String) -> Void)?
+    var awaitingBlock = false
+    var queuedInput: [String] = []
+    override func insertText(_ value: Any, replacementRange: NSRange) {
+        if awaitingBlock { queuedInput.append((value as? NSAttributedString)?.string ?? String(describing: value)); return }
+        super.insertText(value, replacementRange: replacementRange)
+    }
     lazy var slash = SlashController(self)
     override func keyDown(with event: NSEvent) { if slash.key(event) { return }; super.keyDown(with: event) }
     override func resignFirstResponder() -> Bool { slash.close(); return super.resignFirstResponder() }
     override func deleteBackward(_ sender: Any?) { if selectedRange().location == 0 && selectedRange().length == 0 && backspace?() == true { return }; super.deleteBackward(sender) }
-    override func insertNewline(_ sender: Any?) { if enter?() == true { return }; super.insertNewline(sender) }
+    override func insertNewline(_ sender: Any?) { if awaitingBlock { queuedInput.append("\n"); return }; if NSApp.currentEvent?.modifierFlags.contains(.option) == true { super.insertNewline(sender); return }; if enter?() == true { return }; super.insertNewline(sender) }
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         if let layoutManager, let textContainer {
@@ -626,6 +638,7 @@ class LeafEditorScrollView: NSScrollView {
     override func layout() {
         super.layout()
         guard let text = documentView as? LeafTextView else { return }
+        if let font = text.font { let line = font.ascender - font.descender + font.leading; text.textContainerInset.height = contentSize.height <= line * 1.8 ? max(1, (contentSize.height - line) / 2) : 1 }
         text.minSize = NSSize(width: contentSize.width, height: max(32, contentSize.height))
         let size = NSSize(width: contentSize.width, height: max(text.frame.height, max(32, contentSize.height)))
         if text.frame.size != size { text.setFrameSize(size) }
@@ -639,19 +652,21 @@ struct RichEditor: NSViewRepresentable {
     var completed: Bool = false
     var onCommand: ((String) -> Void)? = nil
     var blockId: String? = nil
+    var blockStyle: String = "body"
+    var onStyle: ((String) -> Void)? = nil
     var onBackspace: (() -> Bool)? = nil
     var displayed: NSAttributedString { let value = NSMutableAttributedString(attributedString: note.attributed); if completed && value.length > 0 { value.enumerateAttribute(.strikethroughStyle, in: NSRange(location: 0, length: value.length)) { existing, range, _ in if existing == nil { value.addAttributes([.strikethroughStyle: NSUnderlineStyle.single.rawValue, NSAttributedString.Key("leafCompletionStrike"): true], range: range) } } }; return value }
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = LeafEditorScrollView(); scroll.hasVerticalScroller = false; scroll.drawsBackground = false
         let view = LeafTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 32)); view.isRichText = true; view.importsGraphics = false; view.isAutomaticTextReplacementEnabled = true; view.isContinuousSpellCheckingEnabled = true; view.drawsBackground = false; view.textContainerInset = NSSize(width: 0, height: 1); view.textContainer?.lineFragmentPadding = 0; view.font = .systemFont(ofSize: 17); view.isVerticallyResizable = true; view.isHorizontallyResizable = false; view.autoresizingMask = [.width]; view.textContainer?.widthTracksTextView = true; view.textContainer?.containerSize = NSSize(width: 600, height: CGFloat.greatestFiniteMagnitude); view.minSize = NSSize(width: 0, height: 32); view.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude); view.allowsUndo = true
-        view.textStorage?.setAttributedString(displayed); if note.text.isEmpty { view.typingAttributes = [.font: NSFont.systemFont(ofSize: Typography.size("body") * note.textScale), .foregroundColor: NSColor.labelColor, NSAttributedString.Key("leafTextScale"): note.textScale] }; view.delegate = context.coordinator; view.images = onImages; view.focused = onFocus; view.enter = onEnter; view.backspace = onBackspace; view.identifier = blockId.map { NSUserInterfaceItemIdentifier(rawValue: $0) }; view.slash.apply = onCommand; scroll.documentView = view; EditorActions.shared.view = view
+        view.textStorage?.setAttributedString(displayed); if note.text.isEmpty { view.typingAttributes = [.font: NSFont.systemFont(ofSize: Typography.size(blockStyle) * note.textScale, weight: blockStyle == "body" ? .regular : .semibold), NSAttributedString.Key("leafTextStyle"): blockStyle, .foregroundColor: NSColor.labelColor, NSAttributedString.Key("leafTextScale"): note.textScale] }; view.delegate = context.coordinator; view.images = onImages; view.focused = onFocus; view.enter = onEnter; view.backspace = onBackspace; view.styleChanged = onStyle; view.identifier = blockId.map { NSUserInterfaceItemIdentifier(rawValue: $0) }; view.slash.apply = onCommand; scroll.documentView = view
         return scroll
     }
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.owner = self
-        guard let view = scroll.documentView as? LeafTextView else { return }; view.images = onImages; view.focused = onFocus; view.enter = onEnter; view.backspace = onBackspace; view.identifier = blockId.map { NSUserInterfaceItemIdentifier(rawValue: $0) }; view.slash.apply = onCommand
-        if note.text.isEmpty { var attributes = view.typingAttributes; let style = attributes[NSAttributedString.Key("leafTextStyle")] as? String ?? "body"; let font = attributes[.font] as? NSFont ?? .systemFont(ofSize: 18); attributes[.font] = NSFontManager.shared.convert(font, toSize: Typography.size(style) * note.textScale); attributes[NSAttributedString.Key("leafTextScale")] = note.textScale; view.typingAttributes = attributes }
+        guard let view = scroll.documentView as? LeafTextView else { return }; view.images = onImages; view.focused = onFocus; view.enter = onEnter; view.backspace = onBackspace; view.styleChanged = onStyle; view.identifier = blockId.map { NSUserInterfaceItemIdentifier(rawValue: $0) }; view.slash.apply = onCommand
+        if note.text.isEmpty { var attributes = view.typingAttributes; let style = attributes[NSAttributedString.Key("leafTextStyle")] as? String ?? blockStyle; let font = attributes[.font] as? NSFont ?? .systemFont(ofSize: 18); attributes[.font] = NSFontManager.shared.convert(font, toSize: Typography.size(style) * note.textScale); attributes[NSAttributedString.Key("leafTextScale")] = note.textScale; view.typingAttributes = attributes }
         if !view.attributedString().isEqual(to: displayed) {
             let range = view.selectedRange(); context.coordinator.updating = true; view.textStorage?.setAttributedString(displayed); view.setSelectedRange(NSRange(location: min(range.location, view.string.utf16.count), length: 0)); context.coordinator.updating = false
         }

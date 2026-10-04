@@ -18,3 +18,6 @@ docs/*
 
 android/.idea/
 android/.kotlin/
+
+!docs/UPDATE-0.14.md
+!docs/*TEST-RESULTS-0.14.txt
