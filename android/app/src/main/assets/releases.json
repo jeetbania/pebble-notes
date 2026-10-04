@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.13.1",
+    "title": "Updates in view",
+    "changes": [
+      "The Mac update dialog now opens in front when checking or viewing a new release from Settings.",
+      "Verified the Pebble upgrade on a physical Vivo, with existing notes retained and welcome navigation checked."
+    ]
+  },
+  {
     "version": "0.13.0",
     "title": "Hello, Pebble Notes",
     "changes": [
@@ -8,7 +16,7 @@
       "Android checks periodically for updates and can notify you. Choose Download now, Later, or Install after verification.",
       "Mac downloads signed updates and offers Install and restart. Updates are distributed through free public GitHub releases.",
       "A new welcome tour introduces notes, visual inspiration, and tasks. Choose an optional name and accent, then start offline or connect Google Drive.",
-      "Android\u2019s home header has a soft accent glow that fades into the page."
+      "Android’s home header has a soft accent glow that fades into the page."
     ]
   },
   {
@@ -64,7 +72,7 @@
     "version": "0.8.0",
     "title": "A little news with every update",
     "changes": [
-      "What\u2019s New now appears once after an update, so you can see what changed.",
+      "What’s New now appears once after an update, so you can see what changed.",
       "A translucent release panel keeps the app softly visible behind it.",
       "Reopen the changelog from Settings whenever you like."
     ]

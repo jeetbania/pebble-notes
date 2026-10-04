@@ -1,5 +1,10 @@
 # Pebble Notes changelog
 
+## 0.13.1 · Updates in view
+
+- The Mac update dialog now opens in front when checking or viewing a new release from Settings.
+- Verified the Pebble upgrade on a physical Vivo, with existing notes retained and welcome navigation checked.
+
 ## 0.13.0 · Hello, Pebble Notes
 
 - Leaf Notes is now Pebble Notes. Your notes, account connection, and preferences stay with you.
