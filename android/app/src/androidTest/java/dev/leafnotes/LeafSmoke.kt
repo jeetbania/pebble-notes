@@ -1,0 +1,130 @@
+package dev.leafnotes
+
+import android.app.Instrumentation
+import android.content.ContextWrapper
+import android.os.Bundle
+import java.io.File
+
+/** Runs production storage and text adapters on Android; no simulated Android APIs. */
+class LeafSmoke : Instrumentation() {
+    override fun onCreate(arguments: Bundle?) { super.onCreate(arguments); start() }
+    override fun onStart() {
+        val results = StringBuilder()
+        val root = File(targetContext.cacheDir, "smoke-${uid()}").apply { mkdirs() }
+        try {
+            val isolated = object : ContextWrapper(targetContext) { override fun getFilesDir() = root }
+            runOnMainSync {
+                val store = Store(isolated)
+                val taskStore=Store(object:ContextWrapper(targetContext){override fun getFilesDir()=File(root,"tasks").apply{mkdirs()}});taskStore.create()
+                val taskNote=Note(title="Test task",task=TaskDetails(dueAt=1791091800000,hasTime=true,priority=3,repeatRule="weekly",list="Work",remind=true))
+                val taskId=taskStore.selected!!;taskStore.update(taskNote);taskStore.flush()
+                check(taskStore.visibleHeads.first{it.noteId==taskId}.note.task==taskNote.task)
+                taskStore.restore(taskStore.backup());check(taskStore.visibleHeads.first{it.noteId==taskId}.note.task==taskNote.task)
+                val next=taskNote.task!!.complete(taskNote.task!!.dueAt);check(!next.completed&&next.dueAt>taskNote.task!!.dueAt)
+                check(TaskDetails().complete().completed);check(!TaskDetails(completed=true).complete().completed)
+                val staged=TaskDetails().moveTo("progress").moveTo("review");taskStore.taskChange(taskId){it.copy(task=staged)}
+                check(taskStore.visibleHeads.first{it.noteId==taskId}.note.task!!.stage=="review")
+                check(staged.moveTo("done").completed);check(staged.moveTo("done").moveTo("todo").stage=="todo")
+                check(TaskDetails.from(org.json.JSONObject().put("dueAt",0).put("hasTime",false).put("priority",0).put("repeatRule","none").put("list","Reminders").put("completed",false).put("remind",false)).stage=="todo")
+                results.append("PASS: Android task statuses persist, completed tasks reopen, and older tasks remain compatible\n")
+                results.append("PASS: Android task persistence, backup, completion, and repeat rollover\n")
+                store.create()
+                val note = Note(title = "Android restart", text = "Hello 👋 नमस्ते", spans = listOf(Span(6, 2, "bold"), Span(6, 2, "italic")))
+                store.update(note)
+                check(File(store.root, "pending-draft.json").exists())
+                val recovered = Store(isolated)
+                check(recovered.editing == note.prepared())
+                check(spansFrom(attributed(note)) == canonicalSpans(note.spans))
+                results.append("PASS: Android atomic draft recovery, JNI Unicode, and rich-text round trip\n")
+                val overlap = Note(text = "abcdefgh", spans = listOf(Span(0,6,"bold"), Span(2,4,"italic"), Span(6,2,"bold")))
+                check(spansFrom(attributed(overlap)) == canonicalSpans(overlap.spans))
+                results.append("PASS: Android overlapping rich-text styles remain stable\n")
+                val styled = Note(text = "Heading and link", spans = listOf(Span(0,7,"title"),Span(0,7,"italic"),Span(12,4,"link:https://example.com")))
+                check(spansFrom(attributed(styled)) == canonicalSpans(styled.spans))
+                recovered.update(styled); recovered.flush()
+                val reread = Store(isolated); check(reread.heads.first().note == styled.prepared())
+                check(Note.from(styled.json()) == styled)
+                results.append("PASS: Android heading/link spans survive native editing and JNI storage\n")
+                val before = recovered.revisions().map { it.id }.toSet()
+                recovered.restore(recovered.backup())
+                check(recovered.revisions().map { it.id }.toSet() == before)
+                results.append("PASS: Android portable backup idempotence\n")
+                val latest = recovered.revisions(headsOnly = true).first()
+                val fork = org.json.JSONObject(latest.raw).put("id", uid()).put("note", note.copy(text = "Phone fork", spans = emptyList()).prepared().json())
+                recovered.ingest(fork.toString(), true); recovered.reload(); check(recovered.heads.size == 2)
+                recovered.resolve(latest); check(recovered.heads.size == 1)
+                check(recovered.revisions().any { it.id == fork.getString("id") })
+                results.append("PASS: Android fork resolution retains both histories\n")
+                recovered.create(); val dailyId=recovered.selected!!
+                recovered.update(Note(text="Before 👋 after",spans=listOf(Span(7,2,"bold"))))
+                val body=recovered.editing!!.document[0].id
+                val hash=sha256("test-asset".toByteArray());File(recovered.media,hash).writeText("test-asset")
+                recovered.update(recovered.editing!!.insertMedia(listOf(Media(hash,"test.txt","text/plain")),body,9))
+                check(recovered.editing!!.document[0].text=="Before 👋" && recovered.editing!!.document[2].text==" after")
+                recovered.activeBlock=recovered.editing!!.document[2].id;recovered.setList("check");recovered.changeBlock(recovered.activeBlock!!){it.copy(checked=true,indent=1)}
+                recovered.addBlock("table");val table=recovered.activeBlock!!;recovered.changeBlock(table){it.copy(cells=listOf(listOf("Name","Qty"),listOf("Milk","2")))}
+                recovered.update(recovered.editing!!.copy(tags=listOf("#Travel","travel","work")))
+                val original=recovered.editing!!;val mediaBlock=original.document[1].id;recovered.moveBlock(mediaBlock,1);check(recovered.editing!!.document[2].id==mediaBlock)
+                recovered.undo();check(recovered.editing==original);recovered.redo();check(recovered.editing!!.document[2].id==mediaBlock)
+                recovered.flush();check(recovered.error==null)
+                val mixed=Store(isolated);mixed.select(dailyId);check(mixed.editing==recovered.editing)
+                check(markdown(mixed.editing!!).contains("- [x]"));val zip=java.io.ByteArrayOutputStream();exportNote(mixed,mixed.editing!!,zip);check(zip.size()>100)
+                results.append("PASS: Android mixed blocks, caret insertion, Unicode spans, checklists, tables, tags, undo/redo, and ZIP export\n")
+                mixed.createFolder("Work/Ideas","🌿");check(mixed.collections.contains("Work") && mixed.collections.contains("Work/Ideas"));check(mixed.folderHeads.first().note.folderEmoji=="🌿")
+                results.append("PASS: Android nested folders and emoji sync records\n")
+                val freshContext=object:ContextWrapper(targetContext){override fun getFilesDir()=File(root,"fresh").apply{mkdirs()}}
+                val fresh=Store(freshContext);fresh.restore(mixed.backup());fresh.select(dailyId);check(fresh.editing==mixed.visibleHeads.first{it.noteId==dailyId}.note);check(File(fresh.media,hash).readText()=="test-asset")
+                val beforeDamaged=fresh.revisions().map{it.id};val damaged=org.json.JSONObject(String(mixed.backup())).put("media",org.json.JSONObject().put(hash,"YmFk"));check(runCatching{fresh.restore(damaged.toString().toByteArray())}.isFailure);check(fresh.revisions().map{it.id}==beforeDamaged)
+                results.append("PASS: Android fresh-library backup restore and atomic rejection of damaged media\n")
+                fresh.installStarterLibrary();check(fresh.visibleHeads.count{!it.note.deleted}==5);check(fresh.visibleHeads.filter{!it.note.deleted}.flatMap{it.note.attachments}.size==3);check(fresh.visibleHeads.first{it.noteId==dailyId}.note.deleted);check(File(fresh.root,"before-starter-refresh.leafbackup").exists())
+                val starterCount=fresh.revisions().size;fresh.installStarterLibrary();check(fresh.revisions().size==starterCount)
+                results.append("PASS: Android starter refresh preserves old notes, original images, pre-refresh backup, and one-time idempotence\n")
+                fresh.createFolder("Polish/Child","🌿");fresh.create();val keep=fresh.selected!!;fresh.update(fresh.editing!!.copy(title="Keep me",collection="Polish/Child"));fresh.flush();fresh.deleteFolder("Polish");check("Polish/Child" !in fresh.collections);check(fresh.visibleHeads.first{it.noteId==keep}.note.collection=="Personal");check(!fresh.visibleHeads.first{it.noteId==keep}.note.deleted)
+                val completion=android.text.SpannableString("Done");completion.setSpan(CompletionStrike(),0,4,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);check(spansFrom(completion).isEmpty())
+                results.append("PASS: Android nested folder deletion preserves notes and completion strike remains presentation-only\n")
+                val sizedNote=Note(title="Readable",text="Title body",spans=listOf(Span(0,5,"title"),Span(6,4,"bold")),textScale=1.3)
+                check(Note.from(sizedNote.json())==sizedNote)
+                val metrics=TextMetrics(body=24,title=40,scale=1.3)
+                check(spansFrom(attributed(sizedNote,metrics))==canonicalSpans(sizedNote.spans));check(attributed(sizedNote,metrics).getSpans(0,5,SemanticSize::class.java).single().size==52)
+                fresh.create();fresh.update(sizedNote);fresh.flush();check(fresh.visibleHeads.first{it.noteId==fresh.selected}.note.textScale==1.3)
+                check(ClipboardValue(text="https://example.com").link=="https://example.com");check(ClipboardValue(text="Just words").link==null)
+                results.append("PASS: Android synced note sizes, custom typography semantic round trip, and clipboard link classification\n")
+                taskStore.create();val toggleId=taskStore.selected!!;val parent=Block(kind="toggle",text="Ideas");val child=Block(parentId=parent.id,text="Nested");val tail=Block(text="After");taskStore.update(Note(title="Tree",blocks=listOf(parent,child,tail)));taskStore.flush()
+                taskStore.moveBlock(parent.id,1);check(taskStore.editing!!.document.map{it.id}==listOf(tail.id,parent.id,child.id));taskStore.duplicateBlock(parent.id);val copies=taskStore.editing!!.document;check(copies.size==5&&copies[4].parentId==copies[3].id);taskStore.changeBlock(parent.id){it.copy(collapsed=true)};check(!taskStore.editing!!.blockVisible(child));taskStore.removeBlock(parent.id);check(taskStore.editing!!.document.none{it.id==child.id});taskStore.flush()
+                results.append("PASS: Android toggles persist and move, duplicate, collapse, and remove nested blocks together\n")
+                taskStore.update(taskStore.editing!!.copy(deleted=true));taskStore.flush();val trash=taskStore.visibleHeads.first{it.noteId==toggleId};check(trash.note.deletedAt!=null);taskStore.expireTrash(trash.note.deletedAt!!+30L*86400000-1);check(taskStore.visibleHeads.any{it.noteId==toggleId});taskStore.expireTrash(trash.note.deletedAt!!+30L*86400000);check(taskStore.visibleHeads.none{it.noteId==toggleId});taskStore.ingest(trash.raw,true);taskStore.reload();check(taskStore.visibleHeads.none{it.noteId==toggleId});check(taskStore.revisions().count{it.noteId==toggleId}==1)
+                results.append("PASS: Android Trash expires at 30 days and old synced revisions cannot resurrect permanently erased notes\n")
+                val updateBytes=context.assets.open("update-test.json").use{it.readBytes()}
+                val update=parseUpdate(targetContext,updateBytes)
+                check(update.version=="0.13.0" && update.asset.build==14L)
+                check(unseenReleases(update,"0.11.0").map{it.version}==listOf("0.13.0","0.12.0"))
+                val changed=org.json.JSONObject(String(updateBytes));val decoded=android.util.Base64.decode(changed.getString("payload"),android.util.Base64.DEFAULT);decoded[0]=(decoded[0].toInt() xor 1).toByte();changed.put("payload",android.util.Base64.encodeToString(decoded,android.util.Base64.NO_WRAP))
+                check(runCatching{parseUpdate(targetContext,changed.toString().toByteArray())}.isFailure)
+                val updater=PebbleUpdater.get(targetContext)
+                updater.verifyApk(File(targetContext.applicationInfo.sourceDir),update)
+                check(runCatching{updater.verifyApk(File(targetContext.applicationInfo.sourceDir),update.copy(asset=update.asset.copy(build=15)))}.isFailure)
+                val providerUri=androidx.core.content.FileProvider.getUriForFile(targetContext,targetContext.packageName+".updates",File(targetContext.cacheDir,"updates/pebble.apk"))
+                check(providerUri.scheme=="content")
+                check(runCatching{androidx.core.content.FileProvider.getUriForFile(targetContext,targetContext.packageName+".updates",File(targetContext.filesDir,"private-note.json"))}.isFailure)
+                results.append("PASS: signed update feed rejects tampering, lists missed changes, verifies app identity/build, and provider cannot expose notes\n")
+                val releasePrefsName="leaf-release-test-"+java.util.UUID.randomUUID()
+                val releasePrefs=targetContext.getSharedPreferences(releasePrefsName,android.content.Context.MODE_PRIVATE)
+                try {
+                    check(ReleaseNotes.needsPresentation(targetContext,releasePrefs))
+                    check(ReleaseNotes.entries(targetContext,releasePrefs,false).single().version==ReleaseNotes.version(targetContext))
+                    ReleaseNotes.acknowledge(targetContext,releasePrefs)
+                    check(!ReleaseNotes.needsPresentation(targetContext,targetContext.getSharedPreferences(releasePrefsName,android.content.Context.MODE_PRIVATE)))
+                    releasePrefs.edit().putString(ReleaseNotes.seenKey,"0.6.0:old").commit()
+                    check(ReleaseNotes.needsPresentation(targetContext,releasePrefs))
+                    check(ReleaseNotes.entries(targetContext,releasePrefs,false).map{it.version}==listOf("0.13.0","0.12.0","0.11.0","0.10.0","0.9.0","0.8.0","0.7.0"))
+                    check(ReleaseNotes.entries(targetContext,releasePrefs,true).size==8)
+                    releasePrefs.edit().putString(ReleaseNotes.seenKey,ReleaseNotes.version(targetContext)+":old-build").commit()
+                    check(ReleaseNotes.needsPresentation(targetContext,releasePrefs))
+                    results.append("PASS: release acknowledgement persists across preference reads, skipped updates include missed changes, and new builds show again\n")
+                } finally { releasePrefs.edit().clear().commit() }
+                store.flush()
+            }
+            finish(0, Bundle().apply { putString("stream", results.toString()) })
+        } catch(e: Throwable) { finish(1, Bundle().apply { putString("stream", results.toString() + "FAIL: " + e.stackTraceToString()) }) }
+    }
+}

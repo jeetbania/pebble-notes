@@ -1,0 +1,9 @@
+# Pebble Notes 0.13
+
+This release renames the product while retaining app identifiers, account storage and libraries. It adds verified remote updates through a public GitHub release feed, local downloads with progress, missed-version changelogs, Later, and user-initiated installation. Android checks periodically and can issue an update notification; Mac checks while running. Signed feed metadata and package hashes protect downloads, and Android additionally compares the installed signing identity.
+
+The skippable four-step welcome flow introduces writing/media, checklists/tasks, optional local personalization, and offline use with optional Google connection. Names stay on their device and can be changed in Settings. The tour can be replayed. Native illustrations use layered cards and a restrained blue/lilac/peach palette, avoiding a web runtime or raster dependency. Android's library header uses a subtle accent glow fading into the page, with safe-area and keyboard padding preserved.
+
+Private signing keys, Google credentials, personal notes and local build output are excluded from the repository. Public releases are generated locally and signed before publication. Release procedures are documented in RELEASES.md.
+
+Automated checks cover 19 shared-core tests, 23 Mac checks and 17 Android checks, including signed metadata rejection after tampering, skipped changelogs, package/build identity checks and constrained installer file access. Live Mac onboarding and update screens are checked against an isolated library. Physical Vivo keyboard/gesture, installer permission, notifications under battery restrictions, simultaneous-device edits, interrupted media uploads and cloud deletion cleanup still require actual-device acceptance. Advanced capture, widgets and encryption remain later work by the user's preference.

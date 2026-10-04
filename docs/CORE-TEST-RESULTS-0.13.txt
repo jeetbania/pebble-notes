@@ -1,0 +1,24 @@
+test_attachment_path_traversal_rejected (__main__.CoreTests) ... ok
+test_block_documents_and_folder_metadata_round_trip (__main__.CoreTests) ... ok
+test_both_offline_versions_survive_and_converge (__main__.CoreTests) ... ok
+test_cross_note_parent_rejected_in_both_orders (__main__.CoreTests) ... ok
+test_cycles_roll_back_atomically (__main__.CoreTests) ... ok
+test_deleted_vs_edited_retains_both (__main__.CoreTests) ... ok
+test_delivery_in_random_order (__main__.CoreTests) ... ok
+test_invalid_blocks_are_rejected_atomically (__main__.CoreTests) ... ok
+test_malformed_json_does_not_damage_library (__main__.CoreTests) ... ok
+test_permanent_deletion_blocks_old_backups_and_offline_edits (__main__.CoreTests) ... ok
+test_restart_and_pending_queue (__main__.CoreTests) ... ok
+test_revision_is_immutable (__main__.CoreTests) ... ok
+test_schema_upgrade_preserves_legacy_history (__main__.CoreTests) ... ok
+test_semantic_duplicate_serialization (__main__.CoreTests) ... ok
+test_task_round_trip_and_validation (__main__.CoreTests) ... ok
+test_text_scale_round_trip_and_validation (__main__.CoreTests) ... ok
+test_toggle_tree_validates_order_and_parent_kind (__main__.CoreTests) ... ok
+test_unicode_and_image_metadata_round_trip (__main__.CoreTests) ... ok
+test_unsupported_format_and_missing_fields_rejected (__main__.CoreTests) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.055s
+
+OK
