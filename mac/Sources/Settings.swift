@@ -63,8 +63,8 @@ struct SettingsHome: View {
                     } else if page == "Updates" {
                         caption("Pebble Notes " + ReleaseNotes.version, "Updates download here, with release notes and your choice of when to install.")
                         Text(updater.message).font(.callout).foregroundStyle(.secondary)
-                        Button(updater.checking ? "Checking…" : "Check for updates") { Task { await updater.check(manual: true) } }.disabled(updater.checking || updater.downloading)
-                        if updater.available != nil { Button("View available update") { updater.visible = true } }
+                        Button(updater.checking ? "Checking…" : "Check for updates") { Task { await updater.check(manual: true); if updater.visible { onClose() } } }.disabled(updater.checking || updater.downloading)
+                        if updater.available != nil { Button("View available update") { updater.visible = true; onClose() } }
                     } else if page == "About" {
                         Text("Pebble Notes").font(.system(size: 32, weight: .bold))
                         Text("A quieter home for thoughts, images, and what comes next.").font(.system(size: 17)).foregroundStyle(Color.primary.opacity(0.72))
