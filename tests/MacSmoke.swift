@@ -3,6 +3,17 @@ import AppKit
 
 @main struct MacSmoke {
     @MainActor static func main() async throws {
+        var trail = NavigationTrail()
+        let tasksRoute = LibraryRoute(section: "Tasks")
+        let detailRoute = LibraryRoute(section: "Tasks", note: "task")
+        trail.record(tasksRoute); trail.record(detailRoute)
+        precondition(trail.canBack && !trail.canForward)
+        precondition(trail.step(-1) == tasksRoute && trail.canForward)
+        trail.record(tasksRoute); precondition(trail.routes.count == 3)
+        trail.record(LibraryRoute(section: "Images")); precondition(!trail.canForward && trail.routes.count == 3)
+        precondition(trail.step(-1) == tasksRoute && trail.step(-1) == LibraryRoute())
+        precondition(!trail.canBack && trail.step(-1) == nil)
+        print("PASS: navigation returns to task origin, restores forward history and truncates a new branch")
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("leaf-test-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let store = NoteStore(root: root)

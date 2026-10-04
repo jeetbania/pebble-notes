@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.14.3",
+    "title": "At your fingertips",
+    "changes": [
+      "Mac keyboard shortcuts include sidebar, search, new notes and navigation. Find the full list in Settings → Shortcuts.",
+      "The desktop frame has even insets when the sidebar is hidden. Drag notes onto sidebar collections with clear target feedback.",
+      "Desktop empty-state cards use solid adaptive surfaces, so overlapping artwork stays clean in light and dark modes.",
+      "Click anywhere on a task card to open details. Back and Forward follow real navigation history, with unavailable arrows dimmed.",
+      "Kanban cards have a blurred background. Block dragging uses a stable preview and saves the reorder once on release.",
+      "Mac tables support multiline cells, automatic content growth and vertical row resizing alongside column resizing."
+    ]
+  },
+  {
     "version": "0.14.2",
     "title": "Room for what comes next",
     "changes": [

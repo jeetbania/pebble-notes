@@ -87,14 +87,14 @@ struct TasksHome: View {
         let t = r.note.task!
         return HStack(alignment: .top, spacing: 10) {
             Button { store.mutate(r.noteId) { $0.task?.complete() } } label: { Image(systemName: t.completed ? "checkmark.circle.fill" : "circle").font(.system(size: 23, weight: .light)).foregroundStyle(t.completed ? LeafPalette.accent : Color.secondary) }.buttonStyle(SoftButtonStyle()).help(t.repeatRule == "none" ? "Complete task" : "Complete and schedule next occurrence")
-            Button { editing = r } label: {
+            Button { store.select(r.noteId) } label: {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(r.note.displayTitle).font(.system(size: 16, weight: .medium)).fixedSize(horizontal: false, vertical: true).strikethrough(t.completed).opacity(t.completed ? 0.5 : 1)
                     HStack(spacing: 8) { Text(t.list); if t.dueAt > 0 { Text(t.date.formatted(date: .abbreviated, time: t.hasTime ? .shortened : .omitted)).foregroundStyle(t.date < Date() && !t.completed ? .red : .secondary) }; if t.priority > 0 { Image(systemName: "flag.fill").foregroundStyle(t.priority == 3 ? Color.red : t.priority == 2 ? Color.orange : Color.blue) }; if t.repeatRule != "none" { Label(t.repeatRule.capitalized, systemImage: "repeat") }; if !r.note.attachments.isEmpty { Image(systemName: "paperclip") }; let checks = r.note.document.filter { $0.kind == "check" }; if !checks.isEmpty { Text("\(checks.filter(\.checked).count)/\(checks.count)") } }.font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }.buttonStyle(.plain)
             Menu { quickTaskActions(r); Menu("Status") { ForEach(["todo", "progress", "review", "done"], id: \.self) { state in Button(stageName(state)) { store.mutate(r.noteId) { $0.task?.move(to: state) } } } }; Button("Edit task…") { editing = r }; Button("Open details & subtasks") { store.select(r.noteId) }; Button("Duplicate") { var n = r.note; n.task?.completed = false; n.task?.status = "todo"; store.create(); store.update { $0 = n }; store.flush(); store.select(nil) }; Button("Convert to note") { store.mutate(r.noteId) { $0.task = nil } }; Divider(); Button("Move to Trash") { store.mutate(r.noteId) { $0.deleted = true } } } label: { Image(systemName: "ellipsis").frame(width: 36, height: 36) }.menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).frame(width: 36, height: 36)
-        }.padding(16).frame(maxWidth: .infinity, alignment: .leading).contentShape(RoundedRectangle(cornerRadius: 16)).modifier(TaskHover()).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 16)).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.055), lineWidth: 0.5)).contextMenu { quickTaskActions(r); Button("Edit task…") { editing = r } }
+        }.padding(16).frame(maxWidth: .infinity, alignment: .leading).contentShape(RoundedRectangle(cornerRadius: 16)).modifier(TaskHover()).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 16)).overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.055), lineWidth: 0.5)).onTapGesture { store.select(r.noteId) }.contextMenu { quickTaskActions(r); Button("Edit task…") { editing = r } }
     }
     func stageColour(_ stage: String) -> Color { switch stage { case "progress": .orange; case "review": .purple; case "done": .green; default: .blue } }
     func chip(_ text: String, _ icon: String, _ colour: Color) -> some View { Label(text, systemImage: icon).font(.system(size: 11, weight: .medium)).lineLimit(1).padding(.horizontal, 7).padding(.vertical, 5).foregroundStyle(colour).background(colour.opacity(0.10), in: Capsule()) }
@@ -102,7 +102,7 @@ struct TasksHome: View {
         let t = r.note.task!
         let description = r.note.document.filter { $0.isText && $0.kind != "check" }.map(\.text).joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
         return VStack(alignment: .leading, spacing: 10) {
-            Button { editing = r } label: {
+            Button { store.select(r.noteId) } label: {
                 VStack(alignment: .leading, spacing: 5) { Text(r.note.displayTitle).font(.system(size: 15, weight: .semibold)).lineLimit(3).fixedSize(horizontal: false, vertical: true); if !description.isEmpty { Text(description).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2) } }.frame(maxWidth: .infinity, alignment: .leading)
             }.buttonStyle(.plain)
             if !r.note.tags.isEmpty { HStack(spacing: 5) { ForEach(Array(r.note.tags.prefix(2)), id: \.self) { TagPill(text: $0) } }.clipped() }
@@ -111,7 +111,7 @@ struct TasksHome: View {
                 VStack(alignment: .leading, spacing: 5) { boardMetadata(t) }
             }
             HStack(spacing: 5) { Label(t.list, systemImage: "tray").font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1); Spacer(minLength: 4); if !r.note.attachments.isEmpty { Label("\(r.note.attachments.count)", systemImage: "paperclip").font(.system(size: 11)).foregroundStyle(.secondary) }; taskMenu(r) }
-        }.padding(14).frame(maxWidth: .infinity, alignment: .leading).contentShape(RoundedRectangle(cornerRadius: 18)).modifier(TaskHover()).background(LinearGradient(colors: [Color.primary.opacity(0.045), Color.primary.opacity(0.02)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).stroke(draggedTask == r.noteId ? stageColour(t.stage).opacity(0.3) : Color.primary.opacity(0.07), lineWidth: draggedTask == r.noteId ? 1 : 0.5)).shadow(color: .black.opacity(draggedTask == r.noteId ? 0.15 : 0.035), radius: draggedTask == r.noteId ? 16 : 4, y: 3).contextMenu { quickTaskActions(r); Button("Edit task…") { editing = r } }
+        }.padding(14).frame(maxWidth: .infinity, alignment: .leading).contentShape(RoundedRectangle(cornerRadius: 18)).modifier(TaskHover()).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18)).background(LinearGradient(colors: [Color.primary.opacity(0.045), Color.primary.opacity(0.02)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).stroke(draggedTask == r.noteId ? stageColour(t.stage).opacity(0.3) : Color.primary.opacity(0.07), lineWidth: draggedTask == r.noteId ? 1 : 0.5)).shadow(color: .black.opacity(draggedTask == r.noteId ? 0.15 : 0.035), radius: draggedTask == r.noteId ? 16 : 4, y: 3).onTapGesture { store.select(r.noteId) }.contextMenu { quickTaskActions(r); Button("Edit task…") { editing = r } }
     }
     @ViewBuilder func boardMetadata(_ t: TaskDetails) -> some View {
         if t.priority > 0 { chip(["", "Low", "Medium", "High"][min(3, max(0, t.priority))], "flag.fill", t.priority == 3 ? .red : t.priority == 2 ? .orange : .blue) }

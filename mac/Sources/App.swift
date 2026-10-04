@@ -19,7 +19,12 @@ struct LeafNotesApp: App {
         .windowStyle(.hiddenTitleBar).defaultSize(width: 1000, height: 740)
         .commands {
             CommandGroup(replacing: .appSettings) { Button("Settings…") { NotificationCenter.default.post(name: Notification.Name("leafSettings"), object: nil) }.keyboardShortcut(",") }
-            CommandGroup(replacing: .newItem) { Button("New Note") { store.create() }.keyboardShortcut("n") }
+            CommandGroup(replacing: .newItem) { Button("New Note") { PebbleShortcuts.send("new") }.keyboardShortcut("n") }
+            CommandMenu("Navigate") {
+                ForEach(PebbleShortcuts.entries.filter { $0.id != "new" }) { shortcut in
+                    Button(shortcut.title) { PebbleShortcuts.send(shortcut.id) }.keyboardShortcut(KeyEquivalent(shortcut.key.first!), modifiers: shortcut.shift ? [.command, .shift] : [.command])
+                }
+            }
             CommandGroup(after: .saveItem) {
                 Button("Export Backup…") { store.exportBackup() }.keyboardShortcut("e", modifiers: [.command, .shift])
                 Button("Import Backup…") { store.importBackup() }
@@ -36,6 +41,10 @@ struct LibraryView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reducedMotion
     @Environment(\.accessibilityReduceTransparency) private var reducedTransparency
+    @LeafState private var navigation = NavigationTrail()
+    @LeafState<[String: CGRect]> private var collectionDropFrames = [:]
+    @LeafState<String?> private var folderDropTarget = nil
+    @LeafState<Bool> private var dropSettling = false
     @LeafState<String> private var section = "Everything"
     @LeafState<String> private var search = ""
     @LeafState<String> private var collection = ""
@@ -111,8 +120,12 @@ struct LibraryView: View {
             if sidebarVisible { sidebar.frame(width: sidebarWidth).overlay(alignment: .trailing) { Color.clear.frame(width: 6).contentShape(Rectangle()).onHover { if $0 { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }.gesture(DragGesture(minimumDistance: 0, coordinateSpace: .global).onChanged { value in if resizeStart == nil { resizeStart = sidebarWidth }; sidebarWidth = min(360, max(180, resizeStart! + value.translation.width)) }.onEnded { _ in resizeStart = nil }).help("Resize sidebar") }.transition(.move(edge: .leading).combined(with: .opacity)) }
             ZStack(alignment: .top) {
                 Group {
-                    if let note = store.current, let id = store.selected { editor(note, id) }
-                    else if section == "Tasks" { TasksHome(query: search, dismissSearch: { searchFocused = false; NSApp.keyWindow?.makeFirstResponder(nil) }, clearSearch: { search = ""; searchFocused = false; NSApp.keyWindow?.makeFirstResponder(nil) }).environmentObject(store) }
+                    if section == "Tasks" {
+                        ZStack {
+                            TasksHome(query: search, dismissSearch: { searchFocused = false; NSApp.keyWindow?.makeFirstResponder(nil) }, clearSearch: { search = ""; searchFocused = false; NSApp.keyWindow?.makeFirstResponder(nil) }).environmentObject(store).opacity(store.current == nil ? 1 : 0).allowsHitTesting(store.current == nil).accessibilityHidden(store.current != nil)
+                            if let note = store.current, let id = store.selected { editor(note, id) }
+                        }
+                    } else if let note = store.current, let id = store.selected { editor(note, id) }
                     else { gallery }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped().allowsHitTesting(preview == nil).accessibilityHidden(preview != nil)
                 topBar.allowsHitTesting(preview == nil).accessibilityHidden(preview != nil).background { if reducedTransparency { Color(nsColor: .windowBackgroundColor) } else { ContentBlur() } }
@@ -124,12 +137,20 @@ struct LibraryView: View {
             .panePresented(isPresented: Binding(get: { updater.visible && !showOnboarding && !showWhatsNew }, set: { updater.visible = $0 })) { PebbleUpdateDialog() }
             .panePresented(isPresented: Binding(get: { showWhatsNew && !showOnboarding }, set: { showWhatsNew = $0 })) { WhatsNew(history: releaseHistory) { ReleaseNotes.acknowledge(); showWhatsNew = false } }
             .overlay {
-                if let attachment = preview { PhotoViewer(initial: attachment, items: photoItems, store: store, leadingInset: sidebarVisible ? 10 : 150, done: { preview = nil; store.select(nil) }, openNote: { id in preview = nil; store.select(id) }).background(.ultraThinMaterial).transition(.opacity) }
+                if let attachment = preview { PhotoViewer(initial: attachment, items: photoItems, store: store, leadingInset: sidebarVisible ? 10 : 150, done: { navigate(-1) }, openNote: { id in preview = nil; store.select(id) }).background(.ultraThinMaterial).transition(.opacity) }
             }
             .background(scheme == .dark ? Color.black.opacity(0.13) : Color.white.opacity(0.26))
             .clipShape(RoundedRectangle(cornerRadius: 18))
-            .padding(.vertical, 8).padding(.trailing, 8)
+            .padding(.vertical, 8).padding(.trailing, 8).padding(.leading, sidebarVisible ? 0 : 8)
 
+        }
+        .overlay(alignment: .topLeading) {
+            if let r = grabbedRevision, dragging != nil {
+                Group { if let a = grabbedImage { ImageCard(attachment: a, collection: r.note.collection, media: store.media) } else { NoteCard(revision: r, conflict: false) } }
+                    .frame(width: grabbedFrame.width).scaleEffect(dropSettling ? 0.12 : 0.96).opacity(dropSettling ? 0 : 1).shadow(color: .black.opacity(0.18), radius: 12, y: 8)
+                    .position(x: grabbedFrame.midX + dragTranslation.width, y: grabbedFrame.midY + dragTranslation.height)
+                    .allowsHitTesting(false).zIndex(20)
+            }
         }
         .background {
             if reducedTransparency { Color(nsColor: .windowBackgroundColor) }
@@ -155,13 +176,39 @@ struct LibraryView: View {
         .popover(isPresented: $moveCollection) { movePicker }
         .animation(motion, value: store.selected)
         .animation(motion, value: searchVisible)
-        .onChange(of: section) { _, _ in searchFocused = false; preview = nil; newCollection = false; showSettings = false; dailyTools = false; showConflicts = false }
+        .onChange(of: section) { _, _ in searchFocused = false; newCollection = false; showSettings = false; dailyTools = false; showConflicts = false }
         .animation(motion, value: sidebarVisible)
         .alert("Leaf needs attention", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) { Button("OK") { store.error = nil } } message: { Text(store.error ?? "") }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("leafSettings"))) { _ in if clipboard.activeStore === store { showSettings = true } }
+        .onChange(of: route) { _, next in navigation.record(next) }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("pebbleShortcut"))) { event in
+            guard clipboard.activeStore === store, let action = event.object as? String else { return }; shortcut(action)
+        }
+        .coordinateSpace(name: "libraryDrag")
+        .onPreferenceChange(CollectionDropFrames.self) { collectionDropFrames = $0 }
         .onDisappear { store.flush() }
         .task { await store.syncIfConnected(); while !Task.isCancelled { try? await Task.sleep(for: .seconds(45)); if !Task.isCancelled { store.expireTrash(); await store.syncIfConnected() } } }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in clipboard.inspect(); Task { await store.syncIfConnected() } }
+    }
+    var route: LibraryRoute { LibraryRoute(section: section, collection: collection, note: store.selected, image: preview?.id) }
+    func navigate(_ direction: Int) {
+        guard let target = navigation.step(direction) else { return }
+        section = target.section; collection = target.collection; store.select(target.note); preview = store.uniqueHeads.flatMap { $0.note.attachments }.first { $0.id == target.image }
+    }
+    func shortcut(_ action: String) {
+        if action == "sidebar" { sidebarVisible.toggle(); return }
+        if showSettings || showOnboarding || newCollection || !erasing.isEmpty { return }
+        switch action {
+        case "new": preview = nil; createNote()
+        case "search": preview = nil; store.select(nil); searchVisible = true; searchFocused = true
+        case "find": if store.selected != nil { dailyTools = true } else { searchVisible = true; searchFocused = true }
+        case "back": navigate(-1)
+        case "forward": navigate(1)
+        case "format": formattingVisible.toggle()
+        case "collection": editingCollection = ""; collectionName = ""; collectionEmoji = ""; collectionImage = ""; iconMode = 0; newCollection = true
+        case "everything", "notes", "tasks", "images": preview = nil; store.select(nil); section = ["everything":"Everything", "notes":"Notes", "tasks":"Tasks", "images":"Images"][action]!
+        default: break
+        }
     }
     var sidebar: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -178,9 +225,9 @@ struct LibraryView: View {
                 Spacer(); Button { editingCollection = ""; collectionName = ""; collectionEmoji = ""; collectionImage = ""; iconMode = 0; newCollection = true } label: { Image(systemName: "plus").font(.system(size: 13)).frame(width: 24, height: 24) }.buttonStyle(SidebarButtonStyle()).help("New collection")
             }.padding(.horizontal, 8).padding(.top, 15).padding(.bottom, 7)
             ForEach(allCollections, id: \.self) { name in
-                Button { store.select(nil); section = "Collection"; collection = name } label: {
+                Button { preview = nil; store.select(nil); section = "Collection"; collection = name } label: {
                     HStack(spacing: 10) { collectionIcon(name).frame(width: 28, height: 28).modifier(IconDepth(active: section == "Collection" && collection == name)); Text(name.split(separator: "/").last.map(String.init) ?? name).font(.system(size: 13, weight: .medium)); Spacer() }.padding(.horizontal, 7).frame(height: 34).background(Color.primary.opacity(section == "Collection" && collection == name ? 0.10 : 0), in: RoundedRectangle(cornerRadius: 8))
-                }.opacity(draggedFolder == name ? 0 : 1).background(GeometryReader { proxy in Color.clear.preference(key: GalleryFrames.self, value: [name: proxy.frame(in: .named("folders"))]) }).highPriorityGesture(folderGrab(name)).padding(.leading, CGFloat(name.split(separator: "/").count - 1) * 12).buttonStyle(SidebarButtonStyle()).contextMenu { Button("Edit collection…") { editCollection(name) }; if name != "Personal" { Button("Delete Collection") { deletingFolder = name } } }
+                }.overlay(RoundedRectangle(cornerRadius: 8).fill(LeafPalette.accent.opacity(folderDropTarget == name ? 0.14 : 0)).allowsHitTesting(false)).overlay(RoundedRectangle(cornerRadius: 8).stroke(LeafPalette.accent.opacity(folderDropTarget == name ? 0.5 : 0), lineWidth: 1).allowsHitTesting(false)).background(GeometryReader { proxy in Color.clear.preference(key: CollectionDropFrames.self, value: [name: proxy.frame(in: .named("libraryDrag"))]) }).opacity(draggedFolder == name ? 0 : 1).background(GeometryReader { proxy in Color.clear.preference(key: GalleryFrames.self, value: [name: proxy.frame(in: .named("folders"))]) }).highPriorityGesture(folderGrab(name)).padding(.leading, CGFloat(name.split(separator: "/").count - 1) * 12).buttonStyle(SidebarButtonStyle()).contextMenu { Button("Edit collection…") { editCollection(name) }; if name != "Personal" { Button("Delete Collection") { deletingFolder = name } } }
             }
             if !Set(store.uniqueHeads.flatMap { $0.note.tags }).isEmpty { Text("Tags").font(.system(size: 12, weight: .medium)).foregroundStyle(.tertiary).padding(.horizontal, 8).padding(.top, 16); ForEach(Array(Set(store.uniqueHeads.filter { !$0.note.deleted }.flatMap { $0.note.tags })).sorted(), id: \.self) { tag in nav("#" + tag, "number") } }
             } }.scrollIndicators(.never)
@@ -207,14 +254,14 @@ struct LibraryView: View {
     func sidebarRow(_ label: String, _ icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) { rowLabel(label, icon, selected: selected).background(Color.primary.opacity(selected ? 0.10 : 0), in: RoundedRectangle(cornerRadius: 8)) }.buttonStyle(SidebarButtonStyle())
     }
-    func nav(_ label: String, _ icon: String) -> some View { sidebarRow(label, icon, selected: section == label) { var transaction = Transaction(); transaction.disablesAnimations = true; withTransaction(transaction) { store.select(nil); section = label } } }
+    func nav(_ label: String, _ icon: String) -> some View { sidebarRow(label, icon, selected: section == label) { var transaction = Transaction(); transaction.disablesAnimations = true; withTransaction(transaction) { preview = nil; store.select(nil); section = label } } }
     var topBar: some View {
         ZStack {
             HStack(spacing: 8) {
                 if !sidebarVisible { Color.clear.frame(width: 74); GlassIcon(icon: "sidebar.left", label: "Show sidebar") { sidebarVisible = true }.leafGlass(in: Circle()) }
                 HStack(spacing: 0) {
-                    GlassIcon(icon: "chevron.left", label: "Back to library") { store.select(nil) }.disabled(store.selected == nil)
-                    GlassIcon(icon: "chevron.right", label: "Open most recent note") { if let first = filtered.first { store.select(first.noteId) } }.disabled(store.selected != nil || filtered.isEmpty)
+                    GlassIcon(icon: "chevron.left", label: "Go back") { navigate(-1) }.disabled(!navigation.canBack)
+                    GlassIcon(icon: "chevron.right", label: "Go forward") { navigate(1) }.disabled(!navigation.canForward)
                 }.leafGlass(in: Capsule())
                 Spacer()
                 HStack(spacing: 0) {
@@ -236,7 +283,7 @@ struct LibraryView: View {
     @ViewBuilder var contextualMenu: some View {
         if let id = store.selected {
             Button(formattingVisible ? "Hide Formatting Bar" : "Show Formatting Bar") { withAnimation(motion) { formattingVisible.toggle() } }
-            Button("Find, Tags & History…") { dailyTools = true }.keyboardShortcut("f")
+            Button("Find, Tags & History…") { dailyTools = true }
             Button("Export Note with Attachments…") { store.exportMarkdown() }
             Button("Add File or PDF…") { store.addFiles() }
             Button("Insert Table") { store.addBlock("table") }
@@ -308,38 +355,42 @@ struct LibraryView: View {
                         }
                     }.padding(.horizontal, 24).padding(.top, 98).padding(.bottom, 100).frame(maxWidth: .infinity, alignment: .leading)
                 }.scrollIndicators(.never).contentShape(Rectangle())
-                    .simultaneousGesture(DragGesture(minimumDistance: 6, coordinateSpace: .named("galleryGrab")).onChanged { value in
+                    .simultaneousGesture(DragGesture(minimumDistance: 6, coordinateSpace: .named("libraryDrag")).onChanged { value in
                         guard dragging == nil, !cardFrames.values.contains(where: { $0.contains(value.startLocation) }) else { return }
                         if selectionRect == nil { selectionBefore = NSEvent.modifierFlags.contains(.command) ? selectedItems : []; selecting = true }
                         let rect = CGRect(x: min(value.startLocation.x, value.location.x), y: min(value.startLocation.y, value.location.y), width: abs(value.location.x - value.startLocation.x), height: abs(value.location.y - value.startLocation.y))
                         selectionRect = rect; selectedItems = selectionBefore.union(cardFrames.filter { $0.value.intersects(rect) }.map(\.key))
                     }.onEnded { _ in selectionRect = nil })
-                    .simultaneousGesture(SpatialTapGesture(coordinateSpace: .named("galleryGrab")).onEnded { value in if !cardFrames.values.contains(where: { $0.contains(value.location) }) { selectedItems.removeAll(); selecting = false; searchFocused = false } })
+                    .simultaneousGesture(SpatialTapGesture(coordinateSpace: .named("libraryDrag")).onEnded { value in if !cardFrames.values.contains(where: { $0.contains(value.location) }) { selectedItems.removeAll(); selecting = false; searchFocused = false } })
                     .animation(motion, value: filtered.map(\.id))
-                if let rect = selectionRect { RoundedRectangle(cornerRadius: 4).fill(LeafPalette.accent.opacity(0.12)).overlay(RoundedRectangle(cornerRadius: 4).stroke(LeafPalette.accent.opacity(0.7), lineWidth: 1)).frame(width: rect.width, height: rect.height).position(x: rect.midX, y: rect.midY).allowsHitTesting(false) }
-                if let r = grabbedRevision, dragging != nil {
-                    Group { if let a = grabbedImage { ImageCard(attachment: a, collection: r.note.collection, media: store.media) } else { NoteCard(revision: r, conflict: false) } }
-                        .frame(width: grabbedFrame.width).scaleEffect(0.84).shadow(color: .black.opacity(0.18), radius: 12, y: 8)
-                        .position(x: grabbedFrame.midX + dragTranslation.width, y: grabbedFrame.midY + dragTranslation.height)
-                        .allowsHitTesting(false).zIndex(10)
-                }
+                if let rect = selectionRect { RoundedRectangle(cornerRadius: 4).fill(LeafPalette.accent.opacity(0.12)).overlay(RoundedRectangle(cornerRadius: 4).stroke(LeafPalette.accent.opacity(0.7), lineWidth: 1)).frame(width: rect.width, height: rect.height).position(x: rect.midX - geometry.frame(in: .named("libraryDrag")).minX, y: rect.midY - geometry.frame(in: .named("libraryDrag")).minY).allowsHitTesting(false) }
                 HStack(spacing: 2) {
                     GlassIcon(icon: "square.and.pencil", label: "New note") { createNote() }
                     GlassIcon(icon: "photo.on.rectangle", label: "Add images") { createNote(); store.addImages() }
                 }.padding(.horizontal, 10).padding(.vertical, 3).leafGlass(in: Capsule()).padding(.bottom, 18)
-            }.coordinateSpace(name: "galleryGrab").onPreferenceChange(GalleryFrames.self) { cardFrames = $0 }
+            }.onPreferenceChange(GalleryFrames.self) { cardFrames = $0 }
         }
     }
     func grab(_ r: Revision, image: Attachment? = nil) -> some Gesture {
-        DragGesture(minimumDistance: 8, coordinateSpace: .named("galleryGrab")).onChanged { value in
-            if dragging == nil { grabbedFrame = cardFrames[r.noteId] ?? .zero; grabbedRevision = r; grabbedImage = image; dragging = r.noteId }
+        DragGesture(minimumDistance: 8, coordinateSpace: .named("libraryDrag")).onChanged { value in
+            if dragging == nil || dropSettling { dropSettling = false; grabbedFrame = cardFrames[r.noteId] ?? .zero; grabbedRevision = r; grabbedImage = image; dragging = r.noteId }
             dragTranslation = value.translation
-            if let target = cardFrames.first(where: { $0.key != r.noteId && $0.value.contains(value.location) })?.key {
+            folderDropTarget = collectionDropFrames.first(where: { $0.value.contains(value.location) })?.key
+            if folderDropTarget == nil, let target = cardFrames.first(where: { $0.key != r.noteId && $0.value.contains(value.location) })?.key {
                 var ids = filtered.map(\.noteId)
                 if let from = ids.firstIndex(of: r.noteId), let to = ids.firstIndex(of: target) { ids.remove(at: from); ids.insert(r.noteId, at: to); withAnimation(reducedMotion || calmMotion ? nil : .easeInOut(duration: 0.18)) { reorder(ids) } }
             }
-        }.onEnded { _ in dragging = nil; grabbedRevision = nil; grabbedImage = nil; dragTranslation = .zero }
+        }.onEnded { value in
+            if let target = collectionDropFrames.first(where: { $0.value.contains(value.location) }) {
+                store.mutate(r.noteId) { $0.collection = target.key }
+                withAnimation(reducedMotion || calmMotion ? nil : .spring(response: 0.25, dampingFraction: 1)) {
+                    dragTranslation = CGSize(width: target.value.midX - grabbedFrame.midX, height: target.value.midY - grabbedFrame.midY); dropSettling = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + (reducedMotion || calmMotion ? 0 : 0.25)) { if dropSettling { finishCardDrag() } }
+            } else { finishCardDrag() }
+        }
     }
+    func finishCardDrag() { dragging = nil; grabbedRevision = nil; grabbedImage = nil; dragTranslation = .zero; folderDropTarget = nil; dropSettling = false }
     var photoItems: [ViewerPhoto] {
         if let n = store.current, let id = store.selected { return ViewerPhoto.items(note: n, noteId: id) }
         return filtered.flatMap { ViewerPhoto.items(note: $0.note, noteId: $0.noteId) }

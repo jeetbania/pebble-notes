@@ -24,6 +24,14 @@ struct DocumentEditor: View {
     @LeafState<CGRect> private var blockOrigin = .zero
     @LeafState<[String: Double]> private var columnWidths = [:]
     @LeafState<Double?> private var columnStart = nil
+    @LeafState<[String: Double]> private var rowHeights = [:]
+    @LeafState<Double?> private var rowStart = nil
+    @LeafState<Note?> private var dragSnapshot = nil
+    @LeafState<[DocumentBlock]?> private var previewBlocks = nil
+    @LeafState<[String: CGRect]> private var dragSlots = [:]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var displayed: Note { var n = note; if let previewBlocks { n.blocks = previewBlocks }; return n }
+    var movingIDs: Set<String> { guard let draggedBlock else { return [] }; return (dragSnapshot ?? note).descendants(of: draggedBlock) }
     var body: some View {
         GeometryReader { geometry in
             let width = min(editorWidth, max(300.0, geometry.size.width - 144))
@@ -32,7 +40,7 @@ struct DocumentEditor: View {
                     if store.heads.filter({ $0.noteId == noteId }).count > 1 { Button("Edits from both devices · review", action: onConflict).buttonStyle(.plain).foregroundStyle(.orange).font(.system(size: 12)) }
                     TextField("Untitled note", text: Binding(get: { store.current?.title ?? "" }, set: { value in store.update(undoKey: "title") { $0.title = value } })).onSubmit { beginBody() }.font(.system(size: typeTitle * note.textScale, weight: .bold)).textFieldStyle(.plain).padding(.bottom, 10)
                     if !note.tags.isEmpty { Text(note.tags.map { "#" + $0 }.joined(separator: "  ")).font(.system(size: 12)).foregroundStyle(.secondary) }
-                    ForEach(Array(note.document.enumerated()).filter { note.isVisible($0.element, dragging: draggedBlock) }, id: \.element.id) { index, block in
+                    ForEach(Array(displayed.document.enumerated()).filter { displayed.isVisible($0.element) }, id: \.element.id) { index, block in
                         ZStack(alignment: .topLeading) {
                             blockView(block, index: index, width: width).frame(maxWidth: .infinity, alignment: .leading)
                             Button { blockOptions = block.id } label: { SixDotHandle().frame(width: 26, height: 32).contentShape(Rectangle()) }
@@ -41,20 +49,26 @@ struct DocumentEditor: View {
                                 .offset(x: block.kind == "toggle" ? -62 : -30, y: markerOffset(block)).help("Block options · drag to reorder")
                                 .accessibilityLabel("Block options")
                                 .highPriorityGesture(DragGesture(minimumDistance: 5, coordinateSpace: .named("noteBlocks")).onChanged { value in
-                                    if draggedBlock == nil { blockOrigin = blockFrames[block.id] ?? .zero; draggedBlock = block.id; blockOptions = nil }
-                                    let current = blockFrames[block.id] ?? blockOrigin
-                                    blockTranslation = CGSize(width: value.translation.width, height: blockOrigin.minY + value.translation.height - current.minY)
-                                    guard let live = store.current else { return }
-                                    let peers = live.document.filter { $0.parentId == block.parentId }
-                                    if let target = peers.first(where: { $0.id != block.id && blockFrames[$0.id].map { value.location.y >= $0.minY && value.location.y <= $0.maxY } == true }),
-                                       let from = peers.firstIndex(where: { $0.id == block.id }), let to = peers.firstIndex(where: { $0.id == target.id }) {
-                                        withAnimation(.easeOut(duration: 0.16)) { store.moveBlock(block.id, by: to - from) }
-                                    }
-                                }.onEnded { _ in draggedBlock = nil; blockTranslation = .zero })
+                                    if draggedBlock == nil { blockOrigin = blockFrames[block.id] ?? .zero; dragSlots = blockFrames; dragSnapshot = note; draggedBlock = block.id; blockOptions = nil }
+                                    var direct = Transaction(); direct.animation = nil
+                                    withTransaction(direct) { blockTranslation = value.translation }
+                                    guard var snapshot = dragSnapshot else { return }
+                                    let peers = snapshot.document.filter { $0.parentId == block.parentId && $0.id != block.id }
+                                    // Frozen insertion thresholds cannot oscillate as neighbouring views animate.
+                                    let next = peers.first { (dragSlots[$0.id]?.midY ?? .greatestFiniteMagnitude) > value.location.y }
+                                    if let next { snapshot.moveGroup(block.id, before: next.id) }
+                                    else { let ids = snapshot.descendants(of: block.id); let moving = snapshot.document.filter { ids.contains($0.id) }; var content = snapshot.document.filter { !ids.contains($0.id) }; if let last = peers.last { let end = snapshot.descendants(of: last.id); let insertion = (content.lastIndex { end.contains($0.id) } ?? -1) + 1; content.insert(contentsOf: moving, at: insertion); snapshot.blocks = content } }
+                                    if previewBlocks != snapshot.document { withAnimation(reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 1)) { previewBlocks = snapshot.document } }
+                                }.onEnded { _ in
+                                    if let previewBlocks, previewBlocks != note.document { store.update { $0.blocks = previewBlocks } }
+                                    var direct = Transaction(); direct.disablesAnimations = true
+                                    withTransaction(direct) { draggedBlock = nil; previewBlocks = nil; dragSnapshot = nil; blockTranslation = .zero }
+                                })
                         }
-                            .background(Color.primary.opacity(draggedBlock == block.id ? 0.08 : 0), in: RoundedRectangle(cornerRadius: 8))
+                            .opacity(movingIDs.contains(block.id) ? 0 : 1)
                             .background(GeometryReader { proxy in Color.clear.preference(key: BlockFrames.self, value: [block.id: proxy.frame(in: .named("noteBlocks"))]) })
-                            .offset(draggedBlock == block.id ? blockTranslation : .zero).zIndex(draggedBlock == block.id ? 10 : 0).padding(.leading, CGFloat(note.depth(block) * 18)).padding(.top, gap(before: index)).padding(.leading, 64).onHover { hoveredBlock = $0 ? block.id : nil }.padding(.leading, -64).animation(.easeOut(duration: 0.15), value: hoveredBlock)
+                            .padding(.leading, CGFloat(note.depth(block) * 18)).padding(.top, gap(before: index)).padding(.leading, 64).onHover { hoveredBlock = $0 ? block.id : nil }.padding(.leading, -64)
+
                     }
                     HStack(spacing: 12) {
                         Button { store.addBlock("text") } label: { Label("Text", systemImage: "plus") }
@@ -64,6 +78,18 @@ struct DocumentEditor: View {
                     }.font(.system(size: 15)).buttonStyle(SoftButtonStyle()).foregroundStyle(.secondary).padding(.top, 12)
                 }.frame(width: width, alignment: .leading).padding(.top, 82).padding(.bottom, 90).frame(maxWidth: .infinity)
             }.scrollIndicators(.never).coordinateSpace(name: "noteBlocks").onPreferenceChange(BlockFrames.self) { blockFrames = $0 }
+            .overlay(alignment: .topLeading) {
+                if let id = draggedBlock, let snapshot = dragSnapshot {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(snapshot.document.filter { snapshot.descendants(of: id).contains($0.id) && snapshot.isVisible($0) }) { block in
+                            if block.isText { Text(AttributedString(styledBlock(block).attributed)).frame(maxWidth: .infinity, alignment: .leading).padding(.leading, CGFloat(snapshot.depth(block) * 18)) }
+                            else if block.kind == "table" { Text(block.cells.map { $0.joined(separator: "   |   ") }.joined(separator: "\n")).font(.system(size: 15)).padding(12) }
+                            else { Label(block.caption.isEmpty ? block.kind.capitalized : block.caption, systemImage: block.kind == "image" ? "photo" : "doc") }
+                        }
+                    }.padding(8).frame(width: width, alignment: .leading).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8)).overlay(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04))).shadow(color: .black.opacity(0.08), radius: 8, y: 3)
+                        .offset(x: blockOrigin.minX - 8 + blockTranslation.width, y: blockOrigin.minY - 8 + blockTranslation.height).transaction { $0.animation = nil }.allowsHitTesting(false)
+                }
+            }
             .overlay(alignment: .topLeading) {
                 if let id = blockOptions, let block = store.current?.document.first(where: { $0.id == id }) {
                     ZStack(alignment: .topLeading) {
@@ -106,7 +132,7 @@ struct DocumentEditor: View {
         return min(0, (Typography.size(style) * note.textScale * 1.25 - 32) / 2)
     }
     func styledBlock(_ block: DocumentBlock) -> Note { var value = block.asNote; value.textScale = note.textScale; return value }
-    func gap(before index: Int) -> CGFloat { guard index > 0 else { return 0 }; let block = note.document[index]; let previous = note.document[index - 1]; if block.textStyle != nil && block.textStyle != "body" || block.spans.contains(where: { ["headline", "title", "subtitle"].contains($0.kind) }) { return 22 }; if ["check", "bullet", "number"].contains(block.kind) { return previous.kind == block.kind ? 3 : 7 }; return previous.kind == "toggle" ? 6 : (previous.textStyle != nil && previous.textStyle != "body") || previous.spans.contains(where: { ["headline", "title", "subtitle"].contains($0.kind) }) ? 6 : 12 }
+    func gap(before index: Int) -> CGFloat { guard index > 0 else { return 0 }; let block = displayed.document[index]; let previous = displayed.document[index - 1]; if block.textStyle != nil && block.textStyle != "body" || block.spans.contains(where: { ["headline", "title", "subtitle"].contains($0.kind) }) { return 22 }; if ["check", "bullet", "number"].contains(block.kind) { return previous.kind == block.kind ? 3 : 7 }; return previous.kind == "toggle" ? 6 : (previous.textStyle != nil && previous.textStyle != "body") || previous.spans.contains(where: { ["headline", "title", "subtitle"].contains($0.kind) }) ? 6 : 12 }
     @ViewBuilder func blockView(_ block: DocumentBlock, index: Int, width: CGFloat) -> some View {
         if block.isText {
             let height = max(32, styledBlock(block).attributed.boundingRect(with: NSSize(width: width - 42 - CGFloat(block.indent * 18), height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading]).height + 4)
@@ -119,9 +145,9 @@ struct DocumentEditor: View {
                 RichEditor(note: styledBlock(block), onEdit: { text, spans in store.editBlock(block.id, text: text, spans: spans) }, onImages: { store.importFiles($0) }, onFocus: { store.activeBlock = block.id }, onEnter: { splitList(block) }, completed: block.kind == "check" && block.checked, onCommand: { command in applyCommand(command, to: block.id) }, blockId: block.id, blockStyle: block.textStyle ?? block.spans.first(where: { ["title", "subtitle", "headline"].contains($0.kind) })?.kind ?? "body", onStyle: { style in store.changeBlock(block.id) { $0.textStyle = style } }, onBackspace: { backspace(block.id) }).id(noteId + block.id)
                     .frame(maxWidth: .infinity).frame(height: height).opacity(block.checked ? 0.55 : 1)
             }.padding(.leading, CGFloat(block.indent * 18)).overlay(alignment: .topLeading) {
-                if block.kind == "toggle" { GlassIcon(icon: block.collapsed == true || draggedBlock == block.id ? "arrowtriangle.right.fill" : "arrowtriangle.down.fill", label: "Expand or collapse toggle", size: 11) { store.changeBlock(block.id) { $0.collapsed = !($0.collapsed ?? false) } }.offset(x: -36, y: markerOffset(block)) }
+                if block.kind == "toggle" { GlassIcon(icon: block.collapsed == true ? "arrowtriangle.right.fill" : "arrowtriangle.down.fill", label: "Expand or collapse toggle", size: 11) { store.changeBlock(block.id) { $0.collapsed = !($0.collapsed ?? false) } }.offset(x: -36, y: markerOffset(block)) }
             }
-            if block.kind == "toggle", block.collapsed != true, draggedBlock != block.id, note.descendants(of: block.id).count == 1 { Button { store.addChild(to: block.id); focusBlock(store.activeBlock) } label: { Label("Add inside toggle", systemImage: "plus").font(.system(size: 15)).foregroundStyle(.secondary) }.buttonStyle(SoftButtonStyle()) }
+            if block.kind == "toggle", block.collapsed != true, note.descendants(of: block.id).count == 1 { Button { store.addChild(to: block.id); focusBlock(store.activeBlock) } label: { Label("Add inside toggle", systemImage: "plus").font(.system(size: 15)).foregroundStyle(.secondary) }.buttonStyle(SoftButtonStyle()) }
             }
 
         } else if block.kind == "table" { table(block) }
@@ -181,9 +207,33 @@ struct DocumentEditor: View {
         let all = editors(root); if let i = all.firstIndex(where: { $0 === view }), i + 1 < all.count { window.makeFirstResponder(all[i + 1]); all[i + 1].setSelectedRange(NSRange(location: 0, length: 0)) }
     }
     func columnWidth(_ block: String, _ column: Int) -> Double { let key = "tableWidth:" + noteId + ":" + block + ":" + String(column); return columnWidths[key] ?? (UserDefaults.standard.object(forKey: key) as? Double ?? 160) }
+    func rowHeight(_ block: DocumentBlock, _ row: Int) -> Double {
+        let key = "tableHeight:" + noteId + ":" + block.id + ":" + String(row)
+        let content = block.cells[row].enumerated().map { col, text in
+            let bounds = (text + (text.hasSuffix("\n") ? " " : "")).boundingRect(with: NSSize(width: columnWidth(block.id, col) - 24, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: NSFont.systemFont(ofSize: 15)])
+            return ceil(bounds.height) + 24
+        }.max() ?? 44
+        return max(44, content, rowHeights[key] ?? (UserDefaults.standard.object(forKey: key) as? Double ?? 44))
+    }
     func table(_ block: DocumentBlock) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            LeafScrollView(.horizontal) { VStack(spacing: 0) { ForEach(block.cells.indices, id: \.self) { row in HStack(spacing: 0) { ForEach(block.cells[row].indices, id: \.self) { col in TextField("", text: Binding(get: { block.cells[row][col] }, set: { value in store.update(undoKey: "cell:\(block.id):\(row):\(col)") { $0.editBlock(block.id) { $0.cells[row][col] = value } } }), axis: .vertical).textFieldStyle(.plain).font(.system(size: 15, weight: row == 0 ? .medium : .regular)).padding(12).frame(width: columnWidth(block.id, col)).frame(minHeight: 42).background(Color.primary.opacity(row == 0 ? 0.05 : 0.02)).border(Color.primary.opacity(0.1), width: 0.5).overlay(alignment: .trailing) { Color.clear.frame(width: 6).contentShape(Rectangle()).onHover { if $0 { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }.gesture(DragGesture(minimumDistance: 0, coordinateSpace: .global).onChanged { v in let key = "tableWidth:" + noteId + ":" + block.id + ":" + String(col); if columnStart == nil { columnStart = columnWidth(block.id, col) }; let width = min(600, max(80, columnStart! + v.translation.width)); columnWidths[key] = width; UserDefaults.standard.set(width, forKey: key) }.onEnded { _ in columnStart = nil }) } } } } }.clipShape(RoundedRectangle(cornerRadius: 10)) }.clipShape(RoundedRectangle(cornerRadius: 10))
+            LeafScrollView(.horizontal) {
+                VStack(spacing: 0) {
+                    ForEach(block.cells.indices, id: \.self) { row in
+                        HStack(spacing: 0) {
+                            ForEach(block.cells[row].indices, id: \.self) { col in
+                                TableCellEditor(text: Binding(get: { store.current?.document.first(where: { $0.id == block.id })?.cells[row][col] ?? "" }, set: { value in store.update(undoKey: "cell:\(block.id):\(row):\(col)") { $0.editBlock(block.id) { $0.cells[row][col] = value } } }), header: row == 0)
+                                    .padding(12).frame(width: columnWidth(block.id, col), height: rowHeight(block, row)).background(Color.primary.opacity(row == 0 ? 0.05 : 0.02)).border(Color.primary.opacity(0.1), width: 0.5)
+                                    .overlay(alignment: .trailing) {
+                                        Color.clear.frame(width: 6).contentShape(Rectangle()).onHover { if $0 { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }.gesture(DragGesture(minimumDistance: 0, coordinateSpace: .global).onChanged { v in let key = "tableWidth:" + noteId + ":" + block.id + ":" + String(col); if columnStart == nil { columnStart = columnWidth(block.id, col) }; columnWidths[key] = min(600, max(80, columnStart! + v.translation.width)) }.onEnded { _ in let key = "tableWidth:" + noteId + ":" + block.id + ":" + String(col); UserDefaults.standard.set(columnWidths[key], forKey: key); columnStart = nil })
+                                    }
+                            }
+                        }.overlay(alignment: .bottom) {
+                            Color.clear.frame(height: 6).contentShape(Rectangle()).onHover { if $0 { NSCursor.resizeUpDown.push() } else { NSCursor.pop() } }.help("Drag to resize row height").gesture(DragGesture(minimumDistance: 0, coordinateSpace: .global).onChanged { v in let key = "tableHeight:" + noteId + ":" + block.id + ":" + String(row); if rowStart == nil { rowStart = rowHeight(block, row) }; rowHeights[key] = min(800, max(44, rowStart! + v.translation.height)) }.onEnded { _ in let key = "tableHeight:" + noteId + ":" + block.id + ":" + String(row); UserDefaults.standard.set(rowHeights[key], forKey: key); rowStart = nil })
+                        }
+                    }
+                }.clipShape(RoundedRectangle(cornerRadius: 10))
+            }.clipShape(RoundedRectangle(cornerRadius: 10))
             HStack { Button("+ Row") { store.changeBlock(block.id) { if $0.cells.count < 100 { $0.cells.append(Array(repeating: "", count: $0.cells[0].count)) } } }; Button("+ Column") { store.changeBlock(block.id) { if $0.cells[0].count < 12 { $0.cells = $0.cells.map { $0 + [""] } } } } }.font(.system(size: 15)).buttonStyle(SoftButtonStyle()).foregroundStyle(.secondary)
         }
     }

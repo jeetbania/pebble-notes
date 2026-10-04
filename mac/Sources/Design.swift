@@ -50,10 +50,11 @@ extension View {
     }
 }
 struct GlassIcon: View {
+    @Environment(\.isEnabled) private var enabled
     var icon: String; var label: String; var size: CGFloat = 16; var action: () -> Void
     var body: some View {
         Button(action: action) { Image(systemName: icon).font(.system(size: size, weight: .medium)).frame(width: 36, height: 36) }
-            .buttonStyle(SoftButtonStyle(radius: 18)).help(label).accessibilityLabel(label)
+            .buttonStyle(SoftButtonStyle(radius: 18)).opacity(enabled ? 1 : 0.35).help(label).accessibilityLabel(label)
     }
 }
 
@@ -142,7 +143,7 @@ struct GalleryGrab<G: Gesture>: ViewModifier {
     var id: String; var dragging: String?; var gesture: G
     func body(content: Content) -> some View {
         content.opacity(dragging == id ? 0 : 1)
-            .background(GeometryReader { proxy in Color.clear.preference(key: GalleryFrames.self, value: [id: proxy.frame(in: .named("galleryGrab"))]) })
+            .background(GeometryReader { proxy in Color.clear.preference(key: GalleryFrames.self, value: [id: proxy.frame(in: .named("libraryDrag"))]) })
             .highPriorityGesture(gesture)
     }
 }
@@ -214,3 +215,5 @@ struct SixDotHandle: View {
         for x in [9.0, 16.0] { for y in [9.0, 16.0, 23.0] { context.fill(Path(ellipseIn: CGRect(x: x - 1.5, y: y - 1.5, width: 3, height: 3)), with: .color(.secondary)) } }
     }.accessibilityHidden(true) }
 }
+
+struct CollectionDropFrames: PreferenceKey { static var defaultValue: [String: CGRect] = [:]; static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) { value.merge(nextValue(), uniquingKeysWith: { _, new in new }) } }

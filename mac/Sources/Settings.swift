@@ -23,18 +23,20 @@ struct SettingsHome: View {
     @LeafState<String> private var page = "Appearance"
     @LeafState<Bool> private var connecting = false
     @LeafState<String> private var message = ""
-    let sections = [("Profile", "person.crop.circle"), ("Appearance", "paintpalette"), ("Writing", "textformat"), ("Sync", "arrow.triangle.2.circlepath"), ("Backups", "archivebox"), ("Updates", "arrow.down.circle"), ("About", "info.circle")]
+    let sections = [("Profile", "person.crop.circle"), ("Appearance", "paintpalette"), ("Writing", "textformat"), ("Shortcuts", "keyboard"), ("Sync", "arrow.triangle.2.circlepath"), ("Backups", "archivebox"), ("Updates", "arrow.down.circle"), ("About", "info.circle")]
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack { if let url = Bundle.main.url(forResource: "Leaf", withExtension: "icns"), let image = NSImage(contentsOf: url) { Image(nsImage: image).resizable().frame(width: 34, height: 34) }; Text("Pebble Notes").font(.headline) }.padding(.bottom, 26)
-                ForEach(sections, id: \.0) { label, icon in Button { page = label } label: { Label(label, systemImage: icon).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(Color.primary.opacity(page == label ? 0.09 : 0), in: RoundedRectangle(cornerRadius: 10)) }.buttonStyle(SoftButtonStyle()) }
-                Spacer(); Button("What’s New · " + ReleaseNotes.version) { onWhatsNew() }.buttonStyle(SoftButtonStyle()).font(.caption).foregroundStyle(Color.primary.opacity(0.85)).frame(maxWidth: .infinity, minHeight: 36, alignment: .leading).contentShape(Rectangle())
+                HStack { if let url = Bundle.main.url(forResource: "Leaf", withExtension: "icns"), let image = NSImage(contentsOf: url) { Image(nsImage: image).resizable().frame(width: 34, height: 34) }; Text("Pebble Notes").font(.headline) }.padding(.bottom, 14)
+                LeafScrollView { VStack(alignment: .leading, spacing: 4) { ForEach(sections, id: \.0) { label, icon in Button { page = label } label: { Label(label, systemImage: icon).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(Color.primary.opacity(page == label ? 0.09 : 0), in: RoundedRectangle(cornerRadius: 10)) }.buttonStyle(SoftButtonStyle()) } } }.scrollIndicators(.never)
+                Spacer(minLength: 0); Button("What’s New · " + ReleaseNotes.version) { onWhatsNew() }.buttonStyle(SoftButtonStyle()).font(.caption).foregroundStyle(Color.primary.opacity(0.85)).frame(maxWidth: .infinity, minHeight: 36, alignment: .leading).contentShape(Rectangle())
             }.padding(20).frame(width: 180).background(Color.clear)
             LeafScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     HStack { Text(page).font(.system(size: 25, weight: .semibold)); Spacer(); GlassIcon(icon: "xmark", label: "Close Settings", action: onClose).leafGlass(in: Circle()) }.padding(.bottom, 4)
-                    if page == "Profile" {
+                    if page == "Shortcuts" {
+                        ShortcutsPanel()
+                    } else if page == "Profile" {
                         ProfileSettings(name: $profileName)
                     } else if page == "Appearance" {
                         caption("Interface theme", "Choose the light, dark, or system appearance.")
