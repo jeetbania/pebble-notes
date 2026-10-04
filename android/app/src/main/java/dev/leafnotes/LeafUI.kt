@@ -260,13 +260,14 @@ fun iconResource(name: String): Int = when(name) {
                 }
             } else if(section=="Images" || galleryMode) {
                 LazyVerticalStaggeredGrid(modifier=Modifier.backdropSource(),columns=StaggeredGridCells.Fixed(2),contentPadding=PaddingValues(22.dp,headerHeight+12.dp,22.dp,120.dp),horizontalArrangement=Arrangement.spacedBy(14.dp),verticalItemSpacing=16.dp) {
+                    if(records.isEmpty())item(span=StaggeredGridItemSpan.FullLine){LibraryEmpty(section,search,{onSearch("")},onNew,{onSection("Notes")})}
                     if(section=="Images") records.forEach {r->items(r.note.attachments.filter{it.mime.startsWith("image/")},key={r.noteId+it.id}){a->Pressable(Modifier.clip(RoundedCornerShape(23.dp)).background(c.paper),description="View ${a.name}",onClick={if(enabled)onImage(a)},onLongClick={if(enabled)held=r.noteId}){Column(Modifier.padding(8.dp)){MediaImage(File(store.media,a.id),Modifier.fillMaxWidth().aspectRatio(1f),radius=17);Label(r.note.collection,11,color=c.secondary,modifier=Modifier.align(Alignment.CenterHorizontally).padding(top=7.dp,bottom=3.dp),lines=1)}}}}
                     else items(records,key={it.noteId}){r->GalleryCard(r,store,onHold={if(enabled)held=r.noteId}){if(enabled)onOpen(r.noteId)}}
                 }
             } else {
                 val groups=records.groupBy {if(it.note.pinned)"Pinned" else dateGroup(it.createdAt)}
                 LazyColumn(modifier=Modifier.backdropSource(),contentPadding=PaddingValues(start=22.dp,top=headerHeight+12.dp,end=22.dp,bottom=120.dp)) {
-                    if(records.isEmpty()) item {Column(Modifier.fillMaxWidth().padding(top=100.dp),horizontalAlignment=Alignment.CenterHorizontally){Glyph("compose",size=38,tint=c.tertiary);Label(if(search.isEmpty())"A fresh page awaits." else "No matching notes",21,FontWeight.SemiBold,modifier=Modifier.padding(top=18.dp));Label(if(search.isEmpty())"Keep a thought, an image, a little idea." else "Try a different word.",14,color=c.secondary,modifier=Modifier.padding(top=8.dp))}}
+                    if(records.isEmpty())item{LibraryEmpty(section,search,{onSearch("")},onNew,{onSection("Notes")})}
                     groups.forEach {(heading,items)->
                         item(key=heading+"header") {Label(heading,20,FontWeight.SemiBold,modifier=Modifier.padding(top=if(heading==groups.keys.first())8.dp else 26.dp,bottom=10.dp))}
                         itemsIndexed(items,key={_,r->r.noteId}){index,r->
@@ -434,11 +435,11 @@ fun prefixLine(view:EditText,prefix:String) {
     LaunchedEffect(Unit){visible=true}
     Dialog(onDismissRequest=close,properties=DialogProperties(usePlatformDefaultWidth=false,decorFitsSystemWindows=false)) {
         val view=LocalView.current
-        SideEffect {(view.parent as? DialogWindowProvider)?.window?.let{window->window.setDimAmount(.18f);if(Build.VERSION.SDK_INT>=31){window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND);window.attributes=window.attributes.apply{blurBehindRadius=16}}}}
+        SideEffect {(view.parent as? DialogWindowProvider)?.window?.let{window->window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));window.setDimAmount(.18f);if(Build.VERSION.SDK_INT>=31){window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND);window.attributes=window.attributes.apply{blurBehindRadius=if(translucent)32 else 16}}}}
         Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().padding(bottom=20.dp),contentAlignment=Alignment.BottomCenter) {
             Box(Modifier.fillMaxSize().clickable(indication=null,interactionSource=remember{MutableInteractionSource()}){close()})
             AnimatedVisibility(visible,enter=fadeIn(tween(if(calm)0 else 180))+slideInVertically(spring(dampingRatio=1f,stiffness=550f)){if(calm)0 else 36},exit=fadeOut(tween(if(calm)0 else 150))+slideOutVertically(tween(if(calm)0 else 180)){if(calm)0 else 24}) {
-            Column(Modifier.fillMaxWidth().padding(start=10.dp,end=10.dp,bottom=10.dp).heightIn(max=650.dp).shadow(24.dp,RoundedCornerShape(32.dp)).background(if(translucent)c.paper.copy(alpha=.82f) else c.paper,RoundedCornerShape(32.dp)).padding(start=24.dp,end=24.dp,top=20.dp,bottom=48.dp)) {
+            Column(Modifier.fillMaxWidth().padding(start=10.dp,end=10.dp,bottom=10.dp).heightIn(max=650.dp).shadow(24.dp,RoundedCornerShape(32.dp)).background(if(translucent)c.paper.copy(alpha=.94f) else c.paper,RoundedCornerShape(32.dp)).padding(start=24.dp,end=24.dp,top=20.dp,bottom=48.dp)) {
                 Box(Modifier.align(Alignment.CenterHorizontally).width(34.dp).height(4.dp).background(c.tertiary.copy(alpha=.25f),CircleShape))
                 Row(Modifier.padding(top=18.dp,bottom=16.dp),verticalAlignment=Alignment.CenterVertically){Label(title,25,FontWeight.SemiBold,modifier=Modifier.weight(1f));Pressable(Modifier.size(36.dp).background(c.fill,CircleShape),"Close",onClick=close){Glyph("close",size=21)}}
                 Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState()),content=content)

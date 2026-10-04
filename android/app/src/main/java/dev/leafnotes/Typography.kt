@@ -8,9 +8,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Slider
 
-data class TextMetrics(val body:Int=15,val headline:Int=17,val subtitle:Int=19,val title:Int=26,val scale:Double=1.0) {
+data class TextMetrics(val body:Int=18,val headline:Int=21,val subtitle:Int=24,val title:Int=30,val scale:Double=1.0) {
     fun size(kind:String)=((when(kind){"title"->title;"subtitle"->subtitle;"headline"->headline;else->body})*scale).toInt().coerceIn(10,72)
-    companion object { fun read(p:SharedPreferences)=TextMetrics(p.getInt("typeBody",15).coerceIn(14,26),p.getInt("typeHeadline",17).coerceIn(17,34),p.getInt("typeSubtitle",19).coerceIn(18,34),p.getInt("typeTitle",26).coerceIn(24,44)) }
+    companion object { fun read(p:SharedPreferences)=TextMetrics(p.getInt("typeBody",18).coerceIn(14,26),p.getInt("typeHeadline",21).coerceIn(17,34),p.getInt("typeSubtitle",24).coerceIn(18,34),p.getInt("typeTitle",30).coerceIn(24,44)) }
 }
 val LocalTypeSizes=staticCompositionLocalOf { TextMetrics() }
 val LocalCalmMotion=staticCompositionLocalOf { false }
@@ -27,7 +27,7 @@ class SemanticSize(val kind:String,size:Int):android.text.style.AbsoluteSizeSpan
         Label("Defaults for this phone. A note’s size adjustment multiplies these values and syncs with that note.",14,color=LocalLeafColors.current.secondary)
         val metrics=LocalTypeSizes.current
         listOf(Triple("Body","typeBody",14..26),Triple("Heading","typeHeadline",17..34),Triple("Subtitle","typeSubtitle",18..34),Triple("Title","typeTitle",24..44)).forEach{(name,key,range)->
-            val value=store.preferences.getInt(key,when(key){"typeBody"->15;"typeHeadline"->17;"typeSubtitle"->19;else->26})
+            val value=store.preferences.getInt(key,when(key){"typeBody"->18;"typeHeadline"->21;"typeSubtitle"->24;else->30})
             Row(Modifier.fillMaxWidth().padding(top=18.dp)){Label(name,16,modifier=Modifier.weight(1f));Label("$value sp",14,color=LocalLeafColors.current.secondary)}
             Slider(value.toFloat(),{if(it.toInt()!=value){haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);store.preferences.edit().putInt(key,it.toInt()).apply()}},valueRange=range.first.toFloat()..range.last.toFloat(),steps=range.last-range.first-1)
         }

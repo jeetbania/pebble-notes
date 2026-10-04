@@ -20,3 +20,7 @@ Read this before changing any user-facing UI. The user’s explicit direction ta
 - Mobile action buttons use capsule or circular shapes; fields, cards and menu rows retain their appropriate rounded rectangles. Do not add small page/brand labels to the top-right navigation area.
 - Mobile home uses a purple glow behind cards with a long, smooth falloff and a paler light-mode variant. Status/navigation bars blend with the current page and use readable system icons. Scrolled content passes behind a blurred, faded header; header labels remain crisp.
 - Mobile settings starts with a compact grouped index and opens focused inner pages. Avoid promotional paragraphs and redundant explanations. Sheet titles and primary actions remain visible while the form scrolls, with space above the keyboard and system gesture area.
+
+- Fixed mobile task navigation uses the page surface, with no separate frosted strip or duplicate system inset. Glass release cards have one strong blurred material and a transparent dialog window; never add an opaque slab behind the copy.
+- Empty states use static ghost previews with subtle adaptive strokes, soft shadows and a contextual action. Cover task list/board, notes/gallery, images, search, pinned notes, checklists, collections, archive and trash. Do not use shimmering loading skeletons for empty content.
+- Default note typography is body 18, heading 21, subtitle 24, title 30; preserve explicit custom sizes. Editor commands, captions and add-block suggestions scale up with the writing UI.

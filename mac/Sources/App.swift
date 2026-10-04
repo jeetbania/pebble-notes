@@ -112,7 +112,7 @@ struct LibraryView: View {
             ZStack(alignment: .top) {
                 Group {
                     if let note = store.current, let id = store.selected { editor(note, id) }
-                    else if section == "Tasks" { TasksHome(query: search, dismissSearch: { searchFocused = false; NSApp.keyWindow?.makeFirstResponder(nil) }).environmentObject(store) }
+                    else if section == "Tasks" { TasksHome(query: search, dismissSearch: { searchFocused = false; NSApp.keyWindow?.makeFirstResponder(nil) }, clearSearch: { search = ""; searchFocused = false; NSApp.keyWindow?.makeFirstResponder(nil) }).environmentObject(store) }
                     else { gallery }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped().allowsHitTesting(preview == nil).accessibilityHidden(preview != nil)
                 topBar.allowsHitTesting(preview == nil).accessibilityHidden(preview != nil).background { if reducedTransparency { Color(nsColor: .windowBackgroundColor) } else { ContentBlur() } }
@@ -345,7 +345,10 @@ struct LibraryView: View {
         return filtered.flatMap { ViewerPhoto.items(note: $0.note, noteId: $0.noteId) }
     }
     var emptyState: some View {
-        VStack(spacing: 12) { Image(systemName: search.isEmpty ? "note.text" : "magnifyingglass").font(.system(size: 32, weight: .ultraLight)).foregroundStyle(.tertiary); Text(search.isEmpty ? "Room for a new thought." : "No matching notes").font(.system(size: 18, weight: .medium)); Text(search.isEmpty ? "Write something. Keep something lovely." : "Try another word.").font(.system(size: 13)).foregroundStyle(.secondary) }
+        let kind = search.isEmpty ? section.lowercased() : "search"
+        let title: String = switch kind { case "search": "No matching notes"; case "images": "A place for inspiration"; case "trash": "Trash is empty"; case "archive": "Nothing archived yet"; case "pinned": "Keep favourites close"; case "checklists": "One thing at a time"; default: "Room for a new thought" }
+        let detail: String = switch kind { case "search": "Try another word."; case "images": "Add a photo to a note to see it here."; case "trash": "Deleted notes will appear here."; case "archive": "Archived notes stay here for later."; case "pinned": "Pin a note to find it here."; case "checklists": "Start a note with a checklist."; default: "Keep a thought, an image, a little idea." }
+        return GhostEmpty(kind: kind, title: title, detail: detail, actionLabel: ["trash", "archive"].contains(kind) ? nil : kind == "search" ? "Clear search" : kind == "pinned" ? "Browse notes" : "Create a note", action: { if kind == "search" { search = "" } else if kind == "pinned" { section = "Everything" } else { createNote() } })
     }
     func editor(_ note: Note, _ id: String) -> some View {
         DocumentEditor(store: store, note: note, noteId: id, onPreview: { preview = $0 }, onConflict: { showConflicts = true })

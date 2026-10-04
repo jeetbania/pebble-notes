@@ -23,3 +23,5 @@ android/.kotlin/
 !docs/*TEST-RESULTS-0.14.txt
 
 !docs/UPDATE-0.14.1.md
+
+!docs/UPDATE-0.14.2.md

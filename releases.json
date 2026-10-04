@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.14.2",
+    "title": "Room for what comes next",
+    "changes": [
+      "Android task navigation blends into one page surface without a separate frosted strip or duplicate system-bar inset.",
+      "Contextual ghost previews now fill empty tasks, notes, galleries, images, search, pinned notes, checklists, collections, archive and trash on Android and Mac.",
+      "Update cards use a stronger single material with more blur and transparent dialog windows, without a solid backdrop behind the text.",
+      "Note body text and heading defaults are larger, along with slash commands, captions and add-block suggestions. Explicit custom text sizes are preserved."
+    ]
+  },
+  {
     "version": "0.14.1",
     "title": "A calmer phone interface",
     "changes": [

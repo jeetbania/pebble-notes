@@ -32,7 +32,7 @@ struct SlashMenu: View {
         Text("Blocks").font(.caption).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.top, 8)
         if commands.isEmpty { Text("No matching commands").foregroundStyle(.secondary).padding(12) }
         LeafScrollView { VStack(spacing: 2) { ForEach(Array(commands.enumerated()), id: \.element.id) { i, command in
-            Button { pick(command.id) } label: { HStack(spacing: 10) { Image(systemName: command.icon).frame(width: 24); VStack(alignment: .leading, spacing: 2) { Text(command.title).font(.system(size: 13, weight: .medium)); Text(command.hint).font(.system(size: 11)).foregroundStyle(.secondary) }; Spacer() }.padding(.horizontal, 10).frame(height: 44).background(Color.primary.opacity(i == selected ? 0.08 : 0), in: RoundedRectangle(cornerRadius: 8)) }.buttonStyle(.plain)
+            Button { pick(command.id) } label: { HStack(spacing: 10) { Image(systemName: command.icon).frame(width: 24); VStack(alignment: .leading, spacing: 2) { Text(command.title).font(.system(size: 16, weight: .medium)); Text(command.hint).font(.system(size: 13)).foregroundStyle(.secondary) }; Spacer() }.padding(.horizontal, 10).frame(height: 44).background(Color.primary.opacity(i == selected ? 0.08 : 0), in: RoundedRectangle(cornerRadius: 8)) }.buttonStyle(.plain)
         } } }.frame(height: min(320, CGFloat(commands.count * 46 + 4)))
         SubtleDivider(); Text("↑ ↓ to choose   ↩ / tab to insert   esc to close").font(.system(size: 10)).foregroundStyle(.secondary).padding(8)
     }.padding(6).frame(width: 260).background(.regularMaterial) }

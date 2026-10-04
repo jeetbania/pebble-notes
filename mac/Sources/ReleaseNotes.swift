@@ -42,7 +42,7 @@ struct WhatsNew: View {
                 }
             }
             HStack { Spacer(); Button("Continue", action: close).keyboardShortcut(.defaultAction).buttonStyle(SoftButtonStyle()).padding(8).leafGlass(in: Capsule()) }
-        }.padding(28).frame(maxWidth: 560).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22)).overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(.white.opacity(0.12), lineWidth: 0.5)).padding(.horizontal, 20)
+        }.padding(28).frame(maxWidth: 560).background(.thickMaterial, in: RoundedRectangle(cornerRadius: 22)).overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(.white.opacity(0.12), lineWidth: 0.5)).padding(.horizontal, 20)
             .onExitCommand(perform: close)
     }
 }

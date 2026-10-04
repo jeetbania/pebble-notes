@@ -75,25 +75,25 @@ import java.util.Date
             else if(block.kind=="divider")Box(Modifier.fillMaxWidth().height(.5.dp).background(c.separator))
             else if(block.kind=="table") {
                 Column(Modifier.horizontalScroll(rememberScrollState()).clip(RoundedCornerShape(12.dp)).background(c.fill)) {
-                    block.cells.forEachIndexed{row,cells->Row {cells.forEachIndexed{col,value->BasicTextField(value,{new->store.editing?.let{n->store.update(n.editBlock(block.id){b->b.copy(cells=b.cells.mapIndexed{r,line->line.mapIndexed{k,v->if(r==row&&k==col)new else v}})},"cell:${block.id}:$row:$col")}},textStyle=TextStyle(color=c.text,fontSize=16.sp),cursorBrush=SolidColor(c.accent),modifier=Modifier.width(145.dp).heightIn(min=46.dp).border(.5.dp,c.separator).padding(12.dp))}}}
+                    block.cells.forEachIndexed{row,cells->Row {cells.forEachIndexed{col,value->BasicTextField(value,{new->store.editing?.let{n->store.update(n.editBlock(block.id){b->b.copy(cells=b.cells.mapIndexed{r,line->line.mapIndexed{k,v->if(r==row&&k==col)new else v}})},"cell:${block.id}:$row:$col")}},textStyle=TextStyle(color=c.text,fontSize=18.sp),cursorBrush=SolidColor(c.accent),modifier=Modifier.width(145.dp).heightIn(min=46.dp).border(.5.dp,c.separator).padding(12.dp))}}}
                 }
-                Row(Modifier.padding(top=6.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)){Pressable(Modifier.padding(6.dp),"Add row",onClick={store.changeBlock(block.id){if(it.cells.size<100)it.copy(cells=it.cells+listOf(List(it.cells[0].size){""}))else it}}){Label("+ Row",13,color=c.secondary)};Pressable(Modifier.padding(6.dp),"Add column",onClick={store.changeBlock(block.id){if(it.cells[0].size<12)it.copy(cells=it.cells.map{r->r+""})else it}}){Label("+ Column",13,color=c.secondary)}}
+                Row(Modifier.padding(top=6.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)){Pressable(Modifier.padding(6.dp),"Add row",onClick={store.changeBlock(block.id){if(it.cells.size<100)it.copy(cells=it.cells+listOf(List(it.cells[0].size){""}))else it}}){Label("+ Row",17,color=c.secondary)};Pressable(Modifier.padding(6.dp),"Add column",onClick={store.changeBlock(block.id){if(it.cells[0].size<12)it.copy(cells=it.cells.map{r->r+""})else it}}){Label("+ Column",17,color=c.secondary)}}
             } else note.attachments.firstOrNull{it.id==block.mediaId}?.let{a->
                 if(block.kind=="image") {
                     val ratio=remember(a.id){val bounds=BitmapFactory.Options().apply{inJustDecodeBounds=true};BitmapFactory.decodeFile(File(store.media,a.id).path,bounds);if(bounds.outHeight>0)bounds.outWidth.toFloat()/bounds.outHeight else 1f}
                     val width=minOf((LocalConfiguration.current.screenWidthDp-56).toFloat(),if(block.presentation=="large")540f*ratio else 220f).coerceAtLeast(1f)
                     Pressable(Modifier.fillMaxWidth(),"View ${a.name}",onClick={onPreview(a)}){MediaImage(File(store.media,a.id),Modifier.width(width.dp).aspectRatio(ratio),fit=true,radius=10)}
                 } else Pressable(Modifier.fillMaxWidth(),"Open "+a.name,onClick={filePreview=a}){Label(a.name,17,modifier=Modifier.fillMaxWidth().background(c.fill,RoundedCornerShape(16.dp)).padding(18.dp))}
-                BasicTextField(block.caption,{value->store.editing?.let{store.update(it.editBlock(block.id){b->b.copy(caption=value)},"caption:"+block.id)}},textStyle=TextStyle(color=c.secondary,fontSize=13.sp),cursorBrush=SolidColor(c.accent),modifier=Modifier.fillMaxWidth().padding(top=8.dp),decorationBox={inner->if(block.caption.isEmpty())Label("Add a caption…",13,color=c.tertiary);inner()})
+                BasicTextField(block.caption,{value->store.editing?.let{store.update(it.editBlock(block.id){b->b.copy(caption=value)},"caption:"+block.id)}},textStyle=TextStyle(color=c.secondary,fontSize=15.sp),cursorBrush=SolidColor(c.accent),modifier=Modifier.fillMaxWidth().padding(top=8.dp),decorationBox={inner->if(block.caption.isEmpty())Label("Add a caption…",15,color=c.tertiary);inner()})
             }
             if(block.kind=="toggle" && block.collapsed!=true && draggingBlock!=block.id)SheetRow("Add inside toggle","plus"){store.addChild(block.id);focusNext=store.activeBlock}
             if(slashBlock==block.id){val commands=suggestions(slashQuery)
                 Column(Modifier.fillMaxWidth().padding(top=8.dp).clip(RoundedCornerShape(16.dp)).background(c.paper).border(.7.dp,c.separator,RoundedCornerShape(16.dp)).heightIn(max=260.dp).verticalScroll(rememberScrollState()).padding(horizontal=12.dp,vertical=8.dp)) {
-                    Label("Blocks",12,color=c.secondary,modifier=Modifier.padding(start=8.dp,bottom=4.dp))
+                    Label("Blocks",14,color=c.secondary,modifier=Modifier.padding(start=8.dp,bottom=4.dp))
                     commands.forEachIndexed{i,(command,title)->Pressable(Modifier.fillMaxWidth().heightIn(min=48.dp).background(if(i==0)c.accent.copy(alpha=.10f)else Color.Transparent,RoundedCornerShape(10.dp)),title,onClick={applyCommand(block.id,command)}) {
                         Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {
                             Box(Modifier.size(24.dp),contentAlignment=Alignment.Center){when(command){"text"->Label("T",19);"title"->Label("H1",16);"subtitle"->Label("H2",16);"headline"->Label("H3",16);"toggle"->Label("▸",20);"table"->Glyph("grid",size=21);"divider"->Glyph("minus",size=21);else->Glyph(if(command=="bullet")"list"else command,size=21)}}
-                            Label(title,16,modifier=Modifier.weight(1f))
+                            Label(title,18,modifier=Modifier.weight(1f))
                         }
                     }}
                     if(commands.isEmpty())Label("No matching blocks",14,color=c.secondary,modifier=Modifier.padding(12.dp))
@@ -103,7 +103,7 @@ import java.util.Date
             if(!block.isText || store.activeBlock==block.id)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) { Pressable(Modifier.size(30.dp),"Block options",onClick={store.activeBlock=block.id;blockMenu=block.id}){Glyph("more",size=15,tint=c.tertiary)} }
         }
     }}
-    Row(Modifier.fillMaxWidth().padding(top=8.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)){Pressable(Modifier.padding(8.dp),"Add text",onClick={store.addBlock("text")}){Label("+ Text",14,color=c.secondary)};Pressable(Modifier.padding(8.dp),"Insert table",onClick={store.addBlock("toggle")} ){Label("+ Toggle",14,color=c.secondary)};Pressable(Modifier.padding(8.dp),"Insert table",onClick={store.addBlock("table")}){Label("+ Table",14,color=c.secondary)}}
+    Row(Modifier.fillMaxWidth().padding(top=8.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)){Pressable(Modifier.padding(8.dp),"Add text",onClick={store.addBlock("text")}){Label("+ Text",17,color=c.secondary)};Pressable(Modifier.padding(8.dp),"Add toggle",onClick={store.addBlock("toggle")} ){Label("+ Toggle",17,color=c.secondary)};Pressable(Modifier.padding(8.dp),"Insert table",onClick={store.addBlock("table")}){Label("+ Table",17,color=c.secondary)}}
     filePreview?.let{a->IosSheet(a.name,onDismiss={filePreview=null}){
         if(a.mime=="application/pdf")PdfPages(File(store.media,a.id)) else Label("Original file saved on this device",15,color=c.secondary)
         SheetRow("Save original file","share"){saveFile.launch(a.name)}

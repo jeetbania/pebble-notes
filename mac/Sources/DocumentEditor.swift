@@ -9,10 +9,10 @@ struct BlockFrames: PreferenceKey {
 
 struct DocumentEditor: View {
     @ObservedObject var store: NoteStore
-    @AppStorage("typeBody") private var typeBody = 15.0
-    @AppStorage("typeHeadline") private var typeHeadline = 17.0
-    @AppStorage("typeSubtitle") private var typeSubtitle = 19.0
-    @AppStorage("typeTitle") private var typeTitle = 26.0
+    @AppStorage("typeBody") private var typeBody = 18.0
+    @AppStorage("typeHeadline") private var typeHeadline = 21.0
+    @AppStorage("typeSubtitle") private var typeSubtitle = 24.0
+    @AppStorage("typeTitle") private var typeTitle = 30.0
     @AppStorage("editorWidth") private var editorWidth = 700.0
     var note: Note; var noteId: String; var onPreview: (Attachment) -> Void; var onConflict: () -> Void
     @LeafState<Attachment?> private var filePreview = nil
@@ -61,7 +61,7 @@ struct DocumentEditor: View {
                         Button { store.addBlock("toggle") } label: { Label("Toggle", systemImage: "arrowtriangle.right.fill") }
                         Button { store.addBlock("table") } label: { Label("Table", systemImage: "tablecells") }
                         Button { store.addFiles() } label: { Label("Attach", systemImage: "paperclip") }
-                    }.font(.system(size: 12)).buttonStyle(SoftButtonStyle()).foregroundStyle(.secondary).padding(.top, 12)
+                    }.font(.system(size: 15)).buttonStyle(SoftButtonStyle()).foregroundStyle(.secondary).padding(.top, 12)
                 }.frame(width: width, alignment: .leading).padding(.top, 82).padding(.bottom, 90).frame(maxWidth: .infinity)
             }.scrollIndicators(.never).coordinateSpace(name: "noteBlocks").onPreferenceChange(BlockFrames.self) { blockFrames = $0 }
             .overlay(alignment: .topLeading) {
@@ -121,7 +121,7 @@ struct DocumentEditor: View {
             }.padding(.leading, CGFloat(block.indent * 18)).overlay(alignment: .topLeading) {
                 if block.kind == "toggle" { GlassIcon(icon: block.collapsed == true || draggedBlock == block.id ? "arrowtriangle.right.fill" : "arrowtriangle.down.fill", label: "Expand or collapse toggle", size: 11) { store.changeBlock(block.id) { $0.collapsed = !($0.collapsed ?? false) } }.offset(x: -36, y: markerOffset(block)) }
             }
-            if block.kind == "toggle", block.collapsed != true, draggedBlock != block.id, note.descendants(of: block.id).count == 1 { Button { store.addChild(to: block.id); focusBlock(store.activeBlock) } label: { Label("Add inside toggle", systemImage: "plus").font(.caption).foregroundStyle(.secondary) }.buttonStyle(SoftButtonStyle()) }
+            if block.kind == "toggle", block.collapsed != true, draggedBlock != block.id, note.descendants(of: block.id).count == 1 { Button { store.addChild(to: block.id); focusBlock(store.activeBlock) } label: { Label("Add inside toggle", systemImage: "plus").font(.system(size: 15)).foregroundStyle(.secondary) }.buttonStyle(SoftButtonStyle()) }
             }
 
         } else if block.kind == "table" { table(block) }
@@ -130,7 +130,7 @@ struct DocumentEditor: View {
             VStack(alignment: .leading, spacing: 8) {
                 if block.kind == "image" { InlinePhoto(attachment: attachment, media: store.media, width: block.presentation == "large" ? width : min(280, width)) { onPreview(attachment) } }
                 else { Button { filePreview = attachment } label: { HStack(spacing: 12) { Image(systemName: "doc").font(.system(size: 24)); VStack(alignment: .leading, spacing: 4) { Text(attachment.name).font(.system(size: 14, weight: .medium)); Text("Open attachment").font(.system(size: 12)).foregroundStyle(.secondary) }; Spacer() }.padding(16).background(.quaternary, in: RoundedRectangle(cornerRadius: 14)) }.buttonStyle(.plain) }
-                TextField("Add a caption…", text: Binding(get: { block.caption }, set: { value in store.update(undoKey: "caption:" + block.id) { $0.editBlock(block.id) { $0.caption = value } } })).textFieldStyle(.plain).font(.system(size: 12)).foregroundStyle(.secondary)
+                TextField("Add a caption…", text: Binding(get: { block.caption }, set: { value in store.update(undoKey: "caption:" + block.id) { $0.editBlock(block.id) { $0.caption = value } } })).textFieldStyle(.plain).font(.system(size: 15)).foregroundStyle(.secondary)
             }.padding(.vertical, 6)
         }
     }
@@ -184,7 +184,7 @@ struct DocumentEditor: View {
     func table(_ block: DocumentBlock) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             LeafScrollView(.horizontal) { VStack(spacing: 0) { ForEach(block.cells.indices, id: \.self) { row in HStack(spacing: 0) { ForEach(block.cells[row].indices, id: \.self) { col in TextField("", text: Binding(get: { block.cells[row][col] }, set: { value in store.update(undoKey: "cell:\(block.id):\(row):\(col)") { $0.editBlock(block.id) { $0.cells[row][col] = value } } }), axis: .vertical).textFieldStyle(.plain).font(.system(size: 15, weight: row == 0 ? .medium : .regular)).padding(12).frame(width: columnWidth(block.id, col)).frame(minHeight: 42).background(Color.primary.opacity(row == 0 ? 0.05 : 0.02)).border(Color.primary.opacity(0.1), width: 0.5).overlay(alignment: .trailing) { Color.clear.frame(width: 6).contentShape(Rectangle()).onHover { if $0 { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }.gesture(DragGesture(minimumDistance: 0, coordinateSpace: .global).onChanged { v in let key = "tableWidth:" + noteId + ":" + block.id + ":" + String(col); if columnStart == nil { columnStart = columnWidth(block.id, col) }; let width = min(600, max(80, columnStart! + v.translation.width)); columnWidths[key] = width; UserDefaults.standard.set(width, forKey: key) }.onEnded { _ in columnStart = nil }) } } } } }.clipShape(RoundedRectangle(cornerRadius: 10)) }.clipShape(RoundedRectangle(cornerRadius: 10))
-            HStack { Button("+ Row") { store.changeBlock(block.id) { if $0.cells.count < 100 { $0.cells.append(Array(repeating: "", count: $0.cells[0].count)) } } }; Button("+ Column") { store.changeBlock(block.id) { if $0.cells[0].count < 12 { $0.cells = $0.cells.map { $0 + [""] } } } } }.font(.system(size: 12)).buttonStyle(SoftButtonStyle()).foregroundStyle(.secondary)
+            HStack { Button("+ Row") { store.changeBlock(block.id) { if $0.cells.count < 100 { $0.cells.append(Array(repeating: "", count: $0.cells[0].count)) } } }; Button("+ Column") { store.changeBlock(block.id) { if $0.cells[0].count < 12 { $0.cells = $0.cells.map { $0 + [""] } } } } }.font(.system(size: 15)).buttonStyle(SoftButtonStyle()).foregroundStyle(.secondary)
         }
     }
     @ViewBuilder func blockMenu(_ block: DocumentBlock) -> some View {

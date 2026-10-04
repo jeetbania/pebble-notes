@@ -4,6 +4,7 @@ import AppKit
 struct TasksHome: View {
     var query = ""
     var dismissSearch: () -> Void = {}
+    var clearSearch: () -> Void = {}
     @EnvironmentObject var store: NoteStore
     @LeafState<String> private var filter = "All"
     @AppStorage("taskView") private var layout = "List"
@@ -50,7 +51,9 @@ struct TasksHome: View {
                 HStack(spacing: 10) { stagePills; Spacer(minLength: 20); dateAndList }
                 VStack(alignment: .leading, spacing: 10) { stagePills; HStack { Spacer(); dateAndList } }
             }
-            if layout == "Board" {
+            if visible.isEmpty {
+                GhostEmpty(kind: "tasks", title: tasks.isEmpty ? "A little room for what’s next" : "No tasks in this view", detail: tasks.isEmpty ? "Give your next step a place." : "Try another list or status.", actionLabel: tasks.isEmpty ? "Create a task" : "Show all tasks", action: { if tasks.isEmpty { addingStage = "todo"; adding = true } else { filter = "All"; list = "All lists"; stage = "all"; clearSearch() } })
+            } else if layout == "Board" {
                 LeafScrollView(.horizontal) {
                     HStack(alignment: .top, spacing: 14) {
                         ForEach(["todo", "progress", "review", "done"], id: \.self) { state in

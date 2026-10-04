@@ -12,10 +12,10 @@ struct SettingsHome: View {
     @AppStorage("appearance") private var appearance = "system"
     @Bindable private var accent = AccentPreference.shared
     @AppStorage("calmMotion") private var calmMotion = false
-    @AppStorage("typeBody") private var typeBody = 15.0
-    @AppStorage("typeHeadline") private var typeHeadline = 17.0
-    @AppStorage("typeSubtitle") private var typeSubtitle = 19.0
-    @AppStorage("typeTitle") private var typeTitle = 26.0
+    @AppStorage("typeBody") private var typeBody = 18.0
+    @AppStorage("typeHeadline") private var typeHeadline = 21.0
+    @AppStorage("typeSubtitle") private var typeSubtitle = 24.0
+    @AppStorage("typeTitle") private var typeTitle = 30.0
     @AppStorage("clipboardSuggestions") private var clipboardSuggestions = true
     @AppStorage("editorWidth") private var editorWidth = 700.0
     @AppStorage("googleClientId") private var clientId = ""
@@ -51,7 +51,7 @@ struct SettingsHome: View {
                         AdaptiveSlider(value: $editorWidth, range: 520...820, step: 20); Text("\(Int(editorWidth)) points").font(.caption).foregroundStyle(Color.primary.opacity(0.72))
                         SubtleDivider(); caption("Text sizes", "Defaults for this Mac. A note’s own size adjustment multiplies these values and syncs across devices.")
                         typeRow("Body", value: $typeBody, range: 14...26); typeRow("Heading", value: $typeHeadline, range: 17...34); typeRow("Subtitle", value: $typeSubtitle, range: 18...34); typeRow("Title", value: $typeTitle, range: 24...44)
-                        HStack { Text("A quieter place for your thoughts.").font(.system(size: typeBody)); Spacer(); Button("Reset sizes") { typeBody = 15; typeHeadline = 17; typeSubtitle = 19; typeTitle = 26 } }
+                        HStack { Text("A quieter place for your thoughts.").font(.system(size: typeBody)); Spacer(); Button("Reset sizes") { typeBody = 18; typeHeadline = 21; typeSubtitle = 24; typeTitle = 30 } }
                         SubtleDivider(); Toggle("Suggest a note from the clipboard", isOn: $clipboardSuggestions)
                         Text("When Pebble becomes active, preview copied text, links, or images. Nothing is saved until you choose Save or paste into the library.").font(.caption).foregroundStyle(Color.primary.opacity(0.72))
                         SubtleDivider(); caption("Formatting", "Use the top toolbar for text styles and lists. Right-click a block for indentation, moving, or duplication.")

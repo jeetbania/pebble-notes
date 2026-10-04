@@ -1,5 +1,12 @@
 # Pebble Notes changelog
 
+## 0.14.2 · Room for what comes next
+
+- Android task navigation blends into one page surface without a separate frosted strip or duplicate system-bar inset.
+- Contextual ghost previews now fill empty tasks, notes, galleries, images, search, pinned notes, checklists, collections, archive and trash on Android and Mac.
+- Update cards use a stronger single material with more blur and transparent dialog windows, without a solid backdrop behind the text.
+- Note body text and heading defaults are larger, along with slash commands, captions and add-block suggestions. Explicit custom text sizes are preserved.
+
 ## 0.14.1 · A calmer phone interface
 
 - Android home has a richer purple glow with a long falloff and a pale light-mode variant. System bars blend with each page, and redundant navigation labels are removed.
