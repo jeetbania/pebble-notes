@@ -36,6 +36,6 @@ Checks use production storage and editor adapters: `tests/test_core.py`, `tests/
 
 ## Still being verified
 
-Physical Vivo gesture/keyboard/safe-area checks, live simultaneous-device conflicts, interrupted image uploads, cloud cleanup after permanent deletion, and sleep/background timing need actual-device acceptance. OCR/scanning, drawings, audio, widgets, encrypted locks, and collaborative editing are later work. Google OAuth long-term configuration is separate from app distribution.
+The physical Vivo passed all 17 Android automated checks; live welcome navigation, keyboard resizing/dismissal and preserved library were checked over USB. Future-version installation, live simultaneous-device conflicts, interrupted image uploads, cloud cleanup after permanent deletion, and sleep/background timing still need acceptance. OCR/scanning, drawings, audio, widgets, encrypted locks, and collaborative editing are later work. Google OAuth long-term configuration is separate from app distribution.
 
 SQLite is public domain; Lucide vectors retain their MIT license in `assets/LUCIDE-LICENSE`. Dependencies retain their upstream licenses.

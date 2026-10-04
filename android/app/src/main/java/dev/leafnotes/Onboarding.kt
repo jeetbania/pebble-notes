@@ -21,7 +21,7 @@ import androidx.activity.compose.BackHandler
     fun finish(){keyboard?.hide();store.preferences.edit().putString("profileName",name.trim().take(40)).putBoolean("onboardingComplete",true).apply();onFinish()}
     BackHandler {if(page>0)page-- else finish()}
     Box(Modifier.fillMaxSize().background(c.page)) {
-        Box(Modifier.fillMaxWidth().height(440.dp).background(Brush.radialGradient(listOf(Color(0xFF6595FA).copy(alpha=if(c.dark).24f else .15f),Color.Transparent),radius=1100f)))
+        Box(Modifier.fillMaxWidth().height(440.dp).background(Brush.verticalGradient(listOf(Color(0xFF6595FA).copy(alpha=if(c.dark).18f else .12f),Color(0xFF6595FA).copy(alpha=if(c.dark).10f else .06f),Color.Transparent))))
         Column(Modifier.fillMaxSize().padding(horizontal=28.dp)) {
             Row(Modifier.fillMaxWidth().height(60.dp),verticalAlignment=Alignment.CenterVertically) {
                 if(page>0)Pressable(Modifier.size(44.dp),"Previous onboarding step",onClick={keyboard?.hide();page--}){Glyph("back",size=22)} else Label("PEBBLE NOTES",12,FontWeight.SemiBold,color=c.secondary)

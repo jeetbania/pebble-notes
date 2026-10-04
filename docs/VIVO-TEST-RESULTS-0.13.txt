@@ -1,0 +1,18 @@
+PASS: Android task statuses persist, completed tasks reopen, and older tasks remain compatible
+PASS: Android task persistence, backup, completion, and repeat rollover
+PASS: Android atomic draft recovery, JNI Unicode, and rich-text round trip
+PASS: Android overlapping rich-text styles remain stable
+PASS: Android heading/link spans survive native editing and JNI storage
+PASS: Android portable backup idempotence
+PASS: Android fork resolution retains both histories
+PASS: Android mixed blocks, caret insertion, Unicode spans, checklists, tables, tags, undo/redo, and ZIP export
+PASS: Android nested folders and emoji sync records
+PASS: Android fresh-library backup restore and atomic rejection of damaged media
+PASS: Android starter refresh preserves old notes, original images, pre-refresh backup, and one-time idempotence
+PASS: Android nested folder deletion preserves notes and completion strike remains presentation-only
+PASS: Android synced note sizes, custom typography semantic round trip, and clipboard link classification
+PASS: Android toggles persist and move, duplicate, collapse, and remove nested blocks together
+PASS: Android Trash expires at 30 days and old synced revisions cannot resurrect permanently erased notes
+PASS: signed update feed rejects tampering, lists missed changes, verifies app identity/build, and provider cannot expose notes
+PASS: release acknowledgement persists across preference reads, skipped updates include missed changes, and new builds show again
+
