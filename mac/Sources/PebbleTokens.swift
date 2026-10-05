@@ -19,7 +19,7 @@ enum PebbleTokens {
     static let actionRadius: Int = 10
     static let fieldRadius: Int = 12
     static let cardRadius: Int = 22
-    static let mobileViewportRadius: Int = 44
+    static let mobileViewportRadius: Int = 16
     static let mobileDockHeight: Int = 58
     static let mobileComposeSize: Int = 52
     static let sheetIconTile: Int = 32

@@ -52,7 +52,7 @@ Spacing scale: **4, 8, 12, 16, 20, 24, 32, 40, 48**, named `space4` … `space48
 | `actionRadius` | 10 | Desktop material actions / phone icon tiles |
 | `fieldRadius` | 12 | Rounded fields and ghost actions |
 | `cardRadius` | 22 | Grouped panels / card material |
-| `mobileViewportRadius` | 44 | Inward top clip below the library heading |
+| `mobileViewportRadius` | 16 | Inward top clip below the library heading |
 | `mobileDockHeight` | 58 | Capsule without system insets |
 | `mobileComposeSize` | 52 | Separate compose circle |
 | `sheetIconTile` / `sheetIconSize` | 32 / 19 | Phone action rows |

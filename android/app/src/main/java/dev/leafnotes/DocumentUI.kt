@@ -45,6 +45,7 @@ import java.util.Date
         if(store.editing?.document?.firstOrNull{it.id==id}?.kind=="toggle"){store.addChild(id);focusNext=store.activeBlock}else focusNext=store.splitList(id,position)
     }
     note.document.forEachIndexed { index,block -> if(note.blockVisible(block,draggingBlock))key(noteId,block.id) {
+        val renderedBlock=block.mobileRendered
         var wraps by remember{mutableStateOf(false)}
         Column(Modifier.fillMaxWidth().reorderTarget(block.id,reorder).background(if(block.kind=="callout")c.text.copy(alpha=.065f)else Color.Transparent,RoundedCornerShape(12.dp)).padding(if(block.kind=="callout")10.dp else 0.dp).padding(top=if(index==0)0.dp else if(block.textStyle in listOf("headline","title","subtitle"))12.dp else if(block.parentId!=null || block.kind in listOf("check","bullet","number"))2.dp else 5.dp)) {
             if(block.isText) Row(Modifier.fillMaxWidth().padding(start=(block.indent*18+note.depth(block)*36).dp),verticalAlignment=if(wraps)Alignment.Top else Alignment.CenterVertically) {
@@ -57,7 +58,7 @@ import java.util.Date
                     textSize=metrics.size("body").toFloat();editorMetrics[this]=metrics;gravity=Gravity.TOP;setBackgroundColor(android.graphics.Color.TRANSPARENT);setPadding(0,0,0,0);minimumHeight=0;minHeight=0;includeFontPadding=false;minLines=1;setLineSpacing(2*resources.displayMetrics.density,1f);typeface=Typeface.create("sans-serif",Typeface.NORMAL)
                     inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
                     var insertedBreak=-1;var inlineBreak=false
-                    hint="Press / for commands…";tag=false;setText(attributed(block.renderedNote,metrics))
+                    hint="Press / for commands…";tag=false;setText(attributed(renderedBlock.renderedNote,metrics))
                     setOnFocusChangeListener{_,hasFocus->if(hasFocus){activeTextEditor=this;store.activeBlock=block.id;onEditor(this)};onEditing(hasFocus)}
                     setOnKeyListener{_,key,event->if(key==KeyEvent.KEYCODE_ENTER && event.action==KeyEvent.ACTION_DOWN){if(event.isAltPressed){inlineBreak=true;false}else {enter(block.id,selectionStart.coerceAtLeast(0));true}}else false}
                     addTextChangedListener(object:TextWatcher {
@@ -66,7 +67,7 @@ import java.util.Date
                         override fun afterTextChanged(s:Editable?){if(tag!=true && s!=null){val split=insertedBreak;insertedBreak=-1;if(split>=0){tag=true;s.delete(split,split+1);tag=false;store.editBlock(block.id,s.toString(),spansFrom(s));enter(block.id,split)}else {store.editBlock(block.id,s.toString(),spansFrom(s));val caret=selectionStart.coerceIn(0,s.length);val start=s.substring(0,caret).lastIndexOf('\n')+1;val prefix=s.substring(start,caret);if(prefix.startsWith("/")&&prefix.length<64){slashBlock=block.id;slashQuery=prefix.drop(1);slashRange=start until caret}else if(slashBlock==block.id)slashBlock=null}}}
                     })
                 }},update={view->
-                    val live=store.editing?.document?.firstOrNull{it.id==block.id} ?: block
+                    val live=(store.editing?.document?.firstOrNull{it.id==block.id} ?: block).mobileRendered
                     view.post { wraps=view.lineCount>1;view.gravity=if(wraps)Gravity.TOP else Gravity.CENTER_VERTICAL };val metricsChanged=editorMetrics[view]!=metrics;editorMetrics[view]=metrics;view.textSize=metrics.size(live.textStyle ?: "body").toFloat();view.typeface=Typeface.create("sans-serif",if(live.textStyle in listOf("title","subtitle","headline"))Typeface.BOLD else Typeface.NORMAL);view.setTextColor(c.text.toArgb());view.textCursorDrawable?.setTint(c.accent.toArgb());view.setHintTextColor(c.tertiary.toArgb());view.alpha=if(live.checked).55f else 1f
                     view.tag=true;view.text.getSpans(0,view.text.length,CompletionStrike::class.java).forEach{view.text.removeSpan(it)};if(live.kind=="check" && live.checked && view.text.isNotEmpty())view.text.setSpan(CompletionStrike(),0,view.text.length,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);view.tag=false
                     if(metricsChanged || view.text.toString()!=live.text || spansFrom(view.text)!=canonicalSpans(live.renderedNote.spans)){val pos=view.selectionStart.coerceIn(0,live.text.length);view.tag=true;view.setText(attributed(live.renderedNote,metrics));view.setSelection(pos);view.tag=false}
@@ -100,7 +101,7 @@ import java.util.Date
                     SubtleDivider();SheetRow("Close commands","close"){slashBlock=null}
                 }
             }
-            if(!block.isText)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) { Pressable(Modifier.size(44.dp),"Block options",onClick={store.activeBlock=block.id;blockMenu=block.id}){Glyph("more",size=15,tint=c.tertiary)} }
+            if(!block.isText)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) { ReorderGrip(block.id,reorder,note.document.filter{it.parentId==block.parentId}.map{it.id},onOptions={blockMenu=block.id},onDragging={active->if(active){previewNote=sourceNote;draggingBlock=block.id}else{previewNote?.let{if(it.document!=sourceNote.document)store.update(it)};previewNote=null;draggingBlock=null}}){ids->previewNote?.let{n->val peers=n.document.filter{it.parentId==block.parentId}.map{it.id};val old=peers.indexOf(block.id);val next=ids.indexOf(block.id);if(old!=next)previewNote=n.movingBlock(block.id,next-old)}} }
         }
     }}
     Row(Modifier.fillMaxWidth().padding(top=8.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)){Pressable(Modifier.padding(8.dp),"Add text",onClick={store.addBlock("text")}){Label("+ Text",17,color=c.secondary)};Pressable(Modifier.padding(8.dp),"Add toggle",onClick={store.addBlock("toggle")} ){Label("+ Toggle",17,color=c.secondary)};Pressable(Modifier.padding(8.dp),"Insert table",onClick={store.addBlock("table")}){Label("+ Table",17,color=c.secondary)}}

@@ -237,3 +237,6 @@ fun Note.movingBlock(id:String,delta:Int):Note {
     val target=if(delta<0)remaining.indexOfFirst{it.id==peers[to].id}else remaining.indexOfLast{it.id in descendants(peers[to].id)}+1
     remaining.addAll(target,moved);return copy(blocks=remaining)
 }
+
+// Idea copy remains compact on phones even when converted from a heading.
+val Block.mobileRendered:Block get()=if(kind=="callout")copy(textStyle="body",spans=spans.filter{it.kind !in listOf("title","subtitle","headline")})else this

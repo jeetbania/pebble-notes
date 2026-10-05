@@ -126,7 +126,7 @@ fun iconResource(name: String): Int = when(name) {
 }
 @Composable fun ChromeButton(name: String, label: String, size: Int = PebbleTokens.mobileTarget, prominent: Boolean = false, onClick: () -> Unit) {
     val c=LocalLeafColors.current
-    Pressable(Modifier.size(size.dp).shadow(14.dp,CircleShape, ambientColor=Color.Black.copy(alpha=.035f),spotColor=Color.Black.copy(alpha=.06f)).then(if(prominent)Modifier.background(c.accent,CircleShape) else Modifier.frosted(CircleShape,surface=LocalChromeTint.current)).border(.5.dp,c.text.copy(alpha=.025f),CircleShape),label,onClick=onClick) { Glyph(name, size=23, tint=if(prominent) Color.White else c.text) }
+    Pressable(Modifier.size(size.dp).shadow(14.dp,CircleShape, ambientColor=Color.Black.copy(alpha=.035f),spotColor=Color.Black.copy(alpha=.06f)).then(if(prominent)Modifier.background(c.accent,CircleShape) else Modifier.frosted(CircleShape,surface=LocalChromeTint.current ?: c.paper.copy(alpha=.22f))).border(.5.dp,c.text.copy(alpha=.025f),CircleShape),label,onClick=onClick) { Glyph(name, size=23, tint=if(prominent) Color.White else c.text) }
 }
 @Composable fun ChromePill(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     val c=LocalLeafColors.current
@@ -226,7 +226,7 @@ fun iconResource(name: String): Int = when(name) {
                 })
             }
         }
-        if(!searching && store.selected==null && navigation.value>=width-.5f) CompositionLocalProvider(LocalBackdrop provides (if(section=="Tasks")null else dockBackdrop.value)){MobileDock(section,Modifier.align(Alignment.BottomCenter),onPage={section=it;folders=false},onSearch={searching=true;section="Notes";folders=false},onCompose={launchFrame=null;store.create()})}
+        AnimatedVisibility(visible=!searching && store.selected==null && navigation.value>=width-.5f,modifier=Modifier.align(Alignment.BottomCenter),enter=fadeIn(tween(if(calm)0 else 160))+slideInVertically(tween(if(calm)0 else 180,easing=FastOutSlowInEasing)){if(calm)0 else it/4},exit=fadeOut(tween(if(calm)0 else 80))) { CompositionLocalProvider(LocalBackdrop provides (if(section=="Tasks")null else dockBackdrop.value)){MobileDock(section,onPage={section=it;folders=false},onSearch={searching=true;section="Notes";folders=false},onCompose={launchFrame=null;store.create()})} }
         ClipboardSuggestion(store,Modifier.align(Alignment.BottomEnd).navigationBarsPadding())
         AnimatedVisibility(visible=formatPanel && store.selected!=null,modifier=Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),enter=slideInVertically(if(calm)snap() else spring(dampingRatio=1f,stiffness=460f)){if(calm)0 else it}+fadeIn(tween(if(calm)0 else 160)),exit=slideOutVertically(if(calm)snap() else spring(dampingRatio=1f,stiffness=650f)){if(calm)0 else it}+fadeOut(tween(if(calm)0 else 120))) {
             FormatPanel(Modifier,onClose={formatPanel=false},onStyle={kind -> if(kind=="link"){linking=true}else editor?.let { view -> format(view,kind); store.activeBlock?.let { id -> store.editBlock(id,view.text.toString(),spansFrom(view.text));if(kind in listOf("body","title","subtitle","headline"))store.changeBlock(id){it.copy(textStyle=kind)} } } },onList={kind -> store.setList(kind) },currentStyle=store.editing?.document?.firstOrNull{it.id==store.activeBlock}?.textStyle ?: "body",onLink={url->linkUrl=url;val uri=android.net.Uri.parse(url);if(uri.scheme in listOf("http","https","mailto")){editor?.let{view->val start=view.selectionStart.coerceAtLeast(0);var end=view.selectionEnd.coerceAtLeast(start);if(end==start){view.text.insert(start,url);end=start+url.length};view.text.setSpan(android.text.style.URLSpan(url),start,end,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);store.activeBlock?.let{id->store.editBlock(id,view.text.toString(),spansFrom(view.text))}}}else store.error="Use an http, https, or mailto link"})
@@ -319,7 +319,7 @@ fun iconResource(name: String): Int = when(name) {
     PublishDockBackdrop()
     Box(Modifier.fillMaxSize().background(c.page).then(if(!enabled)Modifier.clearAndSetSemantics{} else Modifier)) {
             if(!searchMode)Box(Modifier.fillMaxWidth().height(540.dp).background(homeGlowBrush(c.dark)))
-            Crossfade(modifier=Modifier.fillMaxSize().padding(top=headerHeight).padding(horizontal=14.dp).clip(RoundedCornerShape(topStart=44.dp,topEnd=44.dp)),targetState=Pair(folders,gallery),animationSpec=tween(if(LocalCalmMotion.current)0 else 180),label="library layout") { (folderMode,galleryMode) ->
+            Crossfade(modifier=Modifier.fillMaxSize().padding(top=headerHeight).padding(horizontal=14.dp).clip(RoundedCornerShape(topStart=PebbleTokens.mobileViewportRadius.dp,topEnd=PebbleTokens.mobileViewportRadius.dp)),targetState=Pair(folders,gallery),animationSpec=tween(if(LocalCalmMotion.current)0 else 180),label="library layout") { (folderMode,galleryMode) ->
             if(folderMode) {
                 LazyColumn(modifier=Modifier.backdropSource(),contentPadding=PaddingValues(start=8.dp,top=12.dp,end=8.dp,bottom=120.dp)) {
                     item {Label("Your library",20,FontWeight.SemiBold,modifier=Modifier.padding(top=12.dp,bottom=10.dp))}
@@ -461,7 +461,7 @@ fun dateGroup(millis:Long):String {
             }
             }
             }
-            CompositionLocalProvider(LocalLeafColors provides chrome,LocalChromeTint provides (if(base.dark)Color.Black.copy(alpha=.18f)else Color.White.copy(alpha=.26f))) {
+            CompositionLocalProvider(LocalLeafColors provides chrome,LocalChromeTint provides (if(lightColour(edgeColour))Color.White.copy(alpha=.24f)else edgeColour.copy(alpha=.22f))) {
             ScrollHeader(modifier=Modifier.graphicsLayer{alpha=((reveal()-.35f)/.65f).coerceIn(0f,1f)},surface=Color.Transparent) { Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 ChromeButton("back","Back to notes",onClick=onBack);Spacer(Modifier.weight(1f))
                 ChromePill(Modifier.height(48.dp)) {NoteStyleMenu(store,base);Pressable(Modifier.size(44.dp),"Share note",onClick=onShare){Glyph("share")};Pressable(Modifier.size(44.dp),"Note options",onClick=onMore){Glyph("more")}}

@@ -1,5 +1,14 @@
 # Pebble Notes changelog
 
+## 0.21.1 · Balanced mobile corners and fluid block moves
+
+- Mobile library clipping uses a tighter 16-dp inward top curve.
+- Drag blocks continuously across multiple neighbours and gaps, with interruptible neighbour movement. Images and tables use the same drag handle.
+- Idea blocks display compact body-sized copy on mobile while retaining inline emphasis.
+- The floating navigation bar returns with a quick fade and upward reveal.
+- Top navigation buttons use a lighter, backdrop-adaptive glass tint.
+- Navigation selection has gentle drag resistance and an elastic spring finish.
+
 ## 0.21.0 · Smoother Mac scrolling and safer editing
 
 - Mac collection fields, icon choices and helper text remain readable over glass.

@@ -19,7 +19,7 @@ object PebbleTokens {
     const val actionRadius: Int = 10
     const val fieldRadius: Int = 12
     const val cardRadius: Int = 22
-    const val mobileViewportRadius: Int = 44
+    const val mobileViewportRadius: Int = 16
     const val mobileDockHeight: Int = 58
     const val mobileComposeSize: Int = 52
     const val sheetIconTile: Int = 32
