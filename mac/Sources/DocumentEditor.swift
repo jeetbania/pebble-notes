@@ -92,7 +92,7 @@ struct DocumentEditor: View {
                             else if block.kind == "table" { Text(block.cells.map { $0.joined(separator: "   |   ") }.joined(separator: "\n")).font(.system(size: 15)).padding(12) }
                             else { Label(block.caption.isEmpty ? block.kind.capitalized : block.caption, systemImage: block.kind == "image" ? "photo" : "doc") }
                         }
-                    }.padding(8).frame(width: width, alignment: .leading).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8)).overlay(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04))).shadow(color: .black.opacity(0.08), radius: 8, y: 3)
+                    }.padding(8).frame(width: width, alignment: .leading).background { BlockDragMaterial().overlay((note.style ?? NoteStyle()).paper.opacity(0.78)).clipShape(RoundedRectangle(cornerRadius:8)) }.overlay(RoundedRectangle(cornerRadius:8).fill((note.style ?? NoteStyle()).foreground.opacity(0.06))).shadow(color: .black.opacity(0.08), radius: 8, y: 3)
                         .offset(x: blockOrigin.minX - 8 + blockTranslation.width, y: blockOrigin.minY - 8 + blockTranslation.height).transaction { $0.animation = nil }.allowsHitTesting(false)
                 }
             }

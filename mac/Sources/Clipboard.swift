@@ -89,7 +89,7 @@ struct ClipboardToast: View {
                     Text(capture.linkTitle.isEmpty ? item.title : capture.linkTitle).font(.system(size: 13, weight: .medium)).lineLimit(1)
                     if item.image == nil && !item.text.isEmpty { Text(item.text).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1) }
                 }.frame(maxWidth: .infinity, alignment: .leading)
-                Button("Save", systemImage: "plus") { capture.save() }.labelStyle(.titleAndIcon).buttonStyle(SoftButtonStyle(radius: 18))
+                Button { capture.save() } label: { Label("Save", systemImage: "plus").padding(.horizontal, 12).frame(height: 36).background(Color.primary.opacity(0.07), in: Capsule()).contentShape(Capsule()) }.buttonStyle(.plain)
                 GlassIcon(icon: "xmark", label: "Dismiss clipboard suggestion") { capture.dismiss() }
             }.padding(12).frame(width: 340).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18)).overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.primary.opacity(0.08))).shadow(color: .black.opacity(0.15), radius: 18, y: 8).padding(20)
         }

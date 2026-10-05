@@ -1,5 +1,14 @@
 # Pebble Notes changelog
 
+## 0.16.0 · Backdrops and thoughtful details
+
+- Choose from eight image wallpapers or upload a custom note backdrop; images travel with sync and backups.
+- Style selectors have full hit areas, clearer labels, working gradient endpoint controls and a visible reset button.
+- Card entrances are more deliberate, and folder labels retain space at the bottom of coloured previews.
+- Phone titles wrap inside the document and style shadows have room to fade.
+- Menus use neutral icons and subtle contextual highlights; Trash offers a confirmed Empty Trash button.
+- Phone status bars take the prominent wallpaper colour or the top gradient colour, with contrasting system icons.
+
 ## 0.15.2 · Style and motion, repaired
 
 - Style menus open beneath the paintbrush, remain inside the Mac window, and respond to every colour option.

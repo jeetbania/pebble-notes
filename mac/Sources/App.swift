@@ -193,7 +193,7 @@ struct LibraryView: View {
         .coordinateSpace(name: "libraryDrag")
         .onPreferenceChange(CollectionDropFrames.self) { collectionDropFrames = $0 }
         .onDisappear { store.flush() }
-        .task { await store.syncIfConnected(); while !Task.isCancelled { try? await Task.sleep(for: .seconds(45)); if !Task.isCancelled { store.expireTrash(); await store.syncIfConnected() } } }
+        .task { MenuAppearance.install(); await store.syncIfConnected(); while !Task.isCancelled { try? await Task.sleep(for: .seconds(45)); if !Task.isCancelled { store.expireTrash(); await store.syncIfConnected() } } }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in clipboard.inspect(); Task { await store.syncIfConnected() } }
     }
     var route: LibraryRoute { LibraryRoute(section: section, collection: collection, note: store.selected, image: preview?.id) }
@@ -270,6 +270,7 @@ struct LibraryView: View {
                     GlassIcon(icon: "chevron.right", label: "Go forward") { navigate(1) }.disabled(!navigation.canForward)
                 }.leafGlass(in: Capsule())
                 Spacer()
+                if section == "Trash", store.selected == nil { GlassIcon(icon: "trash", label: "Empty Trash") { erasing = store.uniqueHeads.filter { $0.note.deleted }.map(\.noteId) }.leafGlass(in: Circle()).disabled(!store.uniqueHeads.contains { $0.note.deleted }) }
                 HStack(spacing: 0) {
                     if store.current != nil { NoteStyleButton(store: store, interfaceScheme: scheme) }
                     if store.selected == nil {
@@ -280,7 +281,7 @@ struct LibraryView: View {
                             GlassIcon(icon: "magnifyingglass", label: "Search notes") { withAnimation(motion) { searchVisible = true }; searchFocused = true }
                         }
                     }
-                    Menu { contextualMenu } label: { Image(systemName: "ellipsis").font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary).frame(width: 36, height: 36) }.menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).modifier(HoverSurface()).menuIndicator(.hidden).fixedSize().tint(.primary).help("More")
+                    Menu { contextualMenu } label: { Image(systemName: "ellipsis").font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary).frame(width: 36, height: 36) }.menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).menuIndicator(.hidden).fixedSize().tint(.primary).help("More")
                 }.padding(.horizontal, 7).frame(minWidth: 44).frame(height: 38).leafGlass(in: Capsule())
             }
             if store.selected == nil { Text(selecting ? "\(selectedItems.count) selected" : title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary).allowsHitTesting(false).opacity(searchVisible ? 0 : 1) }
@@ -502,7 +503,7 @@ struct CardInteraction<Content: View, Actions: View>: View {
     var body: some View {
         Button(action: action) { content() }.buttonStyle(SoftButtonStyle(radius: 22))
             .overlay(alignment: .topTrailing) {
-                Menu { menu() } label: { Image(systemName: "ellipsis").font(.system(size: 13, weight: .semibold)).foregroundStyle(.primary).frame(width: 28, height: 28).background(.ultraThinMaterial, in: Circle()) }.menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).modifier(HoverSurface()).menuIndicator(.hidden).fixedSize().padding(12).opacity(hovering || selected ? 1 : 0).allowsHitTesting(hovering || selected).help("Card options")
+                Menu { menu() } label: { Image(systemName: "ellipsis").font(.system(size: 13, weight: .semibold)).foregroundStyle(.primary).frame(width: 28, height: 28).background(.ultraThinMaterial, in: Circle()) }.menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).menuIndicator(.hidden).fixedSize().padding(12).opacity(hovering || selected ? 1 : 0).allowsHitTesting(hovering || selected).help("Card options")
             }
             .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(selected ? LeafPalette.accent : .clear, lineWidth: 2))
             .overlay(RoundedRectangle(cornerRadius: 22).fill(Color.primary.opacity(hovering ? 0.025 : 0)).allowsHitTesting(false))
@@ -521,7 +522,7 @@ struct NoteCard: View {
             Text(revision.note.text.isEmpty ? "" : revision.note.text).font(.system(size: 14)).lineSpacing(5).foregroundStyle((revision.note.style ?? NoteStyle()).foreground.opacity(0.65)).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading).clipped()
                 .mask { LinearGradient(stops: [.init(color: .white, location: 0), .init(color: .white, location: 0.68), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom) }
             HStack(spacing: 5) { Spacer(); CollectionPill(name: revision.note.collection); if revision.note.pinned { Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle((revision.note.style ?? NoteStyle()).foreground.opacity(0.65)) }; if conflict { Image(systemName: "arrow.triangle.branch").font(.system(size: 10)).foregroundStyle(.orange) }; Spacer() }
-        }.padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 8).frame(height: revision.note.style?.framed == true ? 184 : 200).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(.horizontal, 22).padding(.top, 22).padding(.bottom, revision.note.style?.framed == true ? 22 : 8).frame(height: 200).frame(maxWidth: .infinity, alignment: .leading)
             .modifier(NotePreviewSurface(style: revision.note.style))
     }
 }

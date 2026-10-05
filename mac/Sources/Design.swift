@@ -53,8 +53,8 @@ struct GlassIcon: View {
     @Environment(\.isEnabled) private var enabled
     var icon: String; var label: String; var size: CGFloat = 16; var action: () -> Void
     var body: some View {
-        Button(action: action) { Image(systemName: icon).font(.system(size: size, weight: .medium)).frame(width: 36, height: 36) }
-            .buttonStyle(SoftButtonStyle(radius: 18)).opacity(enabled ? 1 : 0.35).help(label).accessibilityLabel(label)
+        Button(action: action) { Image(systemName: icon).font(.system(size: size, weight: .medium)).frame(width: 36, height: 36).contentShape(Rectangle()) }
+            .buttonStyle(.plain).opacity(enabled ? 1 : 0.35).help(label).accessibilityLabel(label)
     }
 }
 

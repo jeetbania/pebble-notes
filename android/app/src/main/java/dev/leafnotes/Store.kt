@@ -42,19 +42,19 @@ fun clipSpans(spans:List<Span>,start:Int,length:Int)=spans.mapNotNull{val a=maxO
 data class Note(val title:String="",val text:String="",val spans:List<Span> = emptyList(),val attachments:List<Media> = emptyList(),val collection:String="Personal",val pinned:Boolean=false,val archived:Boolean=false,val deleted:Boolean=false,val blocks:List<Block>?=null,val tags:List<String> = emptyList(),val recordType:String="note",val folderEmoji:String="",val folderImage:String="",val textScale:Double=1.0,val task:TaskDetails?=null,val deletedAt:Long?=null,val purgedAt:Long?=null,val style:NoteStyle?=null) {
     val isCompletelyBlank get()=recordType=="note" && task==null && title.isBlank() && text.isBlank() && attachments.isEmpty() && tags.isEmpty() && document.all{it.isText && it.text.isBlank()}
     val displayTitle get()=title.ifBlank{"Untitled note"}
-    val document get()=blocks ?: if(recordType=="folder") emptyList() else listOf(Block(id="body",text=text,spans=spans))+attachments.map{Block(id="media-"+it.id,kind=if(it.mime.startsWith("image/"))"image" else "file",mediaId=it.id)}
+    val document get()=blocks ?: if(recordType=="folder") emptyList() else listOf(Block(id="body",text=text,spans=spans))+attachments.filter{it.mime!="application/x-pebble-backdrop"}.map{Block(id="media-"+it.id,kind=if(it.mime.startsWith("image/"))"image" else "file",mediaId=it.id)}
     fun prepared(previous:Note?=null):Note {
         if(purgedAt!=null)return copy(title="",text="",spans=emptyList(),attachments=emptyList(),blocks=emptyList(),tags=emptyList(),task=null,folderEmoji="",folderImage="",style=null,deleted=true)
         val trashDate=if(deleted)deletedAt ?: System.currentTimeMillis() else null
         var content=document
         if(previous!=null && blocks==previous.blocks && (text!=previous.text || spans!=previous.spans) && blocks!=null && content.count{it.isText}==1) content=content.map{if(it.isText)it.copy(text=text,spans=spans) else it}
-        if(previous!=null && blocks==previous.blocks && attachments!=previous.attachments){content=content.filter{it.kind !in listOf("image","file") || attachments.any{a->a.id==it.mediaId}};content=content+attachments.filter{a->content.none{it.mediaId==a.id}}.map{a->Block(kind=if(a.mime.startsWith("image/"))"image" else "file",mediaId=a.id)}}
+        if(previous!=null && blocks==previous.blocks && attachments!=previous.attachments){content=content.filter{it.kind !in listOf("image","file") || attachments.any{a->a.id==it.mediaId}};content=content+attachments.filter{a->a.mime!="application/x-pebble-backdrop" && content.none{it.mediaId==a.id}}.map{a->Block(kind=if(a.mime.startsWith("image/"))"image" else "file",mediaId=a.id)}}
         if(recordType=="note" && content.none{it.isText})content=content+Block()
         val cleanTags=tags.map{it.trim().removePrefix("#").lowercase(java.util.Locale.ROOT)}.filter{it.isNotEmpty()}.distinct().sorted()
         if(recordType=="folder")return copy(deletedAt=trashDate,blocks=content,tags=cleanTags)
         val plain=StringBuilder();val styles=mutableListOf<Span>();var number=0
         for(block in content){if(plain.isNotEmpty())plain.append('\n');val prefix=when(block.kind){"bullet"->"• ";"number"->"${++number}. ";"check"->if(block.checked)"☑ " else "☐ ";else->""};val start=plain.length+prefix.length;plain.append(prefix).append(if(block.kind=="table")block.cells.joinToString("\n"){it.joinToString(" | ")} else if(block.isText)block.text else block.caption);if(block.isText)styles+=block.renderedNote.spans.map{it.copy(start=start+it.start)}}
-        return copy(deletedAt=trashDate,blocks=content,tags=cleanTags,text=plain.toString(),spans=styles,attachments=attachments.filter{a->content.any{it.mediaId==a.id}})
+        return copy(deletedAt=trashDate,blocks=content,tags=cleanTags,text=plain.toString(),spans=styles,attachments=attachments.filter{a->a.id==style?.backdropImage || content.any{it.mediaId==a.id}})
     }
     fun editBlock(id:String,change:(Block)->Block):Note {
         val old=document.firstOrNull{it.id==id} ?: return this

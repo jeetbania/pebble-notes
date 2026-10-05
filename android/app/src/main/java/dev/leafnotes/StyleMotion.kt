@@ -13,14 +13,14 @@ import kotlinx.coroutines.delay
     val calm=LocalCalmMotion.current
     val start by animateColorAsState(hexColour(style.backdrop) ?: style.paper(c),tween(if(calm)0 else 220),label="backdrop start")
     val end by animateColorAsState(hexColour(style.backdropEnd ?: style.backdrop) ?: style.paper(c),tween(if(calm)0 else 220),label="backdrop end")
-    return Brush.verticalGradient(listOf(start,end))
+    return Brush.verticalGradient(if(style.gradientDirection=="up")listOf(end,start)else listOf(start,end))
 }
 
 @Composable fun CardFade(route:String,index:Int,content:@Composable ()->Unit) {
     val calm=LocalCalmMotion.current
     val opacity=remember(route){Animatable(if(calm)1f else 0f)}
     LaunchedEffect(route) {
-        if(calm)opacity.snapTo(1f) else {delay(index.coerceAtMost(9)*18L);opacity.animateTo(1f,tween(160))}
+        if(calm)opacity.snapTo(1f) else {delay(index.coerceAtMost(9)*32L);opacity.animateTo(1f,tween(300))}
     }
     Box(Modifier.graphicsLayer{alpha=opacity.value},content={content()})
 }

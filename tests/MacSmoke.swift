@@ -28,6 +28,21 @@ import AppKit
         precondition(NoteStyle.isLight("#F8F0FF") && !NoteStyle.isLight("#191B20"))
         let stylePeer = NoteStore(root: root.appendingPathComponent("style-peer")); try stylePeer.ingest(try encode(reopenedStyle.uniqueHeads.first { $0.noteId == styleID }!), remote: true); stylePeer.reload(); stylePeer.select(styleID); stylePeer.update { $0.title += " edited" }; stylePeer.flush(); precondition(stylePeer.current?.style == noteStyle)
         print("PASS: note styles retain colours through persistence, remote ingest, editing and undo/redo; automatic contrast and native text colour agree")
+        let wallpapersURL=URL(fileURLWithPath:FileManager.default.currentDirectoryPath).appendingPathComponent("mac/Resources/Wallpapers")
+        let wallpaper=try JSONDecoder().decode([Wallpaper].self,from:Data(contentsOf:wallpapersURL.appendingPathComponent("index.json")))[0]
+        let wallpaperStore=NoteStore(root:root.appendingPathComponent("wallpaper"));wallpaperStore.create();wallpaperStore.update{$0.title="Wallpaper fixture"};wallpaperStore.useBackdrop(wallpapersURL.appendingPathComponent(wallpaper.id+".webp"));let wallpaperID=wallpaperStore.selected!
+        wallpaperStore.update{$0.style?.blurImage=true;$0.style?.gradientDirection="up"};wallpaperStore.flush()
+        precondition(wallpaperStore.error==nil && wallpaperStore.current?.style?.backdropImage==wallpaper.id)
+        precondition(wallpaperStore.current!.attachments.count==1 && wallpaperStore.current!.document.allSatisfy{$0.isText})
+        wallpaperStore.update{$0.text="Typing preserves wallpaper"};wallpaperStore.flush();precondition(wallpaperStore.current?.attachments.first?.id==wallpaper.id)
+        _ = try await DailyBackups.save(raw:wallpaperStore.rawRevisions(),root:wallpaperStore.root,force:true)
+        let wallpaperBackups=try FileManager.default.contentsOfDirectory(at:wallpaperStore.root.appendingPathComponent("backups"),includingPropertiesForKeys:nil)
+        let wallpaperArchive=try JSONSerialization.jsonObject(with:Data(contentsOf:wallpaperBackups[0])) as! [String:Any]
+        precondition((wallpaperArchive["media"] as! [String:String])[wallpaper.id] != nil)
+        let wallpaperPeer=NoteStore(root:root.appendingPathComponent("wallpaper-peer"));try wallpaperPeer.ingest(try encode(wallpaperStore.uniqueHeads.first{$0.noteId==wallpaperID}!),remote:true);wallpaperPeer.reload();wallpaperPeer.select(wallpaperID)
+        precondition(wallpaperPeer.current?.style==wallpaperStore.current?.style && wallpaperPeer.current?.attachments.count==1)
+        wallpaperPeer.update{$0.style=nil};precondition(wallpaperPeer.current?.attachments.isEmpty==true)
+        print("PASS: image backdrops survive editing, remote revisions and portable backups without becoming document blocks; reset removes the current media reference")
         var taskNote = Note(); taskNote.title = "Test task"; taskNote.task = TaskDetails(dueAt: 1791091800000, hasTime: true, priority: 3, repeatRule: "weekly", list: "Work", completed: false, remind: true)
         let taskStore = NoteStore(root: root.appendingPathComponent("tasks")); taskStore.create(); let taskID = taskStore.selected!; taskStore.update { $0 = taskNote }; taskStore.flush()
         precondition(taskStore.uniqueHeads.first(where: { $0.noteId == taskID })!.note.task == taskNote.task)

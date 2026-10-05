@@ -74,12 +74,14 @@ val LocalLeafColors = staticCompositionLocalOf { lightLeafColors }
     val dark = appearance == "dark" || appearance == "system" && isSystemInDarkTheme()
     val c = (if(dark) darkLeafColors else lightLeafColors).copy(accent=accentColor(store.preferences.getString("accentColor","Yellow") ?: "Yellow",dark))
     val view = LocalView.current
+    val noteTop=noteEdgeColour(store.editing?.style ?: NoteStyle(),c,media=store.media)
+    val noteBottom=noteEdgeColour(store.editing?.style ?: NoteStyle(),c,top=false,media=store.media)
     SideEffect {
         (view.context as? android.app.Activity)?.let { activity ->
-            androidx.core.view.WindowCompat.getInsetsController(activity.window, view).apply { isAppearanceLightStatusBars = store.editing?.style?.let{lightColour(hexColour(it.backdrop) ?: it.paper(c))} ?: !dark; isAppearanceLightNavigationBars = store.editing?.style?.let{lightColour(hexColour(it.backdropEnd ?: it.backdrop) ?: it.paper(c))} ?: !dark }; activity.window.statusBarColor=android.graphics.Color.TRANSPARENT; activity.window.navigationBarColor=android.graphics.Color.TRANSPARENT; activity.window.isStatusBarContrastEnforced=false; activity.window.isNavigationBarContrastEnforced=false
+            androidx.core.view.WindowCompat.getInsetsController(activity.window, view).apply { isAppearanceLightStatusBars = store.editing?.let{lightColour(noteTop)} ?: !dark; isAppearanceLightNavigationBars = store.editing?.let{lightColour(noteBottom)} ?: !dark }; activity.window.statusBarColor=android.graphics.Color.TRANSPARENT; activity.window.navigationBarColor=android.graphics.Color.TRANSPARENT; activity.window.isStatusBarContrastEnforced=false; activity.window.isNavigationBarContrastEnforced=false
         }
     }
-    CompositionLocalProvider(LocalLeafColors provides c, LocalTypeSizes provides typeSizes, LocalCalmMotion provides calm, LocalPreferencesVersion provides preferenceVersion) {
+    CompositionLocalProvider(LocalNoteMedia provides store.media, LocalLeafColors provides c, LocalTypeSizes provides typeSizes, LocalCalmMotion provides calm, LocalPreferencesVersion provides preferenceVersion) {
         MaterialTheme(colorScheme = if(dark) darkColorScheme(primary=c.accent, background=c.page, surface=c.paper, onSurface=c.text) else lightColorScheme(primary=c.accent, background=c.page, surface=c.paper, onSurface=c.text), content=content)
     }
 }
@@ -160,7 +162,15 @@ fun iconResource(name: String): Int = when(name) {
     if(onboarding) { Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()){PebbleOnboarding(store,onFinish={onboarding=false},onConnect=connect)};return }
     val libraryHome=store.selected==null && section !in listOf("Settings","Tasks")
     val statusHeight=WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    Box(Modifier.fillMaxSize().background(if(store.selected!=null)animatedStyleBrush(store.editing?.style ?: NoteStyle(),c)else Brush.verticalGradient(listOf(c.page,c.page))).drawBehind {if(libraryHome){drawRect(homeGlowColor(c.dark),size=androidx.compose.ui.geometry.Size(size.width,statusHeight.toPx()))}}.statusBarsPadding().navigationBarsPadding().imePadding()) {
+    val navigationHeight=WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val noteTop=noteEdgeColour(store.editing?.style ?: NoteStyle(),c)
+    val noteBottom=noteEdgeColour(store.editing?.style ?: NoteStyle(),c,top=false)
+    val statusTone by androidx.compose.animation.animateColorAsState(noteTop,tween(if(calm)0 else 220),label="status bar colour")
+    val bottomTone by androidx.compose.animation.animateColorAsState(noteBottom,tween(if(calm)0 else 220),label="navigation bar colour")
+    Box(Modifier.fillMaxSize().background(if(store.selected!=null)animatedStyleBrush(store.editing?.style ?: NoteStyle(),c)else Brush.verticalGradient(listOf(c.page,c.page))).then(if(store.selected!=null)Modifier.wallpaper(store.editing?.style ?: NoteStyle())else Modifier).drawBehind {if(libraryHome){drawRect(homeGlowColor(c.dark),size=androidx.compose.ui.geometry.Size(size.width,statusHeight.toPx()))}else if(store.selected!=null){drawRect(statusTone,size=androidx.compose.ui.geometry.Size(size.width,statusHeight.toPx()));drawRect(bottomTone,topLeft=androidx.compose.ui.geometry.Offset(0f,size.height-navigationHeight.toPx()),size=androidx.compose.ui.geometry.Size(size.width,navigationHeight.toPx()))}}) {
+        // Keep inset-consuming nodes on a stable child; inserting wallpaper
+        // modifiers before them can create a consumed-insets cycle during navigation.
+        Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
         Box(Modifier.fillMaxSize().graphicsLayer{val progress=(1f-navigation.value/width).coerceIn(0f,1f);translationX=if(calm)0f else -20f*progress;scaleX=if(calm)1f else 1f-.015f*progress;scaleY=scaleX}) { if(section=="Settings") MobileSettings(store,onTour={onboarding=true},onBack={section="Notes"},onWriting={typographySettings=true},onWhatsNew={releaseHistory=true;whatsNew=true},onConnect=connect,onExport={backup.launch("Pebble Notes Backup.leafbackup")},onImport={restore.launch(arrayOf("*/*"))}) else if(section=="Tasks"&&!folders) TasksHome(store){section="Notes"} else LibraryScreen(store,section,records,search,{search=it},folders,{folders=it},gallery,{gallery=!gallery;store.preferences.edit().putBoolean("gallery",gallery).apply()},enabled=store.selected==null,onSection={section=it;folders=false},onMore={menu=true},onOpen={id->if(store.selected==null){val r=store.visibleHeads.firstOrNull{it.noteId==id};if(r?.note?.task!=null)taskDetail=r else store.select(id)}},onNew={store.create();if(section in store.collections)store.editing?.let{store.update(it.copy(collection=section))}},onImage={if(store.selected==null)preview=it}) }
         if(updater.visible && !whatsNew) UpdateDialog(updater)
         val note=store.editing ?: lastNote
@@ -185,6 +195,7 @@ fun iconResource(name: String): Int = when(name) {
         AnimatedVisibility(visible=formatPanel && store.selected!=null,modifier=Modifier.align(Alignment.BottomCenter),enter=slideInVertically(if(calm)snap() else spring(dampingRatio=1f,stiffness=460f)){if(calm)0 else it}+fadeIn(tween(if(calm)0 else 160)),exit=slideOutVertically(if(calm)snap() else spring(dampingRatio=1f,stiffness=650f)){if(calm)0 else it}+fadeOut(tween(if(calm)0 else 120))) {
             FormatPanel(Modifier,onClose={formatPanel=false},onStyle={kind -> if(kind=="link"){linking=true}else editor?.let { view -> format(view,kind); store.activeBlock?.let { id -> store.editBlock(id,view.text.toString(),spansFrom(view.text));if(kind in listOf("body","title","subtitle","headline"))store.changeBlock(id){it.copy(textStyle=kind)} } } },onList={kind -> store.setList(kind) })
         }
+    }
     }
     if(whatsNew) WhatsNew(store,releaseHistory){ReleaseNotes.acknowledge(store.context,store.preferences);whatsNew=false}
     var eraseTrash by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -346,7 +357,7 @@ fun dateGroup(millis:Long):String {
 @Composable fun GalleryCard(r:Revision,store:Store,onHold:()->Unit,onClick:()->Unit) {
     val base=LocalLeafColors.current;val style=r.note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base
     val surface=if(style.framed)style.brush(base)else if(style.document!=null)Brush.verticalGradient(listOf(c.canvas,c.canvas))else Brush.verticalGradient(listOf(c.paper.copy(alpha=.98f),c.paper.copy(alpha=if(c.dark).72f else .78f)))
-    Pressable(Modifier.fillMaxWidth().shadow(8.dp,RoundedCornerShape(23.dp),ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.06f)).clip(RoundedCornerShape(23.dp)).background(surface).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),r.note.displayTitle,onClick=onClick,onLongClick=onHold) {
+    Pressable(Modifier.fillMaxWidth().shadow(8.dp,RoundedCornerShape(23.dp),ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.06f)).clip(RoundedCornerShape(23.dp)).background(surface).wallpaper(style).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),r.note.displayTitle,onClick=onClick,onLongClick=onHold) {
         CompositionLocalProvider(LocalLeafColors provides c) {
         Box(Modifier.then(if(style.framed)Modifier.padding(start=8.dp,end=8.dp,top=8.dp)else Modifier)) {
         Column(Modifier.fillMaxWidth().offset(y=if(style.framed)7.dp else 0.dp).clip(RoundedCornerShape(if(style.framed)16.dp else 23.dp)).background(if(style.framed)c.canvas else Color.Transparent).padding(17.dp).heightIn(min=150.dp,max=300.dp)) {
@@ -362,7 +373,7 @@ fun dateGroup(millis:Long):String {
 @Composable fun ImageGalleryCard(r:Revision,a:Media,store:Store,onClick:()->Unit,onHold:()->Unit) {
     val base=LocalLeafColors.current;val style=r.note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base
     val surface=if(style.framed)style.brush(base)else if(style.document!=null)Brush.verticalGradient(listOf(c.canvas,c.canvas))else Brush.verticalGradient(listOf(c.paper.copy(alpha=.98f),c.paper.copy(alpha=if(c.dark).72f else .78f)))
-    Pressable(Modifier.clip(RoundedCornerShape(23.dp)).background(surface).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),description="View ${a.name}",onClick=onClick,onLongClick=onHold) {
+    Pressable(Modifier.clip(RoundedCornerShape(23.dp)).background(surface).wallpaper(style).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),description="View ${a.name}",onClick=onClick,onLongClick=onHold) {
         Box(Modifier.then(if(style.framed)Modifier.padding(start=8.dp,end=8.dp,top=8.dp)else Modifier)) {
             Column(Modifier.offset(y=if(style.framed)7.dp else 0.dp).clip(RoundedCornerShape(if(style.framed)16.dp else 23.dp)).background(if(style.framed)c.canvas else Color.Transparent).padding(8.dp)) {
                 MediaImage(File(store.media,a.id),Modifier.fillMaxWidth().aspectRatio(1f),radius=17)
@@ -376,13 +387,14 @@ fun dateGroup(millis:Long):String {
     val frame by animateFloatAsState(if(style.framed)1f else 0f,if(calm)snap()else spring(dampingRatio=1f,stiffness=450f),label="document frame")
     val paper by androidx.compose.animation.animateColorAsState(style.paper(base),tween(if(calm)0 else 220),label="document colour")
     val ink by androidx.compose.animation.animateColorAsState(style.ink(base),tween(if(calm)0 else 180),label="document ink")
-    val raw=style.documentColours(base);val c=raw.copy(canvas=paper,paper=paper,text=ink,secondary=ink.copy(alpha=.65f),tertiary=ink.copy(alpha=.4f));val chrome=if(style.customised)base.copy(text=if(lightColour(hexColour(style.backdrop) ?: paper))Color(0xFF191919)else Color(0xFFF7F7F7))else base;val footer by androidx.compose.animation.animateColorAsState(hexColour(style.backdropEnd ?: style.backdrop) ?: paper,tween(if(calm)0 else 220),label="footer colour");val metrics=LocalTypeSizes.current.copy(scale=note.textScale);val keyboard=LocalSoftwareKeyboardController.current;val focus=LocalFocusManager.current;var editing by remember(noteId){mutableStateOf(false)}
+    val edgeColour=noteEdgeColour(style,base)
+    val raw=style.documentColours(base);val c=raw.copy(canvas=paper,paper=paper,text=ink,secondary=ink.copy(alpha=.65f),tertiary=ink.copy(alpha=.4f));val chrome=if(style.customised)base.copy(text=if(lightColour(edgeColour))Color(0xFF191919)else Color(0xFFF7F7F7))else base;val footer by androidx.compose.animation.animateColorAsState(hexColour(style.backdropEnd ?: style.backdrop) ?: paper,tween(if(calm)0 else 220),label="footer colour");val metrics=LocalTypeSizes.current.copy(scale=note.textScale);val keyboard=LocalSoftwareKeyboardController.current;val focus=LocalFocusManager.current;var editing by remember(noteId){mutableStateOf(false)}
     FrostedHost {
-    Box(Modifier.fillMaxSize().background(animatedStyleBrush(style,base))) {
-            Column(Modifier.fillMaxSize().backdropSource().background(animatedStyleBrush(style,base)).verticalScroll(rememberScrollState()).padding(horizontal=(12*frame).dp).padding(top=(86*frame).dp,bottom=(110*frame).dp)) {
+    Box(Modifier.fillMaxSize().background(animatedStyleBrush(style,base)).wallpaper(style)) {
+            Column(Modifier.fillMaxSize().backdropSource().background(animatedStyleBrush(style,base)).wallpaper(style).verticalScroll(rememberScrollState()).padding(horizontal=(12*frame).dp).padding(top=(86*frame).dp,bottom=(110*frame).dp)) {
             CompositionLocalProvider(LocalLeafColors provides c) {
             Column(Modifier.fillMaxWidth().heightIn(min=((LocalConfiguration.current.screenHeightDp-220).coerceAtLeast(300)*frame).dp).clip(RoundedCornerShape((22*frame).dp)).background(c.canvas).border(.7.dp,c.separator.copy(alpha=c.separator.alpha*frame),RoundedCornerShape((22*frame).dp)).padding(horizontal=(28-12*frame).dp).padding(top=(100-72*frame).dp,bottom=(130-80*frame).dp)) {
-                BasicTextField(note.title,{store.editing?.let{n->store.update(n.copy(title=it))}},singleLine=true,keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(imeAction=androidx.compose.ui.text.input.ImeAction.Next),keyboardActions=androidx.compose.foundation.text.KeyboardActions(onNext={focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Next)}),textStyle=TextStyle(fontSize=metrics.size("title").sp,fontWeight=FontWeight.SemiBold,color=c.text,lineHeight=(metrics.size("title")*1.2).sp,letterSpacing=(-.6).sp),cursorBrush=SolidColor(c.accent),modifier=Modifier.fillMaxWidth().onFocusChanged{editing=it.isFocused},decorationBox={inner->if(note.title.isEmpty())Label("Untitled note",30,FontWeight.SemiBold,c.tertiary);inner()})
+                BasicTextField(note.title,{store.editing?.let{n->store.update(n.copy(title=it))}},singleLine=false,keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(imeAction=androidx.compose.ui.text.input.ImeAction.Next),keyboardActions=androidx.compose.foundation.text.KeyboardActions(onNext={focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Next)}),textStyle=TextStyle(fontSize=metrics.size("title").sp,fontWeight=FontWeight.SemiBold,color=c.text,lineHeight=(metrics.size("title")*1.2).sp,letterSpacing=(-.6).sp),cursorBrush=SolidColor(c.accent),modifier=Modifier.fillMaxWidth().onFocusChanged{editing=it.isFocused},decorationBox={inner->if(note.title.isEmpty())Label("Untitled note",30,FontWeight.SemiBold,c.tertiary);inner()})
                 if(store.heads.count{it.noteId==store.selected}>1)Pressable(Modifier.padding(top=12.dp),"Review versions",onClick=onConflict){Label("Edits from both devices · review",13,color=c.accent)}
                 Spacer(Modifier.height(16.dp))
                 DocumentBlocks(store,note,noteId,onEditor,{editing=it},onPreview)

@@ -26,9 +26,9 @@ struct CardEntrance: ViewModifier {
             var transaction = Transaction(); transaction.disablesAnimations = true
             withTransaction(transaction) { visible = reduced }
             guard !reduced else { return }
-            try? await Task.sleep(for: .milliseconds(min(index, 9) * 18))
+            try? await Task.sleep(for: .milliseconds(min(index, 9) * 32))
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.16)) { visible = true }
+            withAnimation(.easeOut(duration: 0.30)) { visible = true }
         }
     }
 }

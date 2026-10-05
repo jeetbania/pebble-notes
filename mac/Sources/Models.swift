@@ -82,7 +82,7 @@ struct Note: Codable, Equatable {
         if let blocks { return blocks }
         if recordType == "folder" { return [] }
         var body = DocumentBlock(); body.id = "body"; body.text = text; body.spans = spans
-        return [body] + attachments.map { media in var b = DocumentBlock(); b.id = "media-" + media.id; b.kind = media.mime.hasPrefix("image/") ? "image" : "file"; b.mediaId = media.id; return b }
+        return [body] + attachments.filter { $0.mime != "application/x-pebble-backdrop" }.map { media in var b = DocumentBlock(); b.id = "media-" + media.id; b.kind = media.mime.hasPrefix("image/") ? "image" : "file"; b.mediaId = media.id; return b }
     }
     mutating func prepare(previous: Note? = nil) {
         if purgedAt != nil { title = ""; text = ""; spans = []; attachments = []; blocks = []; tags = []; task = nil; style = nil; folderEmoji = ""; folderImage = ""; deleted = true; return }
@@ -94,7 +94,7 @@ struct Note: Codable, Equatable {
         if let previous, blocks == previous.blocks, attachments != previous.attachments {
             let ids = Set(attachments.map(\.id)); blocks?.removeAll { ["image", "file"].contains($0.kind) && !ids.contains($0.mediaId) }
             let represented = Set(blocks?.map(\.mediaId) ?? [])
-            for a in attachments where !represented.contains(a.id) { var b = DocumentBlock(); b.kind = a.mime.hasPrefix("image/") ? "image" : "file"; b.mediaId = a.id; blocks?.append(b) }
+            for a in attachments where a.mime != "application/x-pebble-backdrop" && !represented.contains(a.id) { var b = DocumentBlock(); b.kind = a.mime.hasPrefix("image/") ? "image" : "file"; b.mediaId = a.id; blocks?.append(b) }
         }
         if recordType == "note", !(blocks?.contains(where: { $0.isText }) ?? false) { blocks?.append(DocumentBlock()) }
         tags = Array(Set(tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "#", with: "").lowercased() }.filter { !$0.isEmpty })).sorted()
@@ -111,7 +111,7 @@ struct Note: Codable, Equatable {
             if block.isText { spans += block.asNote.spans.map { TextSpan(start: start + $0.start, length: $0.length, kind: $0.kind) } }
         }
         let ids = Set((blocks ?? []).filter { ["image", "file"].contains($0.kind) }.map(\.mediaId))
-        attachments.removeAll { !ids.contains($0.id) }
+        attachments.removeAll { !ids.contains($0.id) && $0.id != style?.backdropImage }
     }
     mutating func editBlock(_ id: String, _ change: (inout DocumentBlock) -> Void) {
         if blocks == nil { blocks = document }

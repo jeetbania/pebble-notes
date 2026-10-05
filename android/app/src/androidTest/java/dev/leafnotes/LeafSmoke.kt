@@ -15,6 +15,12 @@ class LeafSmoke : Instrumentation() {
         try {
             val isolated = object : ContextWrapper(targetContext) { override fun getFilesDir() = root }
             runOnMainSync {
+                val toneBitmap=android.graphics.Bitmap.createBitmap(40,40,android.graphics.Bitmap.Config.ARGB_8888)
+                toneBitmap.eraseColor(android.graphics.Color.BLUE)
+                for(x in 0 until 10)for(y in 0 until 40)toneBitmap.setPixel(x,y,android.graphics.Color.RED)
+                val prominent=prominentWallpaperColour(toneBitmap);check(prominent.blue>.95f&&prominent.red<.05f)
+                toneBitmap.eraseColor(android.graphics.Color.TRANSPARENT);check(prominentWallpaperColour(toneBitmap)==androidx.compose.ui.graphics.Color.Transparent);toneBitmap.recycle()
+                results.append("PASS: prominent wallpaper tone follows the dominant colour rather than a mixed average\n")
                 val store = Store(isolated)
                 val styleStore=Store(object:ContextWrapper(targetContext){override fun getFilesDir()=File(root,"style").apply{mkdirs()}})
                 styleStore.create();styleStore.update(Note(title="Style fixture",text="Text"));styleStore.flush();val styleId=styleStore.selected!!;val plain=styleStore.editing!!
@@ -90,6 +96,16 @@ class LeafSmoke : Instrumentation() {
                 recovered.resolve(latest); check(recovered.heads.size == 1)
                 check(recovered.revisions().any { it.id == fork.getString("id") })
                 results.append("PASS: Android fork resolution retains both histories\n")
+                val wallpaperContext=object:ContextWrapper(targetContext){override fun getFilesDir()=File(root,"wallpaper").apply{mkdirs()}}
+                val wallpaperStore=Store(wallpaperContext);wallpaperStore.create();wallpaperStore.update(Note(title="Wallpaper fixture"))
+                val wallpaperJSON=org.json.JSONArray(targetContext.assets.open("wallpapers/index.json").bufferedReader().use{it.readText()}).getJSONObject(0);val wallpaperHash=wallpaperJSON.getString("id")
+                wallpaperStore.useBackdrop(targetContext.assets.open("wallpapers/$wallpaperHash.webp").use{it.readBytes()},"Wallpaper")
+                wallpaperStore.update(wallpaperStore.editing!!.copy(style=wallpaperStore.editing!!.style!!.copy(blurImage=true,gradientDirection="up"),text="Typing preserves wallpaper"));wallpaperStore.flush();val wallpaperID=wallpaperStore.selected!!
+                check(wallpaperStore.editing!!.style!!.backdropImage==wallpaperHash && wallpaperStore.editing!!.attachments.size==1 && wallpaperStore.editing!!.document.all{it.isText})
+                val wallpaperPeerContext=object:ContextWrapper(targetContext){override fun getFilesDir()=File(root,"wallpaper-peer").apply{mkdirs()}}
+                val wallpaperPeer=Store(wallpaperPeerContext);wallpaperPeer.restore(wallpaperStore.backup());wallpaperPeer.select(wallpaperID);check(wallpaperPeer.editing==wallpaperStore.editing && File(wallpaperPeer.media,wallpaperHash).exists())
+                wallpaperPeer.update(wallpaperPeer.editing!!.copy(style=null));check(wallpaperPeer.editing!!.attachments.isEmpty())
+                results.append("PASS: image backdrop media, blur and direction survive editing and backup restore without content blocks; reset removes the current reference\n")
                 recovered.create(); val dailyId=recovered.selected!!
                 recovered.update(Note(text="Before 👋 after",spans=listOf(Span(7,2,"bold"))))
                 val body=recovered.editing!!.document[0].id

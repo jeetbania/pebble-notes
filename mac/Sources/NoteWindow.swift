@@ -9,8 +9,8 @@ struct EditorToolbar: View {
     var body: some View {
         HStack(spacing: 0) {
             if showsStyle { NoteStyleButton(store: store, interfaceScheme: styleMenuScheme) }
-            Divider().frame(height: 16).padding(.horizontal, 4)
-            Menu { ForEach(["Title", "Subtitle", "Headline", "Body"], id: \.self) { style in Button(style, systemImage: "textformat") { EditorActions.shared.textStyle(style.lowercased()) }.labelStyle(.titleAndIcon) } } label: { HStack { Text(editorActions.styleLabel).font(.system(size: 12)); Spacer(); Image(systemName: "chevron.up.chevron.down").font(.system(size: 9)) }.frame(width: 76).padding(.horizontal, 10) }.menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).modifier(HoverSurface()).menuIndicator(.hidden).fixedSize().tint(.primary).help("Text style")
+            if showsStyle { Divider().frame(height: 16).padding(.horizontal, 4) }
+            Menu { ForEach(["Title", "Subtitle", "Headline", "Body"], id: \.self) { style in Button(style, systemImage: "textformat") { EditorActions.shared.textStyle(style.lowercased()) }.labelStyle(.titleAndIcon) } } label: { HStack { Text(editorActions.styleLabel).font(.system(size: 12)); Spacer(); Image(systemName: "chevron.up.chevron.down").font(.system(size: 9)) }.frame(width: 76).padding(.horizontal, 10) }.menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).menuIndicator(.hidden).fixedSize().tint(.primary).help("Text style")
             Divider().frame(height: 16).padding(.horizontal, 4)
             ForEach([("bold", "Bold"), ("italic", "Italic"), ("strikethrough", "Strikethrough")], id: \.0) { item in GlassIcon(icon: item.0, label: item.1) { EditorActions.shared.format(item.0 == "strikethrough" ? "strike" : item.0) } }
             Divider().frame(height: 16).padding(.horizontal, 4)
