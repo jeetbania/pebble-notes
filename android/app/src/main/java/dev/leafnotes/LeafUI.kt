@@ -155,7 +155,7 @@ fun iconResource(name: String): Int = when(name) {
         else if(!gesture) navigation.animateTo(if(store.selected!=null)0f else width, spring(dampingRatio=1f,stiffness=420f))
     }
     fun back() { keyboard?.hide(); store.select(null); formatPanel=false }
-    BackHandler(enabled=store.selected!=null || folders || formatPanel || section=="Settings") { if(formatPanel)formatPanel=false else if(store.selected!=null)back() else if(section=="Settings")section="Notes" else folders=false }
+    BackHandler(enabled=store.selected!=null || folders || formatPanel || section!="Notes" || search.isNotEmpty() || batch) { when { formatPanel->formatPanel=false; store.selected!=null->back(); batch->{batch=false;selectedNotes=emptySet()}; folders->folders=false; search.isNotEmpty()->search=""; else->section="Notes" } }
     if(onboarding) { Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()){PebbleOnboarding(store,onFinish={onboarding=false},onConnect=connect)};return }
     val libraryHome=store.selected==null && section !in listOf("Settings","Tasks")
     val statusHeight=WindowInsets.statusBars.asPaddingValues().calculateTopPadding()

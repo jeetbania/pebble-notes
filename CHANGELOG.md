@@ -1,5 +1,13 @@
 # Pebble Notes changelog
 
+## 0.14.6 · Phone details, refined
+
+- Task descriptions begin at the top of the writing area.
+- Toggle arrows and nested content align with their text.
+- Image zoom controls stay fixed above the image.
+- Writing and image controls use smooth pill tracks and round slider handles.
+- Back gestures return from tasks and library sections to Notes.
+
 ## 0.14.5 · Tasks, together
 
 - Task cards open the task editor on Mac and Android, including from tag pages. Descriptions have more room to write.

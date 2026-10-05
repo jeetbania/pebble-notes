@@ -6,7 +6,6 @@ import androidx.compose.runtime.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.Slider
 
 data class TextMetrics(val body:Int=18,val headline:Int=21,val subtitle:Int=24,val title:Int=30,val scale:Double=1.0) {
     fun size(kind:String)=((when(kind){"title"->title;"subtitle"->subtitle;"headline"->headline;else->body})*scale).toInt().coerceIn(10,72)
@@ -24,12 +23,11 @@ class SemanticSize(val kind:String,size:Int):android.text.style.AbsoluteSizeSpan
 @Composable fun TypographySettings(store:Store,onDismiss:()->Unit) {
     val haptic=androidx.compose.ui.platform.LocalHapticFeedback.current
     IosSheet("Writing & text sizes",onDismiss) {
-        Label("Defaults for this phone. A note’s size adjustment multiplies these values and syncs with that note.",14,color=LocalLeafColors.current.secondary)
         val metrics=LocalTypeSizes.current
         listOf(Triple("Body","typeBody",14..26),Triple("Heading","typeHeadline",17..34),Triple("Subtitle","typeSubtitle",18..34),Triple("Title","typeTitle",24..44)).forEach{(name,key,range)->
             val value=store.preferences.getInt(key,when(key){"typeBody"->18;"typeHeadline"->21;"typeSubtitle"->24;else->30})
             Row(Modifier.fillMaxWidth().padding(top=18.dp)){Label(name,16,modifier=Modifier.weight(1f));Label("$value sp",14,color=LocalLeafColors.current.secondary)}
-            Slider(value.toFloat(),{if(it.toInt()!=value){haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);store.preferences.edit().putInt(key,it.toInt()).apply()}},valueRange=range.first.toFloat()..range.last.toFloat(),steps=range.last-range.first-1)
+            PillSlider(value.toFloat(),{if(it.toInt()!=value){haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);store.preferences.edit().putInt(key,it.toInt()).apply()}},valueRange=range.first.toFloat()..range.last.toFloat(),steps=range.last-range.first-1,description=name+" text size")
         }
         Label("A quieter place for your thoughts.",metrics.body,modifier=Modifier.padding(vertical=12.dp))
         SheetRow("Reset text sizes","undo"){store.preferences.edit().remove("typeBody").remove("typeHeadline").remove("typeSubtitle").remove("typeTitle").apply()}
@@ -39,6 +37,6 @@ class SemanticSize(val kind:String,size:Int):android.text.style.AbsoluteSizeSpan
     val haptic=androidx.compose.ui.platform.LocalHapticFeedback.current
     val note=store.editing ?: return
     Row(Modifier.fillMaxWidth().padding(top=14.dp)){Label("Note text size",16,modifier=Modifier.weight(1f));Label("${(note.textScale*100).toInt()}%",14,color=LocalLeafColors.current.secondary)}
-    Slider(note.textScale.toFloat(),{store.editing?.let{n->if(kotlin.math.abs(n.textScale-it)>.02)haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);store.update(n.copy(textScale=it.toDouble().coerceIn(.8,1.6)),"textSize")}},valueRange=.8f..1.6f,steps=7)
+    PillSlider(note.textScale.toFloat(),{store.editing?.let{n->if(kotlin.math.abs(n.textScale-it)>.02)haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);store.update(n.copy(textScale=it.toDouble().coerceIn(.8,1.6)),"textSize")}},valueRange=.8f..1.6f,steps=7,description="Note text size")
     SheetRow("Use default size","undo"){store.editing?.let{store.update(it.copy(textScale=1.0))}}
 }

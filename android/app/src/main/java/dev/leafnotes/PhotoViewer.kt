@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.Slider
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
@@ -58,7 +57,7 @@ fun viewerPhotos(note:Note,noteId:String)=note.document.filter{it.kind=="image"}
                     }
                 }
             }
-            Row(Modifier.align(Alignment.BottomCenter).padding(horizontal=16.dp).padding(bottom=if(zoom>1.01f)10.dp else 86.dp).frosted(CircleShape).padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically){ChromeButton("minus","Zoom out",size=40){animateZoom=true;zoom=(zoom-.25f).coerceAtLeast(1f);if(zoom==1f)pan=Offset.Zero};Slider(zoom,{animateZoom=false;zoom=it;if(zoom==1f)pan=Offset.Zero},valueRange=1f..5f,modifier=Modifier.width(150.dp));ChromeButton("plus","Zoom in",size=40){animateZoom=true;zoom=(zoom+.25f).coerceAtMost(5f)};Pressable(Modifier.padding(10.dp),"Fit image",onClick={zoom=1f;pan=Offset.Zero}){Label("Fit",14)}}
+            Row(Modifier.align(Alignment.TopCenter).padding(horizontal=16.dp).padding(top=76.dp).frosted(CircleShape).padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically){ChromeButton("minus","Zoom out",size=40){animateZoom=true;zoom=(zoom-.25f).coerceAtLeast(1f);if(zoom==1f)pan=Offset.Zero};PillSlider(zoom,{animateZoom=false;zoom=it;if(zoom==1f)pan=Offset.Zero},valueRange=1f..5f,modifier=Modifier.width(150.dp),description="Image zoom");ChromeButton("plus","Zoom in",size=40){animateZoom=true;zoom=(zoom+.25f).coerceAtMost(5f)};Pressable(Modifier.padding(10.dp),"Fit image",onClick={zoom=1f;pan=Offset.Zero}){Label("Fit",14)}}
             if(zoom<=1.01f)Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal=24.dp,vertical=18.dp),horizontalAlignment=Alignment.CenterHorizontally){
                 Box(Modifier.fillMaxWidth().padding(8.dp)){if(caption.isEmpty())Label("Add caption",14,color=c.secondary,modifier=Modifier.align(Alignment.Center));BasicTextField(caption,{caption=it;commit()},textStyle=TextStyle(fontSize=14.sp,color=c.text,textAlign=TextAlign.Center),modifier=Modifier.fillMaxWidth(),maxLines=3)}
                 Row(horizontalArrangement=Arrangement.spacedBy(18.dp),verticalAlignment=Alignment.CenterVertically){ChromeButton("back","Back to library",size=40){commit();store.select(null);onClose()};Label("${selection+1} / ${photos.size}",12,color=c.secondary);ChromeButton("next","Next image",size=40){choose(selection+1)}}
