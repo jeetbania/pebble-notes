@@ -51,9 +51,9 @@ extension NoteStore {
         commitDraft(Draft(noteId: id, parents: allHeads.first(where: { $0.noteId == id }).map { [$0.id] } ?? [], note: note)); select(previous)
     }
     func renameFolder(_ old: String, to name: String) {
-        for r in allHeads where r.note.collection == old || r.note.collection.hasPrefix(old + "/") { mutate(r.noteId) { n in n.collection = name + String(n.collection.dropFirst(old.count)); if n.recordType == "folder" { n.title = n.collection } } }
+        for r in allHeads where r.note.purgedAt == nil && (r.note.collection == old || r.note.collection.hasPrefix(old + "/")) { mutate(r.noteId) { n in n.collection = name + String(n.collection.dropFirst(old.count)); if n.recordType == "folder" { n.title = n.collection } } }
     }
-    func deleteFolder(_ path: String) { guard path != "Personal" else { return }; flush(); guard draft == nil else { return }; let matches = allHeads.filter { $0.note.collection == path || $0.note.collection.hasPrefix(path + "/") }; for revision in matches { mutate(revision.noteId) { note in if note.recordType == "folder" { note.deleted = true } else { note.collection = "Personal" } } }; select(nil) }
+    func deleteFolder(_ path: String) { guard path != "Personal" else { return }; flush(); guard draft == nil else { return }; let matches = allHeads.filter { $0.note.purgedAt == nil && ($0.note.collection == path || $0.note.collection.hasPrefix(path + "/")) }; for revision in matches { mutate(revision.noteId) { note in if note.recordType == "folder" { note.deleted = true } else { note.collection = "Personal" } } }; select(nil) }
     func scheduleBackup() {
         guard let raw = try? rawRevisions(), raw != "[]" else { return }; let directory = root
         Task { do { let result = try await DailyBackups.save(raw: raw, root: directory); backupStatus = result } catch { backupStatus = "Backup needs attention: " + error.localizedDescription } }

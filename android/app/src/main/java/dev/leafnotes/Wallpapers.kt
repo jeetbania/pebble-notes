@@ -13,16 +13,33 @@ import org.json.JSONArray
 
 val LocalNoteMedia=staticCompositionLocalOf<File?>{null}
 data class Wallpaper(val id:String,val name:String)
-fun Modifier.wallpaper(style:NoteStyle):Modifier=composed {
-    val context=LocalContext.current;val media=LocalNoteMedia.current
-    val bitmap=remember(style.backdropImage,style.blurImage){style.backdropImage?.let{id->try {
-        val f=media?.let{File(it,id)};val bytes=if(f?.exists()==true)f.readBytes()else context.assets.open("wallpapers/$id.webp").use{it.readBytes()}
-        val bounds=BitmapFactory.Options().apply{inJustDecodeBounds=true};BitmapFactory.decodeByteArray(bytes,0,bytes.size,bounds)
-        val options=BitmapFactory.Options().apply{inSampleSize=(maxOf(bounds.outWidth,bounds.outHeight)/1600).coerceAtLeast(1)}
-        BitmapFactory.decodeByteArray(bytes,0,bytes.size,options)?.let{b->if(style.blurImage==true)android.graphics.Bitmap.createScaledBitmap(b,36,(36f*b.height/b.width).toInt().coerceAtLeast(1),true)else b}?.asImageBitmap()
-    }catch(e:Exception){null}}}
-    if(bitmap==null)this else paint(BitmapPainter(bitmap,filterQuality=FilterQuality.High),sizeToIntrinsics=false,contentScale=ContentScale.Crop)
+// Decode on a worker and share bounded thumbnails across recycled cards.
+private val wallpaperBitmaps=object:android.util.LruCache<String,android.graphics.Bitmap>(24*1024*1024){
+    override fun sizeOf(key:String,value:android.graphics.Bitmap)=value.allocationByteCount
 }
+private val wallpaperDecodeLock=kotlinx.coroutines.sync.Mutex()
+fun Modifier.wallpaper(style:NoteStyle,maxSide:Int=1600):Modifier=composed {
+    val context=LocalContext.current;val media=LocalNoteMedia.current;val id=style.backdropImage
+    val key="${media?.path}:$id:$maxSide:${style.blurImage}"
+    val bitmap by produceState<android.graphics.Bitmap?>(wallpaperBitmaps.get(key),key){
+        value=wallpaperBitmaps.get(key)
+        if(id!=null)value=kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO){
+            wallpaperDecodeLock.lock()
+            try{wallpaperBitmaps.get(key)?:run {
+                val f=media?.let{File(it,id)};val bytes=if(f?.exists()==true)f.readBytes()else context.assets.open("wallpapers/$id.webp").use{it.readBytes()}
+                val bounds=BitmapFactory.Options().apply{inJustDecodeBounds=true};BitmapFactory.decodeByteArray(bytes,0,bytes.size,bounds)
+                var sample=1;while(maxOf(bounds.outWidth,bounds.outHeight)/sample>maxSide)sample*=2
+                BitmapFactory.decodeByteArray(bytes,0,bytes.size,BitmapFactory.Options().apply{inSampleSize=sample})?.let{decoded->
+                    val result=if(style.blurImage==true)android.graphics.Bitmap.createScaledBitmap(decoded,36,(36f*decoded.height/decoded.width).toInt().coerceAtLeast(1),true)else decoded
+                    if(result!==decoded)decoded.recycle()
+                    wallpaperBitmaps.put(key,result);result
+                }
+            }}catch(e:Exception){null}finally{wallpaperDecodeLock.unlock()}
+        }
+    }
+    if(bitmap==null)this else paint(BitmapPainter(bitmap!!.asImageBitmap(),filterQuality=FilterQuality.Medium),sizeToIntrinsics=false,contentScale=ContentScale.Crop)
+}
+
 fun Store.useBackdrop(bytes:ByteArray,name:String){val bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.size)?:error("Choose a supported image");val tone=prominentWallpaperColour(bitmap);bitmap.recycle();val id=sha256(bytes);val f=File(media,id);if(!f.exists()){val atomic=android.util.AtomicFile(f);val out=atomic.startWrite();try{out.write(bytes);atomic.finishWrite(out)}catch(e:Exception){atomic.failWrite(out);throw e}};editing?.let{n->update(n.copy(style=(n.style?:NoteStyle()).copy(backdrop=null,backdropEnd=null,backdropImage=id).lightDocument(tone,when(preferences.getString("appearance","system")){"dark"->true;"light"->false;else->context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK==android.content.res.Configuration.UI_MODE_NIGHT_YES}),attachments=n.attachments+Media(id,name,"application/x-pebble-backdrop")),"noteStyle");flush()}}
 fun Store.uploadBackdrop(uri:android.net.Uri){val staged=stageAttachment(uri);val bytes=File(media,staged.id).readBytes();useBackdrop(bytes,staged.name)}
 

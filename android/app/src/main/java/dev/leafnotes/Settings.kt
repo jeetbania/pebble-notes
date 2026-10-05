@@ -82,6 +82,11 @@ import java.io.File
                                 Pressable(Modifier.weight(1f).height(64.dp),"$accent accent${if(selected) ", selected" else ""}",onClick={store.preferences.edit().putString("accentColor",accent).apply()}) {Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(6.dp)){Box(Modifier.size(30.dp).background(accentColor(accent,c.dark),CircleShape),contentAlignment=Alignment.Center){if(selected)Glyph("done",size=17,tint=if(accent in listOf("Yellow","Orange","Green"))Color.Black else Color.White)};Label(accent,10,color=c.secondary)}}
                             }}
                         }
+                        SettingsGroup("Refresh rate") {
+                            val high=store.preferences.getBoolean("highRefreshRate",true)
+                            IosSegments(listOf("Standard","Up to 120 Hz"),if(high)1 else 0){store.preferences.edit().putBoolean("highRefreshRate",it==1).apply()}
+                            Label("Uses supported display rates. Your phone’s power and display settings still apply.",13,color=c.secondary)
+                        }
                         SettingsGroup("Motion") {IosSegments(listOf("Fluid","Calmer"),if(store.preferences.getBoolean("calmMotion",false))1 else 0){store.preferences.edit().putBoolean("calmMotion",it==1).apply()}}
                     }
                     "Clipboard" -> SettingsGroup("Clipboard suggestions") {IosSegments(listOf("On","Off"),if(store.preferences.getBoolean("clipboardSuggestions",true))0 else 1){store.preferences.edit().putBoolean("clipboardSuggestions",it==0).apply()}}
@@ -96,7 +101,13 @@ import java.io.File
                         if(updater.available!=null)SettingsRow("View update","next"){updater.visible=true}
                         SubtleDivider();SettingsRow("Update notifications","bell"){if(android.os.Build.VERSION.SDK_INT>=33)notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)}
                     }
-                    "About" -> SettingsGroup("Pebble Notes") {Image(androidx.compose.ui.res.painterResource(R.drawable.leaf_logo),"Pebble Notes",Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)));Label("Notes, images and small plans.",17,FontWeight.Medium);Label("Version "+ReleaseNotes.version(store.context),13,color=c.secondary);SubtleDivider();SheetRow("What’s new","sparkle",onClick=onWhatsNew);SheetRow("Welcome tour","next",onClick=onTour)}
+                    "About" -> SettingsGroup("Pebble Notes") {
+                        Image(androidx.compose.ui.res.painterResource(R.drawable.leaf_logo),"Pebble Notes",Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)))
+                        Label("Pebble Notes",28,FontWeight.Bold)
+                        listOf("On this device, with optional Drive sync" to "sync","Notes, images and tasks" to "note","History, Trash and backups" to "clock").forEach{(title,icon)->Row(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically){Glyph(icon,size=21,tint=c.secondary);Label(title,16,color=c.secondary)}}
+                        Label("Version "+ReleaseNotes.version(store.context),13,color=c.secondary)
+                        SubtleDivider();SheetRow("What’s new","sparkle",onClick=onWhatsNew);SheetRow("Replay welcome tour","next",onClick=onTour)
+                    }
                 }
             }
             ScrollHeader {Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically){ChromeButton("back",if(page=="Settings")"Back to library"else "Back to Settings",44,onClick={back()});Spacer(Modifier.weight(1f))}}

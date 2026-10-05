@@ -1,5 +1,16 @@
 # Pebble Notes changelog
 
+## 0.20.0 · Reliable collections and faster mobile notes
+
+- Deleting or renaming collections safely skips permanently erased notes, and older blocked saves recover without restoring erased content.
+- Phone tables have compact columns and aligned rows, with row and column menus for insertion and deletion.
+- Return on an empty toggle child exits one nesting level; undo restores it.
+- The phone library scrolls within rounded top corners below its fixed heading, without header blur.
+- Wallpaper thumbnails decode off the UI thread and share a bounded cache; library filtering and card indexing avoid repeated work.
+- Block dragging previews nearby movement and saves once on release, while note reveals keep text at its natural proportions.
+- The phone About page matches desktop, option dividers are clearer, and the navigation capsule follows touch gestures.
+- Appearance includes Standard or up-to-120-Hz refresh rate; rounded library corners have a deeper curve.
+
 ## 0.19.0 · Search and a colourful library
 
 - Search joins Home, Tasks and Settings in the phone navigation capsule; compose stays separate.

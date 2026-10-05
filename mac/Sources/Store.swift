@@ -124,10 +124,10 @@ import UniformTypeIdentifiers
         guard let draft else { return }
         do {
             var note = draft.note; note.prepare()
-            let revision = Revision(id: UUID().uuidString.lowercased(), noteId: draft.noteId, deviceId: deviceId, parents: draft.parents, createdAt: Int64(Date().timeIntervalSince1970 * 1000), note: note)
+            let revision = Revision(id: UUID().uuidString.lowercased(), noteId: draft.noteId, deviceId: deviceId, parents: note.purgedAt == nil ? draft.parents : [], createdAt: Int64(Date().timeIntervalSince1970 * 1000), note: note)
             try ingest(try encode(revision), remote: false)
             try? FileManager.default.removeItem(at: draftURL)
-            self.draft = nil; reload(); if automaticBackups { scheduleBackup() }
+            self.draft = nil; if note.purgedAt != nil { selected = nil }; reload(); if automaticBackups { scheduleBackup() }
         } catch { self.error = error.localizedDescription }
     }
     func resolve(_ revision: Revision) {

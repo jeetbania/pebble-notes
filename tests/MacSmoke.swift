@@ -282,6 +282,20 @@ import AppKit
         precondition(!restarted.current!.document.contains { $0.id == commandBlock.id })
         print("PASS: Enter reads the live toggle kind, creates a real child, collapse hides it, and empty-toggle deletion keeps child content")
 
+        let erasedFolder = NoteStore(root: root.appendingPathComponent("erased-folder"))
+        erasedFolder.createFolder("Imported"); erasedFolder.create(); erasedFolder.update { $0.title = "Old erased note"; $0.collection = "Imported"; $0.deleted = true }; erasedFolder.flush()
+        let erasedID = erasedFolder.selected!; erasedFolder.permanentlyDelete([erasedID])
+        let marker = erasedFolder.allHeads.first { $0.noteId == erasedID }!
+        erasedFolder.create(); erasedFolder.update { $0.title = "Retained note"; $0.collection = "Imported" }; erasedFolder.flush(); let retainedID = erasedFolder.selected!
+        erasedFolder.deleteFolder("Imported")
+        precondition(erasedFolder.error == nil && erasedFolder.draft == nil)
+        precondition(erasedFolder.uniqueHeads.first { $0.noteId == retainedID }!.note.collection == "Personal")
+        precondition(erasedFolder.allHeads.first { $0.noteId == erasedID }!.id == marker.id)
+        erasedFolder.commitDraft(Draft(noteId: erasedID, parents: [marker.id], note: marker.note))
+        precondition(erasedFolder.error == nil && erasedFolder.draft == nil)
+        precondition(erasedFolder.uniqueHeads.allSatisfy { $0.noteId != erasedID })
+        print("PASS: collection deletion skips erased markers and recovers an old invalid marker draft without restoring erased content")
+
         let sourceRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let envelope = try JSONDecoder().decode(UpdateEnvelope.self, from: Data(contentsOf: sourceRoot.appendingPathComponent("tests/fixtures/updates.json")))
         let payload = Data(base64Encoded: envelope.payload)!, signature = Data(base64Encoded: envelope.signature)!

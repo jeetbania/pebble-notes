@@ -64,7 +64,14 @@ class MainActivity : ComponentActivity() {
         }
     }
     override fun onPause() { store.flush(); if(store.preferences.getBoolean("connected", false)) scheduleSync(this); super.onPause() }
-    override fun onResume() { super.onResume(); if(::store.isInitialized && store.preferences.getBoolean("connected", false)) scheduleSync(this) }
+    fun applyRefreshPreference() {
+        val modes=window.decorView.display?.supportedModes ?: return
+        val current=window.decorView.display?.mode ?: return
+        val high=store.preferences.getBoolean("highRefreshRate",true)
+        val target=preferredRefreshRate(modes.filter{it.physicalWidth==current.physicalWidth && it.physicalHeight==current.physicalHeight}.map{it.refreshRate},high)
+        window.attributes=window.attributes.apply{preferredDisplayModeId=0;preferredRefreshRate=target}
+    }
+    override fun onResume() { super.onResume(); if(::store.isInitialized)applyRefreshPreference(); if(::store.isInitialized && store.preferences.getBoolean("connected", false)) scheduleSync(this) }
     private fun connect() {
         Identity.getAuthorizationClient(this).authorize(authorizationRequest()).addOnSuccessListener { auth ->
             if(auth.hasResolution()) resolution.launch(IntentSenderRequest.Builder(auth.pendingIntent!!.intentSender).build())
@@ -122,3 +129,8 @@ fun canonicalSpans(spans: List<Span>): List<Span> {
 }
 
 class CompletionStrike: android.text.style.StrikethroughSpan()
+
+fun preferredRefreshRate(rates:List<Float>,high:Boolean):Float {
+    val limit=if(high)120.5f else 60.5f
+    return rates.filter{it>0f && it<=limit}.maxOrNull() ?: rates.filter{it>0f}.minOrNull() ?: 0f
+}

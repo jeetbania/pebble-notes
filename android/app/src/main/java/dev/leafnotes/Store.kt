@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.AtomicFile
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -102,8 +103,8 @@ class Store(val context: Context) {
     var status by mutableStateOf("Saved on this phone")
     var error by mutableStateOf<String?>(null)
     var busy by mutableStateOf(false)
-    val allHeads get() = heads.groupBy { it.noteId }.values.map { group -> group.firstOrNull { !it.note.deleted } ?: group.first() }
-    val visibleHeads get()=allHeads.filter{it.note.recordType=="note" && it.note.purgedAt==null}
+    val allHeads by derivedStateOf { heads.groupBy { it.noteId }.values.map { group -> group.firstOrNull { !it.note.deleted } ?: group.first() } }
+    val visibleHeads by derivedStateOf {allHeads.filter{it.note.recordType=="note" && it.note.purgedAt==null}}
     val folderHeads get()=allHeads.filter{it.note.recordType=="folder" && !it.note.deleted}
     val collections get()=(allHeads.filter{!it.note.deleted}.flatMap{r-> val parts=r.note.collection.split('/');parts.indices.map{parts.take(it+1).joinToString("/")}}+"Personal").distinct().sorted()
     var activeBlock:String?=null
@@ -150,7 +151,7 @@ class Store(val context: Context) {
     @Synchronized fun setList(kind:String) { val id=activeBlock ?: editing?.document?.firstOrNull{it.isText}?.id ?: return; val n=editing?:return;val block=n.document.firstOrNull{it.id==id}?:return;update(n.copy(blocks=n.document.map{if(it.id==id)it.copy(kind=if(it.kind==kind)"text"else kind,collapsed=false)else if(block.kind=="toggle"&&it.parentId==id)it.copy(parentId=block.parentId)else it})) }
     @Synchronized fun addBlock(kind:String) { editing?.let{n->val b=Block(kind=kind,cells=if(kind=="table")listOf(listOf("",""),listOf("",""))else emptyList());val blocks=n.document.toMutableList();var anchor=activeBlock;while(n.document.firstOrNull{it.id==anchor}?.parentId!=null){anchor=n.document.first{it.id==anchor}.parentId};val ids=anchor?.let{n.descendants(it)}?:emptySet();val pos=blocks.indexOfLast{it.id in ids};blocks.add(if(pos<0)blocks.size else pos+1,b);update(n.copy(blocks=blocks));activeBlock=b.id} }
     @Synchronized fun addChild(id:String) { editing?.let{n->val child=Block(parentId=id);val ids=n.descendants(id);val content=n.document.map{if(it.id==id)it.copy(collapsed=false)else it}.toMutableList();content.add(content.indexOfLast{it.id in ids}+1,child);update(n.copy(blocks=content));activeBlock=child.id} }
-    @Synchronized fun moveBlock(id:String,delta:Int) { editing?.let{n->val source=n.document.firstOrNull{it.id==id}?:return;val peers=n.document.filter{it.parentId==source.parentId};val i=peers.indexOfFirst{it.id==id};val j=(i+delta).coerceIn(0,peers.lastIndex);if(i!=j){val ids=n.descendants(id);val group=n.document.filter{it.id in ids};val content=n.document.filter{it.id !in ids}.toMutableList();val target=if(delta<0)content.indexOfFirst{it.id==peers[j].id}else content.indexOfLast{it.id in n.descendants(peers[j].id)}+1;content.addAll(target,group);update(n.copy(blocks=content))}} }
+    @Synchronized fun moveBlock(id:String,delta:Int) { editing?.let{n->val moved=n.movingBlock(id,delta);if(moved!=n)update(moved)} }
     @Synchronized fun removeBlock(id:String) { editing?.let{n->val ids=n.descendants(id);update(n.copy(blocks=n.document.filter{it.id !in ids}))} }
     @Synchronized fun duplicateBlock(id:String) { editing?.let{n->val ids=n.descendants(id);val content=n.document.toMutableList();val group=content.filter{it.id in ids};val map=group.associate{it.id to uid()};val copies=group.map{it.copy(id=map[it.id]!!,parentId=map[it.parentId] ?: it.parentId)};content.addAll(content.indexOfLast{it.id in ids}+1,copies);update(n.copy(blocks=content))} }
     @Synchronized fun permanentlyDelete(ids:List<String>) {
@@ -161,9 +162,9 @@ class Store(val context: Context) {
     }
     fun expireTrash(now:Long=System.currentTimeMillis()) { val ids=visibleHeads.filter{it.note.deleted && now-(it.note.deletedAt ?: it.createdAt)>=30L*86400000}.map{it.noteId};if(ids.isNotEmpty())permanentlyDelete(ids) }
     @Synchronized fun createFolder(path:String,emoji:String="") { val name=path.split('/').map{it.trim()}.filter{it.isNotEmpty()}.joinToString("/");if(name.isBlank())return;flush();if(draft!=null)return;val previous=selected;val id=folderHeads.firstOrNull{it.note.collection==name}?.noteId ?: "folder-"+sha256(name.toByteArray());select(id);val note=Note(title=name,collection=name,blocks=emptyList(),recordType="folder",folderEmoji=emoji).prepared();draft=JSONObject().put("noteId",id).put("parents",JSONArray(listOfNotNull(allHeads.firstOrNull{it.noteId==id}?.id))).put("note",note.json());editing=note;saveDraft();flush();select(previous) }
-    @Synchronized fun deleteFolder(path:String) {if(path=="Personal")return;flush();if(draft!=null)return;val previous=selected;allHeads.filter{it.note.collection==path||it.note.collection.startsWith(path+"/")}.forEach{r->select(r.noteId);update(if(r.note.recordType=="folder")r.note.copy(deleted=true) else r.note.copy(collection="Personal"));flush()};select(previous)}
-    @Synchronized fun renameFolder(old:String,name:String){val previous=selected;val clean=name.trim('/',' ');if(clean.isEmpty())return;allHeads.filter{it.note.collection==old||it.note.collection.startsWith(old+"/")}.forEach{r->select(r.noteId);val next=clean+r.note.collection.removePrefix(old);update(r.note.copy(collection=next,title=if(r.note.recordType=="folder")next else r.note.title));flush()};select(previous)}
-    @Synchronized fun splitList(id:String,position:Int):String? { val n=editing?:return null;val blocks=n.document.toMutableList();val i=blocks.indexOfFirst{it.id==id};if(i<0)return null;val b=blocks[i];if(b.text.isEmpty() && b.kind in listOf("bullet","number","check")){changeBlock(id){it.copy(kind="text",textStyle="body")};return id};val p=position.coerceIn(0,b.text.length);val next=b.copy(id=uid(),kind=if(b.kind in listOf("quote","callout"))"text"else b.kind,text=b.text.substring(p),spans=clipSpans(b.spans,p,b.text.length-p).filter{it.kind !in listOf("title","subtitle","headline","bold")},textStyle="body",checked=false);blocks[i]=b.copy(text=b.text.substring(0,p),spans=clipSpans(b.spans,0,p));blocks.add(i+1,next);update(n.copy(blocks=blocks));activeBlock=next.id;return next.id }
+    @Synchronized fun deleteFolder(path:String) {if(path=="Personal")return;flush();if(draft!=null)return;val previous=selected;allHeads.filter{it.note.purgedAt==null && (it.note.collection==path||it.note.collection.startsWith(path+"/"))}.forEach{r->select(r.noteId);update(if(r.note.recordType=="folder")r.note.copy(deleted=true) else r.note.copy(collection="Personal"));flush()};select(previous)}
+    @Synchronized fun renameFolder(old:String,name:String){val previous=selected;val clean=name.trim('/',' ');if(clean.isEmpty())return;allHeads.filter{it.note.purgedAt==null && (it.note.collection==old||it.note.collection.startsWith(old+"/"))}.forEach{r->select(r.noteId);val next=clean+r.note.collection.removePrefix(old);update(r.note.copy(collection=next,title=if(r.note.recordType=="folder")next else r.note.title));flush()};select(previous)}
+    @Synchronized fun splitList(id:String,position:Int):String? { val n=editing?:return null;val blocks=n.document.toMutableList();val i=blocks.indexOfFirst{it.id==id};if(i<0)return null;val b=blocks[i];if(b.text.isEmpty() && b.parentId!=null){val parent=n.document.firstOrNull{it.id==b.parentId}?:return null;blocks.removeAt(i);val out=b.copy(parentId=parent.parentId,kind="text",textStyle="body",indent=0);val family=n.descendants(parent.id);val end=blocks.indexOfLast{it.id in family};blocks.add(end+1,out);update(n.copy(blocks=blocks));activeBlock=id;return id};if(b.text.isEmpty() && b.kind in listOf("bullet","number","check")){changeBlock(id){it.copy(kind="text",textStyle="body")};return id};val p=position.coerceIn(0,b.text.length);val next=b.copy(id=uid(),kind=if(b.kind in listOf("quote","callout"))"text"else b.kind,text=b.text.substring(p),spans=clipSpans(b.spans,p,b.text.length-p).filter{it.kind !in listOf("title","subtitle","headline","bold")},textStyle="body",checked=false);blocks[i]=b.copy(text=b.text.substring(0,p),spans=clipSpans(b.spans,0,p));blocks.add(i+1,next);update(n.copy(blocks=blocks));activeBlock=next.id;return next.id }
     private fun saveDraft() {
         var stream: java.io.FileOutputStream? = null
         try { stream = draftFile.startWrite(); stream.write(draft.toString().toByteArray(Charsets.UTF_8)); draftFile.finishWrite(stream); status = "Saved on this phone" }
@@ -172,9 +173,11 @@ class Store(val context: Context) {
     @Synchronized fun flush() {
         handler.removeCallbacks(commit); val d = draft ?: return
         try {
-            d.put("note", Note.from(d.getJSONObject("note")).prepared().json())
+            val note=Note.from(d.getJSONObject("note")).prepared()
+            d.put("note", note.json())
+            if(note.purgedAt!=null)d.put("parents",JSONArray())
             val r = JSONObject().put("schema", 2).put("id", uid()).put("noteId", d.getString("noteId")).put("deviceId", deviceId).put("parents", d.getJSONArray("parents")).put("createdAt", System.currentTimeMillis()).put("note", d.getJSONObject("note"))
-            ingest(r.toString(), false); draftFile.delete(); draft = null; reload(); scheduleLocalBackup(context)
+            ingest(r.toString(), false); draftFile.delete(); draft = null; if(note.purgedAt!=null){selected=null;editing=null}; reload(); scheduleLocalBackup(context)
             if(preferences.getBoolean("connected", false)) scheduleSync(context)
         } catch (e: Exception) { error = "Local saving failed: ${e.message}" }
     }
@@ -223,3 +226,14 @@ class Store(val context: Context) {
 fun Note.descendants(id:String):Set<String> { val ids=mutableSetOf(id);repeat(2000){val before=ids.size;val children=document.filter{it.parentId in ids}.map{it.id};ids.addAll(children);if(ids.size==before)return ids};return ids }
 fun Note.blockVisible(block:Block,dragging:String?=null):Boolean { var parent=block.parentId;val seen=mutableSetOf<String>();while(parent!=null && seen.add(parent)){val b=document.firstOrNull{it.id==parent}?:break;if(b.collapsed==true || dragging==b.id)return false;parent=b.parentId};return true }
 fun Note.depth(block:Block):Int {var parent=block.parentId;val seen=mutableSetOf<String>();while(parent!=null && seen.size<8 && seen.add(parent)){parent=document.firstOrNull{it.id==parent}?.parentId};return seen.size}
+
+fun Note.movingBlock(id:String,delta:Int):Note {
+    val source=document.firstOrNull{it.id==id} ?: return this
+    val peers=document.filter{it.parentId==source.parentId}
+    val from=peers.indexOfFirst{it.id==id};val to=(from+delta).coerceIn(0,peers.lastIndex)
+    if(from==to)return this
+    val family=descendants(id);val moved=document.filter{it.id in family}
+    val remaining=document.filter{it.id !in family}.toMutableList()
+    val target=if(delta<0)remaining.indexOfFirst{it.id==peers[to].id}else remaining.indexOfLast{it.id in descendants(peers[to].id)}+1
+    remaining.addAll(target,moved);return copy(blocks=remaining)
+}

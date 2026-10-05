@@ -82,6 +82,7 @@ val LocalLeafColors = staticCompositionLocalOf { lightLeafColors }
     val dark = appearance == "dark" || appearance == "system" && isSystemInDarkTheme()
     val c = (if(dark) darkLeafColors else lightLeafColors).copy(accent=accentColor(store.preferences.getString("accentColor","Yellow") ?: "Yellow",dark))
     val view = LocalView.current
+    LaunchedEffect(preferenceVersion){(view.context as? MainActivity)?.applyRefreshPreference()}
     val noteTop=noteEdgeColour(store.editing?.style ?: NoteStyle(),c,media=store.media)
     val noteBottom=noteEdgeColour(store.editing?.style ?: NoteStyle(),c,top=false,media=store.media)
     SideEffect {
@@ -158,16 +159,17 @@ fun iconResource(name: String): Int = when(name) {
     val backup=androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> if(uri!=null) scope.launch { try { val bytes=withContext(Dispatchers.IO){store.backup()}; withContext(Dispatchers.IO){store.context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) } ?: error("Could not write backup")}; store.status="Backup exported" }catch(e:Exception){store.error=e.message} } }
     val restore=androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if(uri!=null) scope.launch { try { withContext(Dispatchers.IO){store.context.contentResolver.openInputStream(uri)?.use { store.restore(it.readBytes()) } ?: error("Could not read backup") } }catch(e:Exception){store.error=e.message} } }
     val noteExport=androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")){uri->if(uri!=null){store.flush();val value=store.editing;scope.launch{try{withContext(Dispatchers.IO){if(value!=null)store.context.contentResolver.openOutputStream(uri)?.use{exportNote(store,value,it)}}}catch(e:Exception){store.error=e.message}}}}
-    val records=store.visibleHeads.filter { r -> val n=r.note; (n.task==null || section.startsWith("#") || section in listOf("Trash","Archive")) && (if(section=="Trash")n.deleted else !n.deleted) && (if(section=="Archive")n.archived else section=="Trash" || !n.archived) && (section!="Images" || n.attachments.any{it.mime.startsWith("image/")}) && (section in listOf("Notes","Everything","Images","Archive","Trash") || section=="Pinned" && n.pinned || section=="Checklists" && n.document.any{it.kind=="check"} || section.startsWith("#") && section.removePrefix("#") in n.tags || n.collection==section || n.collection.startsWith(section+"/")) && (search.isEmpty() || "${n.title} ${n.text} ${n.collection} ${n.tags.joinToString(" "){"#"+it}}".contains(search,true)) }.sortedWith(compareByDescending<Revision>{it.note.pinned}.thenByDescending{it.createdAt})
+    val records=remember(store.heads,section,search){store.visibleHeads.filter { r -> val n=r.note; (n.task==null || section.startsWith("#") || section in listOf("Trash","Archive")) && (if(section=="Trash")n.deleted else !n.deleted) && (if(section=="Archive")n.archived else section=="Trash" || !n.archived) && (section!="Images" || n.attachments.any{it.mime.startsWith("image/")}) && (section in listOf("Notes","Everything","Images","Archive","Trash") || section=="Pinned" && n.pinned || section=="Checklists" && n.document.any{it.kind=="check"} || section.startsWith("#") && section.removePrefix("#") in n.tags || n.collection==section || n.collection.startsWith(section+"/")) && (search.isEmpty() || "${n.title} ${n.text} ${n.collection} ${n.tags.joinToString(" "){"#"+it}}".contains(search,true)) }.sortedWith(compareByDescending<Revision>{it.note.pinned}.thenByDescending{it.createdAt}) }
     var lastNote by remember { mutableStateOf<Note?>(null) }; var lastId by remember { mutableStateOf<String?>(null) }
     SideEffect { if(store.editing!=null) {lastNote=store.editing;lastId=store.selected} }
     val width=with(LocalDensity.current){LocalConfiguration.current.screenWidthDp.dp.toPx()}
     val navigation=remember { Animatable(width) }
+    val revealProgress=remember(navigation,width){{(1f-navigation.value/width).coerceIn(0f,1f)}}
     var gesture by remember { mutableStateOf(false) }
     LaunchedEffect(store.selected) {
         formatPanel=false
         if(calm)navigation.snapTo(if(store.selected!=null)0f else width)
-        else if(!gesture) navigation.animateTo(if(store.selected!=null)0f else width, tween(240,easing=FastOutSlowInEasing))
+        else if(!gesture) navigation.animateTo(if(store.selected!=null)0f else width, tween(300,easing=FastOutSlowInEasing))
     }
     fun back() { keyboard?.hide(); store.select(null); formatPanel=false }
     BackHandler(enabled=store.selected!=null || folders || formatPanel || section!="Notes" || searching || search.isNotEmpty() || batch) { when { formatPanel->formatPanel=false; store.selected!=null->back(); batch->{batch=false;selectedNotes=emptySet()}; folders->folders=false; searching->{searching=false;search="";keyboard?.hide()}; search.isNotEmpty()->search=""; else->section="Notes" } }
@@ -196,17 +198,19 @@ fun iconResource(name: String): Int = when(name) {
         if(updater.visible && !whatsNew) UpdateDialog(updater)
         val note=store.editing ?: lastNote
         if(note!=null && (store.selected!=null || navigation.value<width-.5f)) {
-            Box(Modifier.fillMaxSize().graphicsLayer{alpha=pageProgress}.background(animatedStyleBrush(presentationStyle,c)).wallpaper(presentationStyle))
+            Box(Modifier.fillMaxSize().graphicsLayer{alpha=(1f-navigation.value/width).coerceIn(0f,1f)}.background(animatedStyleBrush(presentationStyle,c)).wallpaper(presentationStyle))
             Box(Modifier.fillMaxSize().graphicsLayer {
                 val progress=(1f-navigation.value/width).coerceIn(0f,1f)
                 alpha=if(calm || launchFrame==null)progress else (progress*8f).coerceIn(0f,1f)
                 clip=!calm && launchFrame!=null
-                transformOrigin=TransformOrigin(0f,0f)
                 val origin=launchFrame
-                if(!calm && origin!=null){val bounds=morphBounds(origin,Rect(0f,0f,size.width,size.height),progress);scaleX=bounds.width/size.width;scaleY=bounds.height/size.height;translationX=bounds.left;translationY=bounds.top}
-                shape=GenericShape { size,_ -> addRoundRect(RoundRect(Rect(0f,0f,size.width,size.height),CornerRadius(23.dp.toPx()*(1f-progress)/scaleX.coerceAtLeast(.01f)))) }
+                // Reveal the full-size editor through the expanding card bounds; text stays undistorted.
+                shape=GenericShape { size,_ ->
+                    val bounds=if(origin==null)Rect(0f,0f,size.width,size.height)else morphBounds(origin,Rect(0f,0f,size.width,size.height),progress)
+                    addRoundRect(RoundRect(bounds,CornerRadius(23.dp.toPx()*(1f-progress))))
+                }
             }) {
-                CompositionLocalProvider(LocalNoteReveal provides pageProgress) { EditorScreen(store,note,lastId,onBack={back()},onMore={menu=true},onFormat={keyboard?.hide();formatPanel=!formatPanel},onImages={store.insertionOffset=editor?.selectionStart;images.launch(arrayOf("*/*"))},onCompose={launchFrame=null;store.create()},onPreview={preview=it},onEditor={editor=it},onConflict={conflicts=true},onShare={
+                CompositionLocalProvider(LocalNoteReveal provides revealProgress) { EditorScreen(store,note,lastId,onBack={back()},onMore={menu=true},onFormat={keyboard?.hide();formatPanel=!formatPanel},onImages={store.insertionOffset=editor?.selectionStart;images.launch(arrayOf("*/*"))},onCompose={launchFrame=null;store.create()},onPreview={preview=it},onEditor={editor=it},onConflict={conflicts=true},onShare={
                     store.flush(); val intent=Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT,note.displayTitle+"\n\n"+note.text) }; store.context.startActivity(Intent.createChooser(intent,"Share note").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 })
                 }
@@ -315,9 +319,9 @@ fun iconResource(name: String): Int = when(name) {
     PublishDockBackdrop()
     Box(Modifier.fillMaxSize().background(c.page).then(if(!enabled)Modifier.clearAndSetSemantics{} else Modifier)) {
             if(!searchMode)Box(Modifier.fillMaxWidth().height(540.dp).background(homeGlowBrush(c.dark)))
-            Crossfade(targetState=Pair(folders,gallery),animationSpec=tween(if(LocalCalmMotion.current)0 else 180),label="library layout") { (folderMode,galleryMode) ->
+            Crossfade(modifier=Modifier.fillMaxSize().padding(top=headerHeight).padding(horizontal=14.dp).clip(RoundedCornerShape(topStart=44.dp,topEnd=44.dp)),targetState=Pair(folders,gallery),animationSpec=tween(if(LocalCalmMotion.current)0 else 180),label="library layout") { (folderMode,galleryMode) ->
             if(folderMode) {
-                LazyColumn(modifier=Modifier.backdropSource(),contentPadding=PaddingValues(start=22.dp,top=headerHeight+12.dp,end=22.dp,bottom=120.dp)) {
+                LazyColumn(modifier=Modifier.backdropSource(),contentPadding=PaddingValues(start=8.dp,top=12.dp,end=8.dp,bottom=120.dp)) {
                     item {Label("Your library",20,FontWeight.SemiBold,modifier=Modifier.padding(top=12.dp,bottom=10.dp))}
                     item {Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(c.paper)) {listOf("Notes" to "list","Pinned" to "pin","Checklists" to "check","Tasks" to "calendar","Images" to "images","Archive" to "archive","Trash" to "trash","Settings" to "settings").forEachIndexed {i,(label,icon)-> FolderRow(label,icon,store.visibleHeads.count{val n=it.note;if(label=="Trash")n.deleted else if(label=="Archive")n.archived&&!n.deleted else if(label=="Images")!n.deleted&&!n.archived&&n.attachments.any{it.mime.startsWith("image/")} else if(label=="Pinned")!n.deleted&&!n.archived&&n.pinned else if(label=="Tasks")!n.deleted&&!n.archived&&n.task!=null else if(label=="Checklists")!n.deleted&&!n.archived&&n.document.any{it.kind=="check"} else !n.deleted&&!n.archived},i>0){if(enabled)onSection(label)} }} }
                     if(store.visibleHeads.any{it.note.tags.isNotEmpty()})item{Label("Tags",20,FontWeight.SemiBold,modifier=Modifier.padding(top=24.dp,bottom=10.dp));Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(c.paper)){store.visibleHeads.filter{!it.note.deleted}.flatMap{it.note.tags}.distinct().sorted().forEachIndexed{i,tag->FolderRow("#"+tag,"number",store.visibleHeads.count{tag in it.note.tags&&!it.note.deleted},i>0){onSection("#"+tag)}}}}
@@ -325,10 +329,10 @@ fun iconResource(name: String): Int = when(name) {
                     item {Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(c.paper)){CollectionRows(store){name->if(enabled)onSection(name)}}}
                 }
             } else if(section=="Images" || galleryMode) {
-                LazyVerticalStaggeredGrid(modifier=Modifier.backdropSource(),columns=StaggeredGridCells.Fixed(2),contentPadding=PaddingValues(22.dp,headerHeight+12.dp,22.dp,120.dp),horizontalArrangement=Arrangement.spacedBy(14.dp),verticalItemSpacing=16.dp) {
+                LazyVerticalStaggeredGrid(modifier=Modifier.backdropSource(),columns=StaggeredGridCells.Fixed(2),contentPadding=PaddingValues(8.dp,12.dp,8.dp,120.dp),horizontalArrangement=Arrangement.spacedBy(14.dp),verticalItemSpacing=16.dp) {
                     if(records.isEmpty())item(span=StaggeredGridItemSpan.FullLine){LibraryEmpty(section,search,{onSearch("")},onNew,{onSection("Notes")})}
                     if(section=="Images") records.forEach {r->items(r.note.attachments.filter{it.mime.startsWith("image/")},key={r.noteId+it.id}){a->CardFade(store,r.noteId+a.id,records.indexOf(r)){ImageGalleryCard(r,a,store,onClick={if(enabled)onImage(a)},onHold={if(enabled)held=r.noteId})}}}
-                    else items(records,key={it.noteId}){r->CardFade(store,r.noteId,records.indexOf(r)){GalleryCard(r,store,onHold={if(enabled)held=r.noteId}){if(enabled)onOpen(r.noteId)}}}
+                    else itemsIndexed(records,key={_,r->r.noteId}){index,r->CardFade(store,r.noteId,index){GalleryCard(r,store,onHold={if(enabled)held=r.noteId}){if(enabled)onOpen(r.noteId)}}}
                 }
             } else {
                 val listState=rememberLazyListState();var swipeReset by remember{mutableIntStateOf(0)}
@@ -339,8 +343,8 @@ fun iconResource(name: String): Int = when(name) {
                         return Offset.Zero
                     }
                 }}
-                val groups=records.groupBy {if(it.note.pinned)"Pinned" else dateGroup(it.createdAt)}
-                LazyColumn(state=listState,modifier=Modifier.backdropSource().nestedScroll(closeSwipes),contentPadding=PaddingValues(start=22.dp,top=headerHeight+12.dp,end=22.dp,bottom=120.dp)) {
+                val groups=remember(records){records.groupBy {if(it.note.pinned)"Pinned" else dateGroup(it.createdAt)}}
+                LazyColumn(state=listState,modifier=Modifier.backdropSource().nestedScroll(closeSwipes),contentPadding=PaddingValues(start=8.dp,top=12.dp,end=8.dp,bottom=120.dp)) {
                     if(records.isEmpty())item{LibraryEmpty(section,search,{onSearch("")},onNew,{onSection("Notes")})}
                     groups.forEach {(heading,items)->
                         item(key=heading+"header") {Label(heading,20,FontWeight.SemiBold,modifier=Modifier.padding(top=if(heading==groups.keys.first())8.dp else 26.dp,bottom=10.dp))}
@@ -352,7 +356,7 @@ fun iconResource(name: String): Int = when(name) {
                 }
             }
             }
-        ScrollHeader(Modifier.onSizeChanged { headerHeight=with(headerDensity){it.height.toDp()} },homeGlow=!searchMode) {
+        Column(Modifier.fillMaxWidth().onSizeChanged { headerHeight=with(headerDensity){it.height.toDp()} }.statusBarsPadding().padding(bottom=10.dp)) {
             if(searchMode) {
                 SearchHeader(search,onSearch,onSearchClose,records.size)
             } else {
@@ -412,7 +416,7 @@ fun dateGroup(millis:Long):String {
     val cardHeight=if(uniform)250.dp else if(r.note.text.length>240 || r.note.attachments.any{it.mime.startsWith("image/")})280.dp else 220.dp
     val base=LocalLeafColors.current;val style=r.note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base
     val surface=if(style.framed)style.brush(base)else if(style.document!=null)Brush.verticalGradient(listOf(c.canvas,c.canvas))else Brush.verticalGradient(listOf(c.paper.copy(alpha=.98f),c.paper.copy(alpha=if(c.dark).72f else .78f)))
-    Pressable(Modifier.fillMaxWidth().height(cardHeight).onGloballyPositioned{store.cardFrames[r.noteId]=it.boundsInRoot()}.shadow(8.dp,RoundedCornerShape(23.dp),ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.06f)).clip(RoundedCornerShape(23.dp)).background(surface).wallpaper(style).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),r.note.displayTitle,onClick=onClick,onLongClick=onHold) {
+    Pressable(Modifier.fillMaxWidth().height(cardHeight).onGloballyPositioned{store.cardFrames[r.noteId]=it.boundsInRoot()}.shadow(8.dp,RoundedCornerShape(23.dp),ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.06f)).clip(RoundedCornerShape(23.dp)).background(surface).wallpaper(style,512).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),r.note.displayTitle,onClick=onClick,onLongClick=onHold) {
         CompositionLocalProvider(LocalLeafColors provides c) {
         Box(Modifier.then(if(style.framed)Modifier.padding(start=8.dp,end=8.dp,top=8.dp)else Modifier)) {
         Column(Modifier.fillMaxSize().offset(y=if(style.framed)7.dp else 0.dp).clip(RoundedCornerShape(if(style.framed)16.dp else 23.dp)).background(if(style.framed)c.canvas else Color.Transparent).padding(17.dp)) {
@@ -428,7 +432,7 @@ fun dateGroup(millis:Long):String {
 @Composable fun ImageGalleryCard(r:Revision,a:Media,store:Store,onClick:()->Unit,onHold:()->Unit) {
     val base=LocalLeafColors.current;val style=r.note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base
     val surface=if(style.framed)style.brush(base)else if(style.document!=null)Brush.verticalGradient(listOf(c.canvas,c.canvas))else Brush.verticalGradient(listOf(c.paper.copy(alpha=.98f),c.paper.copy(alpha=if(c.dark).72f else .78f)))
-    Pressable(Modifier.clip(RoundedCornerShape(23.dp)).background(surface).wallpaper(style).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),description="View ${a.name}",onClick=onClick,onLongClick=onHold) {
+    Pressable(Modifier.clip(RoundedCornerShape(23.dp)).background(surface).wallpaper(style,512).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),description="View ${a.name}",onClick=onClick,onLongClick=onHold) {
         Box(Modifier.then(if(style.framed)Modifier.padding(start=8.dp,end=8.dp,top=8.dp)else Modifier)) {
             Column(Modifier.offset(y=if(style.framed)7.dp else 0.dp).clip(RoundedCornerShape(if(style.framed)16.dp else 23.dp)).background(if(style.framed)c.canvas else Color.Transparent).padding(8.dp)) {
                 MediaImage(File(store.media,a.id),Modifier.fillMaxWidth().aspectRatio(1f),radius=17)
@@ -458,14 +462,14 @@ fun dateGroup(millis:Long):String {
             }
             }
             CompositionLocalProvider(LocalLeafColors provides chrome,LocalChromeTint provides (if(base.dark)Color.Black.copy(alpha=.18f)else Color.White.copy(alpha=.26f))) {
-            ScrollHeader(modifier=Modifier.graphicsLayer{alpha=((reveal-.45f)/.55f).coerceIn(0f,1f)},surface=Color.Transparent) { Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            ScrollHeader(modifier=Modifier.graphicsLayer{alpha=((reveal()-.35f)/.65f).coerceIn(0f,1f)},surface=Color.Transparent) { Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 ChromeButton("back","Back to notes",onClick=onBack);Spacer(Modifier.weight(1f))
                 ChromePill(Modifier.height(48.dp)) {NoteStyleMenu(store,base);Pressable(Modifier.size(44.dp),"Share note",onClick=onShare){Glyph("share")};Pressable(Modifier.size(44.dp),"Note options",onClick=onMore){Glyph("more")}}
                 if(editing)ChromeButton("done","Done editing",prominent=true){keyboard?.hide();activeTextEditor?.clearFocus();focus.clearFocus();editing=false}
             }}
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(132.dp).background(Brush.verticalGradient(listOf(Color.Transparent,footer.copy(alpha=.92f)))))
         CompositionLocalProvider(LocalLeafColors provides chrome.copy(text=if(lightColour(footer))Color(0xFF191919)else Color(0xFFF7F7F7))) {
-        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().graphicsLayer{alpha=((reveal-.60f)/.40f).coerceIn(0f,1f)}.navigationBarsPadding().padding(horizontal=22.dp).padding(top=12.dp,bottom=24.dp),verticalAlignment=Alignment.CenterVertically) {
+        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().graphicsLayer{alpha=((reveal()-.50f)/.50f).coerceIn(0f,1f)}.navigationBarsPadding().padding(horizontal=22.dp).padding(top=12.dp,bottom=24.dp),verticalAlignment=Alignment.CenterVertically) {
             ChromePill(Modifier.height(50.dp)) {
                 Pressable(Modifier.size(48.dp),"Format",onClick=onFormat){Glyph("format")}
                 Pressable(Modifier.size(48.dp),"Add images",onClick=onImages){Glyph("clip")}
@@ -527,7 +531,7 @@ fun prefixLine(view:EditText,prefix:String) {
     val c=LocalLeafColors.current
     Column {
         Pressable(Modifier.fillMaxWidth().heightIn(min=48.dp),label,onClick=onClick){Row(Modifier.fillMaxWidth().padding(vertical=9.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){Box(Modifier.size(32.dp).background(tint.copy(alpha=.065f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Glyph(icon,size=19,tint=tint)};Label(label,15,color=tint,modifier=Modifier.weight(1f))}}
-        Box(Modifier.fillMaxWidth().padding(start=44.dp).height(.5.dp).background(c.separator))
+        Box(Modifier.fillMaxWidth().padding(start=44.dp).height(1.dp).background(c.text.copy(alpha=.10f)))
     }
 }
 val LocalSheetAction=compositionLocalOf<((()->Unit)->Unit)>{ {action->action()} }

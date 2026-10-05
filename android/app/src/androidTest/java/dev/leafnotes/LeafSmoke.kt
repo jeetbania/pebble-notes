@@ -8,13 +8,43 @@ import java.util.Calendar
 
 /** Runs production storage and text adapters on Android; no simulated Android APIs. */
 class LeafSmoke : Instrumentation() {
-    override fun onCreate(arguments: Bundle?) { super.onCreate(arguments); start() }
+    private var seedPerformance=false
+    override fun onCreate(arguments: Bundle?) { seedPerformance=arguments?.getString("fixture")=="true";super.onCreate(arguments); start() }
     override fun onStart() {
         val results = StringBuilder()
         val root = File(targetContext.cacheDir, "smoke-${uid()}").apply { mkdirs() }
         try {
             val isolated = object : ContextWrapper(targetContext) { override fun getFilesDir() = root }
             runOnMainSync {
+                run {
+                check(preferredRefreshRate(listOf(60f,90f,120f,144f),true)==120f)
+                check(preferredRefreshRate(listOf(60f,90f,120f),false)==60f)
+                check(preferredRefreshRate(listOf(60f),true)==60f)
+                check(preferredRefreshRate(emptyList(),true)==0f)
+                val a=Block(text="A");val b=Block(kind="toggle",text="B");val child=Block(parentId=b.id,text="Child");val d=Block(text="D")
+                val movement=Note(blocks=listOf(a,b,child,d)).movingBlock(b.id,1)
+                check(movement.document.map{it.id}==listOf(a.id,d.id,b.id,child.id))
+                check(movement.movingBlock(b.id,-1).document.map{it.id}==listOf(a.id,b.id,child.id,d.id))
+                results.append("PASS: high refresh preferences use supported rates, and reorder previews retain nested families\n")
+                val regression=Store(object:ContextWrapper(targetContext){override fun getFilesDir()=File(root,"regression").apply{mkdirs()}})
+                regression.createFolder("Imported");regression.create();regression.update(Note(title="Erased",collection="Imported",deleted=true));regression.flush();val erased=regression.selected!!;regression.permanentlyDelete(listOf(erased));val marker=regression.allHeads.first{it.noteId==erased}
+                regression.create();regression.update(Note(title="Kept",collection="Imported"));regression.flush();val kept=regression.selected!!;regression.deleteFolder("Imported")
+                check(regression.error==null && !File(regression.root,"pending-draft.json").exists() && regression.visibleHeads.first{it.noteId==kept}.note.collection=="Personal")
+                check(regression.allHeads.first{it.noteId==erased}.id==marker.id)
+                val toggle=Block(kind="toggle",text="Toggle");val first=Block(parentId=toggle.id,text="Child")
+                regression.select(kept);regression.update(Note(title="Toggle fixture",blocks=listOf(toggle,first)))
+                val empty=regression.splitList(first.id,first.text.length)!!;check(regression.editing!!.document.first{it.id==empty}.parentId==toggle.id)
+                check(regression.splitList(empty,0)==empty);check(regression.editing!!.document.first{it.id==empty}.parentId==null)
+                regression.undo();check(regression.editing!!.document.first{it.id==empty}.parentId==toggle.id)
+                val inner=Block(kind="toggle",text="Nested",parentId=toggle.id);val blank=Block(parentId=inner.id)
+                regression.update(Note(title="Nested",blocks=listOf(toggle,inner,blank)));regression.splitList(blank.id,0);check(regression.editing!!.document.first{it.id==blank.id}.parentId==toggle.id)
+                val table=Block(kind="table",cells=listOf(listOf("A","B","C"),listOf("1","2","3"),listOf("4","5","6")))
+                regression.update(Note(title="Table",blocks=listOf(table)));regression.changeBlock(table.id){it.removeTableRow(1)};check(regression.editing!!.document.first().cells==listOf(listOf("A","B","C"),listOf("4","5","6")))
+                regression.changeBlock(table.id){it.removeTableColumn(1)};check(regression.editing!!.document.first().cells==listOf(listOf("A","C"),listOf("4","6")))
+                regression.undo();check(regression.editing!!.document.first().cells[0].size==3);regression.redo();regression.flush();check(regression.error==null)
+                check(Block(kind="table",cells=listOf(listOf("Only"))).removeTableRow(0).removeTableColumn(0).cells==listOf(listOf("Only")))
+                results.append("PASS: erased collection markers, double-Return exits and nested outdent, row/column deletion and undo preserve valid content\n")
+                }
                 val card=androidx.compose.ui.geometry.Rect(20f,180f,180f,460f);val screen=androidx.compose.ui.geometry.Rect(0f,0f,400f,850f)
                 check(morphBounds(card,screen,0f)==card && morphBounds(card,screen,1f)==screen)
                 check(morphBounds(card,screen,.5f)==androidx.compose.ui.geometry.Rect(10f,90f,290f,655f))
@@ -196,6 +226,20 @@ class LeafSmoke : Instrumentation() {
                     check(ReleaseNotes.needsPresentation(targetContext,releasePrefs))
                     results.append("PASS: release acknowledgement persists across preference reads, skipped updates include missed changes, and new builds show again\n")
                 } finally { releasePrefs.edit().clear().commit() }
+                if(seedPerformance){
+                    val live=Store(targetContext);check(!live.preferences.getBoolean("connected",false)){"Performance fixtures require an unconnected test device"}
+                    val wallpapers=org.json.JSONArray(targetContext.assets.open("wallpapers/index.json").bufferedReader().use{it.readText()})
+                    repeat(200){i->val id="performance-fixture-$i";if(live.allHeads.none{it.noteId==id}){
+                        val image=wallpapers.getJSONObject(i%wallpapers.length()).getString("id")
+                        val note=Note(title="Performance note $i",text="A synthetic library for smooth scrolling and wallpaper checks. ".repeat(12),style=if(i%3==0)NoteStyle(document="#FFF3D7",backdropImage=image)else if(i%3==1)NoteStyle(document="#D6EEFF")else null).prepared()
+                        live.ingest(org.json.JSONObject().put("schema",2).put("id",uid()).put("noteId",id).put("deviceId","test-fixture").put("parents",org.json.JSONArray()).put("createdAt",System.currentTimeMillis()+i).put("note",note.json()).toString(),true)
+                    }}
+                    val table=Block(kind="table",cells=listOf(listOf("Series","Title","Description"),listOf("1","Dummy","A description that wraps across several lines to verify aligned row borders."),listOf("2","Example","Short")))
+                    val note=Note(title="Table layout check",blocks=listOf(table)).prepared()
+                    live.ingest(org.json.JSONObject().put("schema",2).put("id",uid()).put("noteId","table-layout-fixture").put("deviceId","test-fixture").put("parents",org.json.JSONArray()).put("createdAt",System.currentTimeMillis()+1000).put("note",note.json()).toString(),true)
+                    live.preferences.edit().putBoolean("gallery",true).apply();live.reload()
+                    results.append("PASS: seeded 200 synthetic notes and a multiline table on the unconnected test device\n")
+                }
                 store.flush()
             }
             finish(0, Bundle().apply { putString("stream", results.toString()) })

@@ -23,7 +23,9 @@ import java.io.File
 import java.text.DateFormat
 import java.util.Date
 
-@Composable fun DocumentBlocks(store:Store,note:Note,noteId:String?,onEditor:(EditText)->Unit,onEditing:(Boolean)->Unit,onPreview:(Media)->Unit) {
+@Composable fun DocumentBlocks(store:Store,sourceNote:Note,noteId:String?,onEditor:(EditText)->Unit,onEditing:(Boolean)->Unit,onPreview:(Media)->Unit) {
+    var previewNote by remember(noteId){mutableStateOf<Note?>(null)}
+    val note=previewNote ?: sourceNote
     val c=LocalLeafColors.current; val metrics=LocalTypeSizes.current.copy(scale=note.textScale)
     var filePreview by remember { mutableStateOf<Media?>(null) }
     val saveFile=androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/octet-stream")){uri->if(uri!=null){val media=filePreview;if(media!=null)try{store.context.contentResolver.openOutputStream(uri)?.use{it.write(File(store.media,media.id).readBytes())}}catch(e:Exception){store.error=e.message}}}
@@ -72,14 +74,11 @@ import java.util.Date
                     if(view.hasFocus()){store.activeBlock=block.id;onEditor(view)}
                     if(focusNext==block.id){view.requestFocus();view.setSelection(0);focusNext=null}
                 },modifier=Modifier.weight(1f).heightIn(min=32.dp).padding(start=if(block.kind in listOf("quote","callout"))10.dp else 0.dp))
-                Box(Modifier.width(44.dp)) { ReorderGrip(block.id,reorder,note.document.filter{it.parentId==block.parentId}.map{it.id},onOptions={blockMenu=block.id},onDragging={draggingBlock=if(it)block.id else null}){ids->store.editing?.let{n->val peers=n.document.filter{it.parentId==block.parentId}.map{it.id};val old=peers.indexOf(block.id);val next=ids.indexOf(block.id);if(old!=next)store.moveBlock(block.id,next-old)}} }
+                Box(Modifier.width(44.dp)) { ReorderGrip(block.id,reorder,note.document.filter{it.parentId==block.parentId}.map{it.id},onOptions={blockMenu=block.id},onDragging={active->if(active){previewNote=sourceNote;draggingBlock=block.id}else{previewNote?.let{if(it.document!=sourceNote.document)store.update(it)};previewNote=null;draggingBlock=null}}){ids->previewNote?.let{n->val peers=n.document.filter{it.parentId==block.parentId}.map{it.id};val old=peers.indexOf(block.id);val next=ids.indexOf(block.id);if(old!=next)previewNote=n.movingBlock(block.id,next-old)}} }
             }
             else if(block.kind=="divider")Box(Modifier.fillMaxWidth().height(.5.dp).background(c.separator))
             else if(block.kind=="table") {
-                Column(Modifier.horizontalScroll(rememberScrollState()).clip(RoundedCornerShape(12.dp)).background(c.fill)) {
-                    block.cells.forEachIndexed{row,cells->Row {cells.forEachIndexed{col,value->BasicTextField(value,{new->store.editing?.let{n->store.update(n.editBlock(block.id){b->b.copy(cells=b.cells.mapIndexed{r,line->line.mapIndexed{k,v->if(r==row&&k==col)new else v}})},"cell:${block.id}:$row:$col")}},textStyle=TextStyle(color=c.text,fontSize=18.sp),cursorBrush=SolidColor(c.accent),modifier=Modifier.width(145.dp).heightIn(min=46.dp).border(.5.dp,c.separator).padding(12.dp))}}}
-                }
-                Row(Modifier.padding(top=6.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)){Pressable(Modifier.padding(6.dp),"Add row",onClick={store.changeBlock(block.id){if(it.cells.size<100)it.copy(cells=it.cells+listOf(List(it.cells[0].size){""}))else it}}){Label("+ Row",17,color=c.secondary)};Pressable(Modifier.padding(6.dp),"Add column",onClick={store.changeBlock(block.id){if(it.cells[0].size<12)it.copy(cells=it.cells.map{r->r+""})else it}}){Label("+ Column",17,color=c.secondary)}}
+                MobileTable(store,block)
             } else note.attachments.firstOrNull{it.id==block.mediaId}?.let{a->
                 if(block.kind=="image") {
                     val ratio=remember(a.id){val bounds=BitmapFactory.Options().apply{inJustDecodeBounds=true};BitmapFactory.decodeFile(File(store.media,a.id).path,bounds);if(bounds.outHeight>0)bounds.outWidth.toFloat()/bounds.outHeight else 1f}
