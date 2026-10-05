@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.21.0",
+    "title": "Smoother Mac scrolling and safer editing",
+    "changes": [
+      "Mac collection fields, icon choices and helper text remain readable over glass.",
+      "Removing table rows, columns or entire tables safely handles pending cell updates.",
+      "Pressing Enter on an empty toggle child exits the toggle and supports Undo.",
+      "Mac scrolling reuses image previews, isolates scrollbar updates, limits preview text layout and avoids repeated library history reads.",
+      "Native Mac scrolling follows the display refresh rate, including 144 Hz monitors."
+    ]
+  },
+  {
     "version": "0.20.0",
     "title": "Reliable collections and faster mobile notes",
     "changes": [
@@ -86,7 +97,7 @@
       "Notes have independent document, backdrop and text colours, saved and synced with each note.",
       "A paintbrush opens a temporary Style menu with a live preview, colour palettes and custom colours.",
       "Choose a solid or gradient backdrop to frame the document as a rounded card on Mac and phone.",
-      "Library previews reflect each note’s colours. Reset style returns to the original appearance."
+      "Library previews reflect each note\u2019s colours. Reset style returns to the original appearance."
     ]
   },
   {
@@ -129,7 +140,7 @@
     "version": "0.14.3",
     "title": "At your fingertips",
     "changes": [
-      "Mac keyboard shortcuts include sidebar, search, new notes and navigation. Find the full list in Settings → Shortcuts.",
+      "Mac keyboard shortcuts include sidebar, search, new notes and navigation. Find the full list in Settings \u2192 Shortcuts.",
       "The desktop frame has even insets when the sidebar is hidden. Drag notes onto sidebar collections with clear target feedback.",
       "Desktop empty-state cards use solid adaptive surfaces, so overlapping artwork stays clean in light and dark modes.",
       "Click anywhere on a task card to open details. Back and Forward follow real navigation history, with unavailable arrows dimmed.",
@@ -188,7 +199,7 @@
       "Android checks periodically for updates and can notify you. Choose Download now, Later, or Install after verification.",
       "Mac downloads signed updates and offers Install and restart. Updates are distributed through free public GitHub releases.",
       "A new welcome tour introduces notes, visual inspiration, and tasks. Choose an optional name and accent, then start offline or connect Google Drive.",
-      "Android’s home header has a soft accent glow that fades into the page."
+      "Android\u2019s home header has a soft accent glow that fades into the page."
     ]
   },
   {
@@ -244,7 +255,7 @@
     "version": "0.8.0",
     "title": "A little news with every update",
     "changes": [
-      "What’s New now appears once after an update, so you can see what changed.",
+      "What\u2019s New now appears once after an update, so you can see what changed.",
       "A translucent release panel keeps the app softly visible behind it.",
       "Reopen the changelog from Settings whenever you like."
     ]

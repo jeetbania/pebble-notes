@@ -171,6 +171,7 @@ struct DocumentEditor: View {
     func splitList(_ block: DocumentBlock) -> Bool {
         guard let block = store.current?.document.first(where: { $0.id == block.id }) else { return false }
         if block.kind == "toggle" { store.addChild(to: block.id); focusBlock(store.activeBlock); return true }
+        if block.text.isEmpty, block.parentId != nil { store.exitToggleChild(block.id); focusBlock(block.id); return true }
         guard let view = EditorActions.shared.view else { return false }
         let position = min(view.selectedRange().location, block.text.utf16.count)
         if block.text.isEmpty && ["bullet", "number", "check"].contains(block.kind) { store.changeBlock(block.id) { $0.kind = "text"; $0.textStyle = "body" }; return true }
@@ -230,7 +231,7 @@ struct DocumentEditor: View {
                     ForEach(block.cells.indices, id: \.self) { row in
                         HStack(spacing: 0) {
                             ForEach(block.cells[row].indices, id: \.self) { col in
-                                TableCellEditor(text: Binding(get: { store.current?.document.first(where: { $0.id == block.id })?.cells[row][col] ?? "" }, set: { value in store.update(undoKey: "cell:\(block.id):\(row):\(col)") { $0.editBlock(block.id) { $0.cells[row][col] = value } } }), header: row == 0, ink: (note.style ?? NoteStyle()).ink)
+                                TableCellEditor(text: Binding(get: { store.tableCell(block.id, row: row, column: col) }, set: { value in store.setTableCell(block.id, row: row, column: col, value: value) }), header: row == 0, ink: (note.style ?? NoteStyle()).ink)
                                     .padding(12).frame(width: columnWidth(block.id, col), height: rowHeight(block, row)).background(Color.primary.opacity(row == 0 ? 0.05 : 0.02)).border(Color.primary.opacity(0.1), width: 0.5)
                                     .overlay(alignment: .trailing) {
                                         Color.clear.frame(width: 6).contentShape(Rectangle()).onHover { if $0 { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }.gesture(DragGesture(minimumDistance: 0, coordinateSpace: .global).onChanged { v in let key = "tableWidth:" + noteId + ":" + block.id + ":" + String(col); if columnStart == nil { columnStart = columnWidth(block.id, col) }; columnWidths[key] = min(600, max(80, columnStart! + v.translation.width)) }.onEnded { _ in let key = "tableWidth:" + noteId + ":" + block.id + ":" + String(col); UserDefaults.standard.set(columnWidths[key], forKey: key); columnStart = nil })

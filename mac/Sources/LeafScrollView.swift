@@ -5,21 +5,34 @@ private struct ScrollMetrics: Equatable {
     var contentWidth: CGFloat = 0; var contentHeight: CGFloat = 0
     var x: CGFloat = 0; var y: CGFloat = 0
 }
+private final class ScrollMetricsModel: ObservableObject { @Published var value = ScrollMetrics() }
+
 struct LeafScrollView<Content: View>: View {
     let axes: Axis.Set
     let content: Content
     @LeafState private var position = ScrollPosition(edge: .top)
-    @LeafState private var metrics = ScrollMetrics()
-    @LeafState private var verticalStart: CGFloat? = nil
-    @LeafState private var horizontalStart: CGFloat? = nil
-    @LeafState private var hoverVertical = false
-    @LeafState private var hoverHorizontal = false
+    @StateObject private var model = ScrollMetricsModel()
     init(_ axes: Axis.Set = .vertical, @ViewBuilder content: () -> Content) { self.axes = axes; self.content = content() }
     var body: some View {
         ScrollView(axes) { content }.scrollIndicators(.never).scrollPosition($position)
             .onScrollGeometryChange(for: ScrollMetrics.self) { g in
                 ScrollMetrics(width: g.containerSize.width, height: g.containerSize.height, contentWidth: g.contentSize.width + g.contentInsets.leading + g.contentInsets.trailing, contentHeight: g.contentSize.height + g.contentInsets.top + g.contentInsets.bottom, x: g.contentOffset.x + g.contentInsets.leading, y: g.contentOffset.y + g.contentInsets.top)
-            } action: { _, next in metrics = next }
+            } action: { _, next in model.value = next }
+            .overlay { ScrollThumbs(axes: axes, model: model, position: $position) }
+    }
+}
+
+private struct ScrollThumbs: View {
+    let axes: Axis.Set
+    @ObservedObject var model: ScrollMetricsModel
+    @Binding var position: ScrollPosition
+    @LeafState private var verticalStart: CGFloat? = nil
+    @LeafState private var horizontalStart: CGFloat? = nil
+    @LeafState private var hoverVertical = false
+    @LeafState private var hoverHorizontal = false
+    var metrics: ScrollMetrics { model.value }
+    var body: some View {
+        Color.clear.allowsHitTesting(false)
             .overlay(alignment: .topTrailing) {
                 if axes.contains(.vertical), metrics.contentHeight > metrics.height + 1, metrics.height > 0 {
                     let length = max(24, metrics.height * metrics.height / metrics.contentHeight - 8)

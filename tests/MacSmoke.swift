@@ -282,6 +282,35 @@ import AppKit
         precondition(!restarted.current!.document.contains { $0.id == commandBlock.id })
         print("PASS: Enter reads the live toggle kind, creates a real child, collapse hides it, and empty-toggle deletion keeps child content")
 
+        restarted.create()
+        let toggle = restarted.current!.document[0]
+        restarted.changeBlock(toggle.id) { $0.kind = "toggle"; $0.text = "Toggle title" }
+        restarted.addChild(to: toggle.id)
+        let exitChild = restarted.current!.document.first { $0.parentId == toggle.id }!
+        let exitEditor = DocumentEditor(store: restarted, note: restarted.current!, noteId: restarted.selected!, onPreview: { _ in }, onConflict: {})
+        precondition(exitEditor.splitList(exitChild))
+        precondition(restarted.current!.document.first { $0.id == exitChild.id }!.parentId == nil)
+        restarted.undo()
+        precondition(restarted.current!.document.first { $0.id == exitChild.id }!.parentId == toggle.id)
+        restarted.addBlock("table")
+        let safeTable = restarted.current!.document.last!
+        restarted.setTableCell(safeTable.id, row: 1, column: 1, value: "Keep me")
+        precondition(restarted.tableCell(safeTable.id, row: 1, column: 1) == "Keep me")
+        restarted.changeBlock(safeTable.id) { $0.cells.removeLast() }
+        let rows = restarted.current!.document.last!.cells.count
+        precondition(restarted.tableCell(safeTable.id, row: rows, column: 1).isEmpty)
+        restarted.setTableCell(safeTable.id, row: rows, column: 1, value: "Stale callback")
+        restarted.undo()
+        precondition(restarted.current!.document.last!.cells.count == rows + 1)
+        restarted.changeBlock(safeTable.id) { $0.cells = $0.cells.map { Array($0.dropLast()) } }
+        let columns = restarted.current!.document.last!.cells[0].count
+        precondition(restarted.tableCell(safeTable.id, row: 0, column: columns).isEmpty)
+        restarted.setTableCell(safeTable.id, row: 0, column: columns, value: "Stale callback")
+        restarted.removeBlock(safeTable.id)
+        precondition(restarted.tableCell(safeTable.id, row: 0, column: 0).isEmpty)
+        restarted.setTableCell(safeTable.id, row: 0, column: 0, value: "Deleted safeTable")
+        print("PASS: empty toggle child exits with undo; deleted rows, columns and tables tolerate stale cell bindings")
+
         let erasedFolder = NoteStore(root: root.appendingPathComponent("erased-folder"))
         erasedFolder.createFolder("Imported"); erasedFolder.create(); erasedFolder.update { $0.title = "Old erased note"; $0.collection = "Imported"; $0.deleted = true }; erasedFolder.flush()
         let erasedID = erasedFolder.selected!; erasedFolder.permanentlyDelete([erasedID])

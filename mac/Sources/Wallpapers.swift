@@ -13,7 +13,7 @@ struct NoteBackdrop: View {
         GeometryReader { g in
             ZStack {
                 LinearGradient(colors:[NoteStyle.colour(style.backdrop) ?? style.paper,NoteStyle.colour(style.backdropEnd ?? style.backdrop) ?? style.paper],startPoint:style.gradientDirection == "up" ? .bottom:.top,endPoint:style.gradientDirection == "up" ? .top:.bottom)
-                if let id=style.backdropImage, let image=WallpaperLibrary.image(id,media:media) { Image(nsImage:image).resizable().scaledToFill().frame(width:g.size.width,height:g.size.height).blur(radius:style.blurImage == true ? 14:0) }
+                if let id=style.backdropImage, let url=WallpaperLibrary.url(id,media:media) { Thumbnail(url:url, pixels:g.size.width > 600 ? 1500 : 600).frame(width:g.size.width,height:g.size.height).blur(radius:style.blurImage == true ? 14:0) }
             }.clipped()
         }
     }
@@ -27,7 +27,10 @@ enum WallpaperLibrary {
         guard let v = bins.values.max(by: { $0.0 < $1.0 }) else { return nil }; return String(format: "#%02X%02X%02X", Int(v.1/Double(v.0)*255),Int(v.2/Double(v.0)*255),Int(v.3/Double(v.0)*255))
     }
     static var items:[Wallpaper] { guard let url=Bundle.main.url(forResource:"index",withExtension:"json",subdirectory:"Wallpapers"),let data=try? Data(contentsOf:url) else{return []};return (try? JSONDecoder().decode([Wallpaper].self,from:data)) ?? [] }
-    static func image(_ id:String,media:URL?)->NSImage? { if let media,let image=NSImage(contentsOf:media.appendingPathComponent(id)){return image};return Bundle.main.url(forResource:id,withExtension:"webp",subdirectory:"Wallpapers").flatMap{NSImage(contentsOf:$0)} }
+    static func url(_ id:String,media:URL?)->URL? {
+        if let media { let url=media.appendingPathComponent(id); if FileManager.default.fileExists(atPath:url.path) { return url } }
+        return Bundle.main.url(forResource:id,withExtension:"webp",subdirectory:"Wallpapers")
+    }
 }
 extension NoteStore {
     func useBackdrop(_ url:URL) {
@@ -42,7 +45,7 @@ struct WallpaperSelector:View {
     var body:some View {
         VStack(spacing:12){LazyVGrid(columns:Array(repeating:GridItem(.flexible(),spacing:8),count:3),spacing:8){ForEach(WallpaperLibrary.items){w in
             Button {if let url=Bundle.main.url(forResource:w.id,withExtension:"webp",subdirectory:"Wallpapers"){store.useBackdrop(url)}} label:{
-                if let image=WallpaperLibrary.image(w.id,media:nil){Image(nsImage:image).resizable().scaledToFill().frame(width:94,height:70).clipShape(RoundedRectangle(cornerRadius:12)).overlay(RoundedRectangle(cornerRadius:12).strokeBorder(Color.primary.opacity(store.current?.style?.backdropImage==w.id ? 0.9:0.14),lineWidth:store.current?.style?.backdropImage==w.id ? 3:0.7)).contentShape(Rectangle())}
+                if let url=WallpaperLibrary.url(w.id,media:nil){Thumbnail(url:url).frame(width:94,height:70).clipShape(RoundedRectangle(cornerRadius:12)).overlay(RoundedRectangle(cornerRadius:12).strokeBorder(Color.primary.opacity(store.current?.style?.backdropImage==w.id ? 0.9:0.14),lineWidth:store.current?.style?.backdropImage==w.id ? 3:0.7)).contentShape(Rectangle())}
             }.buttonStyle(.plain).help(w.name)
         }}
         Button {store.uploadBackdrop()} label:{Label("Upload image",systemImage:"photo.badge.plus").frame(maxWidth:.infinity,minHeight:42).contentShape(Rectangle())}.buttonStyle(GhostButtonStyle())

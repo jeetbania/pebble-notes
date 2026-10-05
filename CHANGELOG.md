@@ -1,5 +1,13 @@
 # Pebble Notes changelog
 
+## 0.21.0 · Smoother Mac scrolling and safer editing
+
+- Mac collection fields, icon choices and helper text remain readable over glass.
+- Removing table rows, columns or entire tables safely handles pending cell updates.
+- Pressing Enter on an empty toggle child exits the toggle and supports Undo.
+- Mac scrolling reuses image previews, isolates scrollbar updates, limits preview text layout and avoids repeated library history reads.
+- Native Mac scrolling follows the display refresh rate, including 144 Hz monitors.
+
 ## 0.20.0 · Reliable collections and faster mobile notes
 
 - Deleting or renaming collections safely skips permanently erased notes, and older blocked saves recover without restoring erased content.

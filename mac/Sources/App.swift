@@ -98,7 +98,10 @@ struct LibraryView: View {
     var title: String { section == "Collection" ? collection : section }
     var motion: Animation? { reducedMotion || calmMotion ? nil : .spring(response: 0.34, dampingFraction: 0.92) }
     var filtered: [Revision] {
-        store.uniqueHeads.filter { r in
+        let ranks = Dictionary(manualOrder.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: min)
+        var dates: [String: Int64] = [:]
+        if sortOrder == "added" { for revision in (try? store.revisions()) ?? [] { dates[revision.noteId] = min(dates[revision.noteId] ?? revision.createdAt, revision.createdAt) } }
+        return store.uniqueHeads.filter { r in
             let n = r.note
             if n.task != nil && !section.hasPrefix("#") && section != "Trash" && section != "Archive" { return false }
             if section == "Trash" { if !n.deleted { return false } } else if n.deleted { return false }
@@ -111,8 +114,8 @@ struct LibraryView: View {
             return search.isEmpty || (n.title + " " + n.text + " " + n.collection + " " + n.tags.map { "#" + $0 }.joined(separator: " ")).localizedCaseInsensitiveContains(search)
         }.sorted { a, b in
             if sortOrder != "manual" && a.note.pinned != b.note.pinned { return a.note.pinned }
-            if sortOrder == "manual" { return (manualOrder.firstIndex(of: a.noteId) ?? 99999) < (manualOrder.firstIndex(of: b.noteId) ?? 99999) }
-            if sortOrder == "added" { return addedDate(a.noteId) > addedDate(b.noteId) }
+            if sortOrder == "manual" { return (ranks[a.noteId] ?? 99999) < (ranks[b.noteId] ?? 99999) }
+            if sortOrder == "added" { return (dates[a.noteId] ?? 0) > (dates[b.noteId] ?? 0) }
             return a.createdAt > b.createdAt
         }
     }
@@ -451,14 +454,14 @@ struct LibraryView: View {
     func editCollection(_ name: String) { editingCollection = name; collectionName = name; let folder = store.folderHeads.first(where: { $0.note.collection == name })?.note; collectionEmoji = folder?.folderEmoji ?? UserDefaults.standard.string(forKey: "collectionEmoji:" + name) ?? ""; collectionImage = (folder?.folderImage.isEmpty == false ? "media/" + folder!.folderImage : nil) ?? UserDefaults.standard.string(forKey: "collectionImage:" + name) ?? ""; iconMode = collectionImage.isEmpty ? (collectionEmoji.isEmpty ? 0 : 1) : 2; newCollection = true }
     var collectionSheet: some View {
         VStack(spacing: 22) {
-            HStack { Text("Name").font(.system(size: 14, weight: .semibold)).frame(width: 72, alignment: .leading); TextField("My collection", text: $collectionName).textFieldStyle(.plain).padding(10).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8)).onSubmit { createCollection() } }
+            HStack { Text("Name").font(.system(size: 14, weight: .semibold)).frame(width: 72, alignment: .leading); TextField(text: $collectionName, prompt: Text("My collection").foregroundStyle(Color.primary.opacity(0.55))) { Text("Name") }.textFieldStyle(.plain).foregroundStyle(Color.primary).padding(10).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8)).onSubmit { createCollection() } }
             HStack(spacing: 16) {
                 Text("Icon").font(.system(size: 14, weight: .semibold)).frame(width: 72, alignment: .leading)
                 ForEach(0..<3) { mode in Button { iconMode = mode; if mode == 2 { chooseCollectionImage() } } label: {
-                    ZStack { Circle().fill(Color.primary.opacity(0.06)); Image(systemName: mode == 0 ? "nosign" : mode == 1 ? "face.smiling" : "photo").font(.system(size: 22)).foregroundStyle(.secondary) }.frame(width: 48, height: 48).overlay(Circle().strokeBorder(iconMode == mode ? LeafPalette.accent : .clear, lineWidth: 2))
+                    ZStack { Circle().fill(Color.primary.opacity(0.06)); Image(systemName: mode == 0 ? "nosign" : mode == 1 ? "face.smiling" : "photo").font(.system(size: 22)).foregroundStyle(Color.primary.opacity(0.70)) }.frame(width: 48, height: 48).overlay(Circle().strokeBorder(iconMode == mode ? LeafPalette.accent : .clear, lineWidth: 2))
                 }.buttonStyle(SoftButtonStyle()) }; Spacer()
             }
-            if iconMode == 1 { HStack { TextField("Emoji", text: $collectionEmoji).textFieldStyle(.plain).padding(10).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8)).focused($emojiFocused).frame(width: 64); Button("Choose Emoji…") { emojiFocused = true; DispatchQueue.main.async { NSApp.orderFrontCharacterPalette(nil) } }; Text("Pick an emoji for the sidebar").font(.system(size: 12)).foregroundStyle(.secondary) } }
+            if iconMode == 1 { HStack { TextField(text: $collectionEmoji, prompt: Text("Emoji").foregroundStyle(Color.primary.opacity(0.55))) { Text("Emoji") }.textFieldStyle(.plain).foregroundStyle(Color.primary).padding(10).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8)).focused($emojiFocused).frame(width: 64); Button("Choose Emoji…") { emojiFocused = true; DispatchQueue.main.async { NSApp.orderFrontCharacterPalette(nil) } }; Text("Pick an emoji for the sidebar").font(.system(size: 12)).foregroundStyle(Color.primary.opacity(0.70)) } }
             if iconMode == 2, !collectionImage.isEmpty, let image = NSImage(contentsOf: store.root.appendingPathComponent(collectionImage)) { Image(nsImage: image).resizable().scaledToFit().frame(height: 64).clipShape(RoundedRectangle(cornerRadius: 10)) }
             SubtleDivider()
             HStack { Spacer(); Button("Cancel") { newCollection = false }; Button("Save") { createCollection() }.disabled(collectionName.trimmingCharacters(in: .whitespaces).isEmpty).keyboardShortcut(.defaultAction) }
@@ -522,7 +525,7 @@ struct NoteCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(revision.note.displayTitle).font(.system(size: 20, weight: .semibold)).tracking(-0.4).lineLimit(2)
-            Text(revision.note.text.isEmpty ? "" : revision.note.text).font(.system(size: 14)).lineSpacing(5).foregroundStyle((revision.note.style ?? NoteStyle()).foreground.opacity(0.65)).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading).clipped()
+            Text(String(revision.note.text.prefix(1200))).font(.system(size: 14)).lineSpacing(5).foregroundStyle((revision.note.style ?? NoteStyle()).foreground.opacity(0.65)).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading).clipped()
                 .mask { LinearGradient(stops: [.init(color: .white, location: 0), .init(color: .white, location: 0.68), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom) }
             HStack(spacing: 5) { Spacer(); CollectionPill(name: revision.note.collection); if revision.note.pinned { Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle((revision.note.style ?? NoteStyle()).foreground.opacity(0.65)) }; if conflict { Image(systemName: "arrow.triangle.branch").font(.system(size: 10)).foregroundStyle(.orange) }; Spacer() }
         }.padding(.horizontal, 22).padding(.top, 22).padding(.bottom, revision.note.style?.framed == true ? 22 : 8).frame(height: 200).frame(maxWidth: .infinity, alignment: .leading)
@@ -550,14 +553,16 @@ struct InlinePhoto: View {
     var body: some View { Button(action: open) { Thumbnail(url: media.appendingPathComponent(attachment.id), fit: true).frame(width: min(width, 520 * imageAspect(media.appendingPathComponent(attachment.id))), height: min(520, width / imageAspect(media.appendingPathComponent(attachment.id)))) }.buttonStyle(.plain).accessibilityLabel("View \(attachment.name)").clipShape(RoundedRectangle(cornerRadius: 12)) }
 }
 struct Thumbnail: View {
-    var url: URL; var fit = false
+    var url: URL; var fit = false; var pixels: Int? = nil
     @LeafState<NSImage?> private var image: NSImage?
     var body: some View {
         GeometryReader { geometry in
             ZStack { Color.primary.opacity(0.025); if let image { Image(nsImage: image).resizable().aspectRatio(contentMode: fit ? .fit : .fill).frame(width: geometry.size.width, height: geometry.size.height).clipped() } else { Image(systemName: "photo").foregroundStyle(.tertiary) } }
         }
         .task(id: url) {
-            let result = await Task.detached(priority: .utility) { () -> CGImage? in guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }; return CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: fit ? 1500 : 600, kCGImageSourceCreateThumbnailWithTransform: true] as CFDictionary) }.value
+            image = nil
+            let result = await PreviewImageCache.shared.load(url, pixels: pixels ?? (fit ? 1500 : 600))
+            guard !Task.isCancelled else { return }
             if let result { image = NSImage(cgImage: result, size: .zero) }
         }
     }

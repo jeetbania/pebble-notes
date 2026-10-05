@@ -81,3 +81,35 @@ actor DailyBackups {
         return "Local backup saved today · up to 7 days kept"
     }
 }
+
+// Native cell bindings can outlive their row for one SwiftUI transaction.
+extension NoteStore {
+    func tableCell(_ id: String, row: Int, column: Int) -> String {
+        guard let cells = current?.document.first(where: { $0.id == id })?.cells,
+              cells.indices.contains(row), cells[row].indices.contains(column) else { return "" }
+        return cells[row][column]
+    }
+    func setTableCell(_ id: String, row: Int, column: Int, value: String) {
+        guard let cells = current?.document.first(where: { $0.id == id })?.cells,
+              cells.indices.contains(row), cells[row].indices.contains(column) else { return }
+        update(undoKey: "cell:\(id):\(row):\(column)") { note in
+            note.editBlock(id) { block in
+                guard block.cells.indices.contains(row), block.cells[row].indices.contains(column) else { return }
+                block.cells[row][column] = value
+            }
+        }
+    }
+    func exitToggleChild(_ id: String) {
+        update { note in
+            var blocks = note.document
+            guard let index = blocks.firstIndex(where: { $0.id == id }), blocks[index].text.isEmpty,
+                  let parentId = blocks[index].parentId,
+                  let parent = blocks.first(where: { $0.id == parentId && $0.kind == "toggle" }) else { return }
+            let family = note.descendants(of: parentId)
+            var child = blocks.remove(at: index); child.parentId = parent.parentId; child.kind = "text"; child.textStyle = "body"; child.indent = 0
+            let end = blocks.lastIndex(where: { family.contains($0.id) }).map { $0 + 1 } ?? blocks.count
+            blocks.insert(child, at: end); note.blocks = blocks
+        }
+        activeBlock = id
+    }
+}

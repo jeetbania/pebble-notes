@@ -3,7 +3,7 @@ import CryptoKit
 import UniformTypeIdentifiers
 
 @MainActor final class NoteStore: ObservableObject {
-    @Published var heads: [Revision] = []
+    @Published var heads: [Revision] = [] { didSet { rebuildHeadIndex() } }
     @Published var selected: String?
     @Published var draft: Draft?
     @Published var status = "Saved on this Mac"
@@ -50,8 +50,16 @@ import UniformTypeIdentifiers
     var collections: [String] {
         Array(Set(allHeads.filter { !$0.note.deleted }.flatMap { r in let parts = r.note.collection.split(separator: "/"); return parts.indices.map { parts.prefix($0 + 1).joined(separator: "/") } } + ["Personal"])).sorted()
     }
-    var allHeads: [Revision] {
-        var seen = Set<String>(); return heads.filter { seen.insert($0.noteId).inserted }.map { first in heads.first(where: { $0.noteId == first.noteId && !$0.note.deleted }) ?? first }
+    private var indexedHeads: [Revision] = []
+    var allHeads: [Revision] { indexedHeads }
+    private func rebuildHeadIndex() {
+        var order: [String] = []; var preferred: [String: Revision] = [:]
+        for revision in heads {
+            if let old = preferred[revision.noteId] {
+                if old.note.deleted && !revision.note.deleted { preferred[revision.noteId] = revision }
+            } else { order.append(revision.noteId); preferred[revision.noteId] = revision }
+        }
+        indexedHeads = order.compactMap { preferred[$0] }
     }
     init(root custom: URL? = nil, recoverDrafts: Bool = true) {
         automaticBackups = custom == nil && recoverDrafts
