@@ -132,7 +132,7 @@ struct LibraryView: View {
                     if reducedTransparency { Color(nsColor: .windowBackgroundColor) }
                     else { ContentBlur().mask(LinearGradient(stops: [.init(color: .white, location: 0), .init(color: .white, location: 0.58), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)) }
                 }
-            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }.frame(maxWidth: .infinity, maxHeight: .infinity).modifier(NoteStyleHost(store: store))
 
             .panePresented(isPresented: $showConflicts) { conflicts }
 
@@ -232,7 +232,7 @@ struct LibraryView: View {
             }.padding(.horizontal, 8).padding(.top, 15).padding(.bottom, 7)
             ForEach(allCollections, id: \.self) { name in
                 Button { preview = nil; store.select(nil); section = "Collection"; collection = name } label: {
-                    HStack(spacing: 10) { collectionIcon(name).frame(width: 28, height: 28).modifier(IconDepth(active: section == "Collection" && collection == name)); Text(name.split(separator: "/").last.map(String.init) ?? name).font(.system(size: 13, weight: .medium)); Spacer() }.padding(.horizontal, 7).frame(height: 34).background(Color.primary.opacity(section == "Collection" && collection == name ? 0.10 : 0), in: RoundedRectangle(cornerRadius: 8))
+                    HStack(spacing: 10) { collectionIcon(name).frame(width: 28, height: 28); Text(name.split(separator: "/").last.map(String.init) ?? name).font(.system(size: 13, weight: .medium)); Spacer() }.padding(.horizontal, 7).frame(height: 34).modifier(SidebarSelectionSurface(selected: section == "Collection" && collection == name, motion: motion))
                 }.overlay(RoundedRectangle(cornerRadius: 8).fill(LeafPalette.accent.opacity(folderDropTarget == name ? 0.14 : 0)).allowsHitTesting(false)).overlay(RoundedRectangle(cornerRadius: 8).stroke(LeafPalette.accent.opacity(folderDropTarget == name ? 0.5 : 0), lineWidth: 1).allowsHitTesting(false)).background(GeometryReader { proxy in Color.clear.preference(key: CollectionDropFrames.self, value: [name: proxy.frame(in: .named("libraryDrag"))]) }).opacity(draggedFolder == name ? 0 : 1).background(GeometryReader { proxy in Color.clear.preference(key: GalleryFrames.self, value: [name: proxy.frame(in: .named("folders"))]) }).highPriorityGesture(folderGrab(name)).padding(.leading, CGFloat(name.split(separator: "/").count - 1) * 12).buttonStyle(SidebarButtonStyle()).contextMenu { Button("Edit collection…", systemImage: "pencil") { editCollection(name) }.labelStyle(.titleAndIcon); if name != "Personal" { Button("Delete Collection", systemImage: "trash") { deletingFolder = name }.labelStyle(.titleAndIcon) } }
             }
             if !Set(store.uniqueHeads.flatMap { $0.note.tags }).isEmpty { Text("Tags").font(.system(size: 12, weight: .medium)).foregroundStyle(.tertiary).padding(.horizontal, 8).padding(.top, 16); ForEach(Array(Set(store.uniqueHeads.filter { !$0.note.deleted }.flatMap { $0.note.tags })).sorted(), id: \.self) { tag in nav("#" + tag, "number") } }
@@ -240,7 +240,7 @@ struct LibraryView: View {
             Spacer(minLength: 8)
             nav("Archive", "archivebox")
             nav("Trash", "trash")
-            HStack(spacing: 0) { Button { showSettings = true } label: { rowLabel("Settings", "gearshape") }.buttonStyle(SidebarButtonStyle()); SyncIndicator(store: store).padding(.trailing, 8) }
+            HStack(spacing: 0) { Button { showSettings = true } label: { rowLabel("Settings", "gearshape").modifier(SidebarSelectionSurface(selected: showSettings, motion: motion)) }.buttonStyle(SidebarButtonStyle()); SyncIndicator(store: store).padding(.trailing, 8) }
 
         }.padding(.horizontal, 16).padding(.bottom, 12).coordinateSpace(name: "folders").onPreferenceChange(GalleryFrames.self) { folderFrames = $0 }.overlay(alignment: .topLeading) { if let name = draggedFolder { HStack(spacing: 10) { collectionIcon(name).frame(width: 28, height: 28).modifier(IconDepth()); Text(name.split(separator: "/").last.map(String.init) ?? name).font(.system(size: 13, weight: .medium)); Spacer() }.padding(.horizontal, 7).frame(width: folderOrigin.width, height: 34).background(Color.primary.opacity(0.10), in: RoundedRectangle(cornerRadius: 8)).drawingGroup().transaction { $0.animation = nil }.position(x: folderOrigin.midX + folderTranslation.width, y: folderOrigin.midY + folderTranslation.height).allowsHitTesting(false) } }.background(Color.clear)
     }
@@ -253,14 +253,14 @@ struct LibraryView: View {
     func reorder(_ ids: [String]) { manualOrder = ids + manualOrder.filter { !ids.contains($0) }; sortOrder = "manual"; UserDefaults.standard.set(manualOrder, forKey: "manualOrder"); UserDefaults.standard.set("manual", forKey: "librarySort") }
     func rowLabel(_ label: String, _ icon: String, selected: Bool = false) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: icon).font(.system(size: 13, weight: .medium)).frame(width: 28, height: 28).modifier(IconDepth(active: selected))
+            Image(systemName: icon).font(.system(size: 13, weight: .medium)).frame(width: 28, height: 28)
             Text(label).font(.system(size: 13, weight: .medium)).lineLimit(1); Spacer()
         }.padding(.horizontal, 7).frame(height: 34).contentShape(RoundedRectangle(cornerRadius: 8))
     }
     func sidebarRow(_ label: String, _ icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) { rowLabel(label, icon, selected: selected).background(Color.primary.opacity(selected ? 0.10 : 0), in: RoundedRectangle(cornerRadius: 8)) }.buttonStyle(SidebarButtonStyle())
+        Button(action: action) { rowLabel(label, icon, selected: selected).modifier(SidebarSelectionSurface(selected: selected, motion: motion)) }.buttonStyle(SidebarButtonStyle())
     }
-    func nav(_ label: String, _ icon: String) -> some View { sidebarRow(label, icon, selected: section == label) { var transaction = Transaction(); transaction.disablesAnimations = true; withTransaction(transaction) { preview = nil; store.select(nil); section = label } } }
+    func nav(_ label: String, _ icon: String) -> some View { sidebarRow(label, icon, selected: section == label) { preview = nil; store.select(nil); section = label } }
     var topBar: some View {
         ZStack {
             HStack(spacing: 8) {
@@ -345,7 +345,8 @@ struct LibraryView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         if filtered.isEmpty { emptyState.frame(width: max(0, geometry.size.width - 80)).padding(.top, 100) }
                         LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 18), count: count), alignment: .leading, spacing: 18) {
-                            ForEach(filtered) { r in
+                            ForEach(Array(filtered.enumerated()), id: \.element.id) { index, r in
+                                Group {
                                 if section == "Images" || (r.note.document.filter { $0.isText }.allSatisfy { $0.text.isEmpty } && r.note.attachments.contains { $0.mime.hasPrefix("image/") }) {
                                     ForEach(r.note.attachments.filter { $0.mime.hasPrefix("image/") }) { a in
                                         CardInteraction(selected: selectedItems.contains(r.noteId), action: { openCard(r.noteId, image: a) }) {
@@ -358,6 +359,7 @@ struct LibraryView: View {
                                     } menu: { itemMenu(r.noteId) }.frame(width: width).modifier(GalleryGrab(id: r.noteId, dragging: dragging, gesture: grab(r)))
 
                                 }
+                                }.modifier(CardEntrance(route: title, index: index, reduced: reducedMotion || calmMotion))
                             }
                         }
                     }.padding(.horizontal, 24).padding(.top, 98).padding(.bottom, 100).frame(maxWidth: .infinity, alignment: .leading)
@@ -369,7 +371,6 @@ struct LibraryView: View {
                         selectionRect = rect; selectedItems = selectionBefore.union(cardFrames.filter { $0.value.intersects(rect) }.map(\.key))
                     }.onEnded { _ in selectionRect = nil })
                     .simultaneousGesture(SpatialTapGesture(coordinateSpace: .named("libraryDrag")).onEnded { value in if !cardFrames.values.contains(where: { $0.contains(value.location) }) { selectedItems.removeAll(); selecting = false; searchFocused = false } })
-                    .animation(motion, value: filtered.map(\.id))
                 if let rect = selectionRect { RoundedRectangle(cornerRadius: 4).fill(LeafPalette.accent.opacity(0.12)).overlay(RoundedRectangle(cornerRadius: 4).stroke(LeafPalette.accent.opacity(0.7), lineWidth: 1)).frame(width: rect.width, height: rect.height).position(x: rect.midX - geometry.frame(in: .named("libraryDrag")).minX, y: rect.midY - geometry.frame(in: .named("libraryDrag")).minY).allowsHitTesting(false) }
                 HStack(spacing: 2) {
                     GlassIcon(icon: "square.and.pencil", label: "New note") { createNote() }

@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.15.2",
+    "title": "Style and motion, repaired",
+    "changes": [
+      "Style menus open beneath the paintbrush, remain inside the Mac window, and respond to every colour option.",
+      "Phone navigation uses lighter translucent glass without opaque strips over coloured notes.",
+      "Document colours and the transition between seamless pages and rounded cards animate smoothly.",
+      "Library cards appear with a quick staggered fade when changing folders.",
+      "Sidebar icon surfaces expand fluidly into the active row."
+    ]
+  },
+  {
     "version": "0.15.1",
     "title": "Styles, refined",
     "changes": [

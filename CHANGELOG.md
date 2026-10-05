@@ -1,5 +1,13 @@
 # Pebble Notes changelog
 
+## 0.15.2 · Style and motion, repaired
+
+- Style menus open beneath the paintbrush, remain inside the Mac window, and respond to every colour option.
+- Phone navigation uses lighter translucent glass without opaque strips over coloured notes.
+- Document colours and the transition between seamless pages and rounded cards animate smoothly.
+- Library cards appear with a quick staggered fade when changing folders.
+- Sidebar icon surfaces expand fluidly into the active row.
+
 ## 0.15.1 · Styles, refined
 
 - Styled note cards now layer the document through the lower edge, leaving the backdrop around the top and sides.

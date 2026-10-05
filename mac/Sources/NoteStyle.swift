@@ -18,14 +18,53 @@ struct NoteStyle: Codable, Equatable {
     static func hex(_ colour:Color)->String { let c=NSColor(colour).usingColorSpace(.sRGB) ?? .white; return String(format:"#%02X%02X%02X",Int((c.redComponent*255).rounded()),Int((c.greenComponent*255).rounded()),Int((c.blueComponent*255).rounded())) }
 }
 
+private struct StylePresentationKey: EnvironmentKey { static let defaultValue = Binding.constant(false) }
+extension EnvironmentValues { var stylePresentation: Binding<Bool> { get { self[StylePresentationKey.self] } set { self[StylePresentationKey.self] = newValue } } }
+private struct StyleTriggerKey: PreferenceKey {
+    static var defaultValue: Anchor<CGRect>? = nil
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) { value = nextValue() ?? value }
+}
 struct NoteStyleButton: View {
-    @ObservedObject var store:NoteStore; @LeafState private var presented=false; var interfaceScheme:ColorScheme?=nil; @Environment(\.colorScheme) private var scheme
-    var body:some View { ZStack(alignment:.topTrailing) {
-        GlassIcon(icon:"paintbrush",label:"Note style") { withAnimation(.spring(response:0.28,dampingFraction:1)){presented.toggle()} }
-        if presented { NoteStylePicker(store:store,onClose:{presented=false}).id(store.selected).frame(width:330).padding(18)
-            .background(.regularMaterial,in:RoundedRectangle(cornerRadius:24,style:.continuous)).overlay(RoundedRectangle(cornerRadius:24).strokeBorder(Color.primary.opacity(0.14),lineWidth:0.7)).shadow(color:.black.opacity(0.22),radius:24,y:12)
-            .environment(\.colorScheme,interfaceScheme ?? scheme).offset(y:48).transition(.opacity.combined(with:.scale(scale:0.97,anchor:.topTrailing))).zIndex(100).onExitCommand { presented=false } }
-    }.zIndex(presented ? 100:0).onChange(of:store.selected){_,_ in presented=false} }
+    @ObservedObject var store: NoteStore
+    var interfaceScheme: ColorScheme? = nil
+    @Environment(\.stylePresentation) private var presented
+    var body: some View {
+        GlassIcon(icon: "paintbrush", label: "Note style") { presented.wrappedValue.toggle() }
+            .anchorPreference(key: StyleTriggerKey.self, value: .bounds) { $0 }
+    }
+}
+struct NoteStyleHost: ViewModifier {
+    @ObservedObject var store: NoteStore
+    @LeafState private var presented = false
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduced
+    @AppStorage("calmMotion") private var calm = false
+    func body(content: Content) -> some View {
+        content.environment(\.stylePresentation, $presented)
+            .overlayPreferenceValue(StyleTriggerKey.self) { anchor in
+                GeometryReader { proxy in
+                    if presented, let anchor, store.current != nil {
+                        let trigger = proxy[anchor]
+                        let width = min(366.0, max(200, proxy.size.width - 24))
+                        let top = min(max(12, trigger.maxY + 10), max(12, proxy.size.height - 240))
+                        ZStack(alignment: .topLeading) {
+                            Color.clear.contentShape(Rectangle()).onTapGesture { presented = false }
+                            ScrollView { NoteStylePicker(store: store, onClose: { presented = false }).padding(18) }
+                                .frame(width: width).frame(maxHeight: max(180, proxy.size.height - top - 12))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+                                .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(Color.primary.opacity(0.14), lineWidth: 0.7))
+                                .shadow(color: .black.opacity(0.18), radius: 20, y: 10)
+                                .environment(\.colorScheme, scheme)
+                                .offset(x: max(12, min(proxy.size.width - width - 12, trigger.maxX - width)), y: top)
+                                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .topTrailing)))
+                        }.onExitCommand { presented = false }
+                    }
+                }
+            }
+            .animation(reduced || calm ? nil : .spring(response: 0.28, dampingFraction: 1), value: presented)
+            .onChange(of: store.selected) { _, _ in presented = false }
+    }
 }
 private struct StyleSectionTitle:View { var text:String; var body:some View { Text(text.uppercased()).font(.system(size:11,weight:.semibold)).foregroundStyle(.secondary).tracking(0.6) } }
 

@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.PopupPositionProvider
 import java.util.Locale
 
 data class NoteStyle(val document:String?=null,val backdrop:String?=null,val backdropEnd:String?=null,val text:String?=null) {
@@ -40,7 +41,13 @@ fun colourHex(c:Color)=String.format(Locale.ROOT,"#%02X%02X%02X",(c.red*255).toI
 @Composable fun NoteStyleMenu(store:Store,colors:LeafColors=LocalLeafColors.current) {
     var open by remember(store.selected){mutableStateOf(false)};val density=LocalDensity.current
     Box {Pressable(Modifier.size(44.dp),"Note style",onClick={open=!open}){Glyph("paintbrush")}
-        if(open)Popup(alignment=Alignment.TopEnd,offset=IntOffset(with(density){10.dp.roundToPx()},with(density){54.dp.roundToPx()}),onDismissRequest={open=false},properties=PopupProperties(focusable=true,clippingEnabled=true)) {
+        val position=remember(density){object:PopupPositionProvider {
+            override fun calculatePosition(anchorBounds:IntRect,windowSize:IntSize,layoutDirection:LayoutDirection,popupContentSize:IntSize):IntOffset {
+                val inset=with(density){12.dp.roundToPx()};val gap=with(density){10.dp.roundToPx()}
+                return IntOffset((windowSize.width-popupContentSize.width-inset).coerceAtLeast(inset),(anchorBounds.bottom+gap).coerceIn(inset,(windowSize.height-popupContentSize.height-inset).coerceAtLeast(inset)))
+            }
+        }}
+        if(open)Popup(popupPositionProvider=position,onDismissRequest={open=false},properties=PopupProperties(focusable=true,clippingEnabled=true)) {
             CompositionLocalProvider(LocalLeafColors provides colors) {Column(Modifier.width(326.dp).shadow(22.dp,RoundedCornerShape(26.dp)).heightIn(max=(LocalConfiguration.current.screenHeightDp-150).coerceIn(300,620).dp).frosted(RoundedCornerShape(26.dp),surface=colors.paper.copy(alpha=.82f)).border(.7.dp,colors.separator,RoundedCornerShape(26.dp)).verticalScroll(rememberScrollState()).padding(18.dp)){NoteStylePicker(store){open=false}}}
         }
     }

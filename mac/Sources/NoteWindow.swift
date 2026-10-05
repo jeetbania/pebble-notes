@@ -35,7 +35,7 @@ struct NoteWindowView: View {
                 EditorToolbar(store: store, styleMenuScheme: scheme).environment(\.colorScheme, note.style?.chromeScheme ?? scheme).padding(.top, 12)
                 if let a = preview { PhotoViewer(initial: a, items: ViewerPhoto.items(note: note, noteId: id), store: store, done: { preview = nil }, openNote: { _ in preview = nil }) }
             }
-        }.frame(minWidth: 660, minHeight: 460).background(WindowChrome()).background(EditorFocusDismissal().frame(width: 0, height: 0)).ignoresSafeArea(.container, edges: .top).tint(LeafPalette.accent)
+        }.modifier(NoteStyleHost(store: store)).frame(minWidth: 660, minHeight: 460).background(WindowChrome()).background(EditorFocusDismissal().frame(width: 0, height: 0)).ignoresSafeArea(.container, edges: .top).tint(LeafPalette.accent)
         .environmentObject(store).panePresented(isPresented: $conflict) { VStack(spacing: 16) { Text("Choose a saved version").font(.headline); ForEach(store.heads.filter { $0.noteId == store.selected }) { r in Button(r.note.displayTitle + " · " + String(r.note.text.prefix(80))) { store.resolve(r); conflict = false } }; Button("Keep both for now") { conflict = false } }.padding(24) }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in store.reload() }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { _ in store.flush() }

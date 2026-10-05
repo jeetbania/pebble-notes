@@ -78,12 +78,12 @@ struct DocumentEditor: View {
                     }.font(.system(size: 15)).buttonStyle(SoftButtonStyle()).foregroundStyle(.secondary).padding(.top, 12)
                 }.frame(width: width, alignment: .leading).padding(.horizontal, note.style?.framed == true ? 40 : 0).padding(.top, note.style?.framed == true ? 40 : 82).padding(.bottom, 90)
                 .frame(minHeight: note.style?.framed == true ? max(300, geometry.size.height - 120) : nil, alignment: .topLeading)
-                .background { if note.style?.framed == true { (note.style ?? NoteStyle()).paper } }
+                .background((note.style ?? NoteStyle()).paper.opacity(note.style?.framed == true ? 1 : 0))
                 .clipShape(RoundedRectangle(cornerRadius: note.style?.framed == true ? 22 : 0))
-                .overlay { if note.style?.framed == true { RoundedRectangle(cornerRadius: 22).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.7) } }
+                .overlay(RoundedRectangle(cornerRadius: note.style?.framed == true ? 22 : 0).strokeBorder(Color.primary.opacity(note.style?.framed == true ? 0.08 : 0), lineWidth: 0.7))
                 .shadow(color: .black.opacity(note.style?.framed == true ? 0.12 : 0), radius: 18, y: 8)
                 .padding(.top, note.style?.framed == true ? 76 : 0).padding(.bottom, note.style?.framed == true ? 24 : 0).frame(maxWidth: .infinity)
-            }.background { if let style = note.style { if style.framed { style.background() } else if let paper = NoteStyle.colour(style.document) { paper } } }.foregroundStyle((note.style ?? NoteStyle()).foreground).scrollIndicators(.never).coordinateSpace(name: "noteBlocks").onPreferenceChange(BlockFrames.self) { blockFrames = $0 }
+            }.background((note.style ?? NoteStyle()).background()).foregroundStyle((note.style ?? NoteStyle()).foreground).scrollIndicators(.never).coordinateSpace(name: "noteBlocks").onPreferenceChange(BlockFrames.self) { blockFrames = $0 }
             .overlay(alignment: .topLeading) {
                 if let id = draggedBlock, let snapshot = dragSnapshot {
                     VStack(alignment: .leading, spacing: 6) {
@@ -113,7 +113,7 @@ struct DocumentEditor: View {
                     }
                 }
             }
-        }.onChange(of: noteId) { _, _ in blockOptions = nil }.panePresented(item: $filePreview) { a in FilePreview(attachment: a, media: store.media, onDone: { filePreview = nil }) }
+        }.animation(reduceMotion || UserDefaults.standard.bool(forKey: "calmMotion") ? nil : .spring(response: 0.32, dampingFraction: 1), value: note.style).onChange(of: noteId) { _, _ in blockOptions = nil }.panePresented(item: $filePreview) { a in FilePreview(attachment: a, media: store.media, onDone: { filePreview = nil }) }
     }
     func applyCommand(_ command: String, to id: String) {
         store.update { n in

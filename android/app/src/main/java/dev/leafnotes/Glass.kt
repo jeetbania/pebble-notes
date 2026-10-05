@@ -16,18 +16,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 
 class Backdrop(val layer: GraphicsLayer) { var origin by mutableStateOf(Offset.Zero) }
+val LocalChromeTint = staticCompositionLocalOf<Color?> { null }
 val LocalBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 @Composable fun FrostedHost(content: @Composable () -> Unit) { val layer=rememberGraphicsLayer(); val source=remember(layer){Backdrop(layer)}; CompositionLocalProvider(LocalBackdrop provides source,content=content) }
 fun Modifier.backdropSource(): Modifier = composed {
-    val source=LocalBackdrop.current
-    if(source==null)this else onGloballyPositioned {source.origin=it.positionInRoot()}.drawWithContent {source.layer.record {this@drawWithContent.drawContent()};drawLayer(source.layer)}
+    val source=LocalBackdrop.current;val view=androidx.compose.ui.platform.LocalView.current
+    if(source==null)this else onGloballyPositioned {val location=IntArray(2);view.getLocationOnScreen(location);source.origin=it.positionInRoot()+Offset(location[0].toFloat(),location[1].toFloat())}.drawWithContent {source.layer.record {this@drawWithContent.drawContent()};drawLayer(source.layer)}
 }
 fun Modifier.frosted(shape:Shape,light:Boolean=false,surface:Color?=null):Modifier = composed {
-    val source=LocalBackdrop.current;val glass=rememberGraphicsLayer();var origin by remember{mutableStateOf(Offset.Zero)};val c=LocalLeafColors.current
+    val source=LocalBackdrop.current;val glass=rememberGraphicsLayer();var origin by remember{mutableStateOf(Offset.Zero)};val c=LocalLeafColors.current;val view=androidx.compose.ui.platform.LocalView.current
     val radius=with(androidx.compose.ui.platform.LocalDensity.current){(if(light)8.dp else 18.dp).toPx()}
-    this.clip(shape).onGloballyPositioned{origin=it.positionInRoot()}.drawWithContent {
+    this.clip(shape).onGloballyPositioned{val location=IntArray(2);view.getLocationOnScreen(location);origin=it.positionInRoot()+Offset(location[0].toFloat(),location[1].toFloat())}.drawWithContent {
         if(source!=null && Build.VERSION.SDK_INT>=31) {glass.renderEffect=BlurEffect(radius,radius,TileMode.Clamp);glass.record {translate(source.origin.x-origin.x,source.origin.y-origin.y){drawLayer(source.layer)}};drawLayer(glass)}
-        drawRect((surface ?: if(light)c.page else c.paper).copy(alpha=if(Build.VERSION.SDK_INT>=31)if(light).86f else .80f else .95f));drawContent()
+        val tint = surface ?: (if(light)c.page else c.paper).copy(alpha=if(Build.VERSION.SDK_INT>=31)if(light).86f else .80f else .95f)
+        drawRect(tint);drawContent()
     }
 }
 

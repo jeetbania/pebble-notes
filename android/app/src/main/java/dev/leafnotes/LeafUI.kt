@@ -114,11 +114,11 @@ fun iconResource(name: String): Int = when(name) {
 }
 @Composable fun ChromeButton(name: String, label: String, size: Int = 48, prominent: Boolean = false, onClick: () -> Unit) {
     val c=LocalLeafColors.current
-    Pressable(Modifier.size(size.dp).shadow(14.dp,CircleShape, ambientColor=Color.Black.copy(alpha=.035f),spotColor=Color.Black.copy(alpha=.06f)).then(if(prominent)Modifier.background(c.accent,CircleShape) else Modifier.frosted(CircleShape)).border(.5.dp,c.text.copy(alpha=.025f),CircleShape),label,onClick=onClick) { Glyph(name, size=23, tint=if(prominent) Color.White else c.text) }
+    Pressable(Modifier.size(size.dp).shadow(14.dp,CircleShape, ambientColor=Color.Black.copy(alpha=.035f),spotColor=Color.Black.copy(alpha=.06f)).then(if(prominent)Modifier.background(c.accent,CircleShape) else Modifier.frosted(CircleShape,surface=LocalChromeTint.current)).border(.5.dp,c.text.copy(alpha=.025f),CircleShape),label,onClick=onClick) { Glyph(name, size=23, tint=if(prominent) Color.White else c.text) }
 }
 @Composable fun ChromePill(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     val c=LocalLeafColors.current
-    Row(modifier.shadow(18.dp, CircleShape, ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.08f)).frosted(CircleShape).border(.6.dp,c.text.copy(alpha=.03f),CircleShape).padding(horizontal=8.dp), verticalAlignment=Alignment.CenterVertically, content=content)
+    Row(modifier.shadow(18.dp, CircleShape, ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.08f)).frosted(CircleShape,surface=LocalChromeTint.current).border(.6.dp,c.text.copy(alpha=.03f),CircleShape).padding(horizontal=8.dp), verticalAlignment=Alignment.CenterVertically, content=content)
 }
 
 @Composable fun LeafLibrary(store: Store, connect: () -> Unit) {
@@ -160,7 +160,7 @@ fun iconResource(name: String): Int = when(name) {
     if(onboarding) { Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()){PebbleOnboarding(store,onFinish={onboarding=false},onConnect=connect)};return }
     val libraryHome=store.selected==null && section !in listOf("Settings","Tasks")
     val statusHeight=WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    Box(Modifier.fillMaxSize().background(if(store.selected!=null)store.editing?.style?.brush(c) ?: Brush.verticalGradient(listOf(c.canvas,c.canvas))else Brush.verticalGradient(listOf(c.page,c.page))).drawBehind {if(libraryHome){drawRect(homeGlowColor(c.dark),size=androidx.compose.ui.geometry.Size(size.width,statusHeight.toPx()))}}.statusBarsPadding().navigationBarsPadding().imePadding()) {
+    Box(Modifier.fillMaxSize().background(if(store.selected!=null)animatedStyleBrush(store.editing?.style ?: NoteStyle(),c)else Brush.verticalGradient(listOf(c.page,c.page))).drawBehind {if(libraryHome){drawRect(homeGlowColor(c.dark),size=androidx.compose.ui.geometry.Size(size.width,statusHeight.toPx()))}}.statusBarsPadding().navigationBarsPadding().imePadding()) {
         Box(Modifier.fillMaxSize().graphicsLayer{val progress=(1f-navigation.value/width).coerceIn(0f,1f);translationX=if(calm)0f else -20f*progress;scaleX=if(calm)1f else 1f-.015f*progress;scaleY=scaleX}) { if(section=="Settings") MobileSettings(store,onTour={onboarding=true},onBack={section="Notes"},onWriting={typographySettings=true},onWhatsNew={releaseHistory=true;whatsNew=true},onConnect=connect,onExport={backup.launch("Pebble Notes Backup.leafbackup")},onImport={restore.launch(arrayOf("*/*"))}) else if(section=="Tasks"&&!folders) TasksHome(store){section="Notes"} else LibraryScreen(store,section,records,search,{search=it},folders,{folders=it},gallery,{gallery=!gallery;store.preferences.edit().putBoolean("gallery",gallery).apply()},enabled=store.selected==null,onSection={section=it;folders=false},onMore={menu=true},onOpen={id->if(store.selected==null){val r=store.visibleHeads.firstOrNull{it.noteId==id};if(r?.note?.task!=null)taskDetail=r else store.select(id)}},onNew={store.create();if(section in store.collections)store.editing?.let{store.update(it.copy(collection=section))}},onImage={if(store.selected==null)preview=it}) }
         if(updater.visible && !whatsNew) UpdateDialog(updater)
         val note=store.editing ?: lastNote
@@ -264,8 +264,8 @@ fun iconResource(name: String): Int = when(name) {
             } else if(section=="Images" || galleryMode) {
                 LazyVerticalStaggeredGrid(modifier=Modifier.backdropSource(),columns=StaggeredGridCells.Fixed(2),contentPadding=PaddingValues(22.dp,headerHeight+12.dp,22.dp,120.dp),horizontalArrangement=Arrangement.spacedBy(14.dp),verticalItemSpacing=16.dp) {
                     if(records.isEmpty())item(span=StaggeredGridItemSpan.FullLine){LibraryEmpty(section,search,{onSearch("")},onNew,{onSection("Notes")})}
-                    if(section=="Images") records.forEach {r->items(r.note.attachments.filter{it.mime.startsWith("image/")},key={r.noteId+it.id}){a->ImageGalleryCard(r,a,store,onClick={if(enabled)onImage(a)},onHold={if(enabled)held=r.noteId})}}
-                    else items(records,key={it.noteId}){r->GalleryCard(r,store,onHold={if(enabled)held=r.noteId}){if(enabled)onOpen(r.noteId)}}
+                    if(section=="Images") records.forEach {r->items(r.note.attachments.filter{it.mime.startsWith("image/")},key={r.noteId+it.id}){a->CardFade(section,records.indexOf(r)){ImageGalleryCard(r,a,store,onClick={if(enabled)onImage(a)},onHold={if(enabled)held=r.noteId})}}}
+                    else items(records,key={it.noteId}){r->CardFade(section,records.indexOf(r)){GalleryCard(r,store,onHold={if(enabled)held=r.noteId}){if(enabled)onOpen(r.noteId)}}}
                 }
             } else {
                 val groups=records.groupBy {if(it.note.pinned)"Pinned" else dateGroup(it.createdAt)}
@@ -372,12 +372,16 @@ fun dateGroup(millis:Long):String {
     }
 }
 @Composable fun EditorScreen(store:Store,note:Note,noteId:String?,onBack:()->Unit,onMore:()->Unit,onFormat:()->Unit,onImages:()->Unit,onCompose:()->Unit,onPreview:(Media)->Unit,onEditor:(EditText)->Unit,onConflict:()->Unit,onShare:()->Unit) {
-    val base=LocalLeafColors.current;val style=note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base;val chrome=base;val metrics=LocalTypeSizes.current.copy(scale=note.textScale);val keyboard=LocalSoftwareKeyboardController.current;val focus=LocalFocusManager.current;var editing by remember(noteId){mutableStateOf(false)}
+    val base=LocalLeafColors.current;val style=note.style ?: NoteStyle();val calm=LocalCalmMotion.current
+    val frame by animateFloatAsState(if(style.framed)1f else 0f,if(calm)snap()else spring(dampingRatio=1f,stiffness=450f),label="document frame")
+    val paper by androidx.compose.animation.animateColorAsState(style.paper(base),tween(if(calm)0 else 220),label="document colour")
+    val ink by androidx.compose.animation.animateColorAsState(style.ink(base),tween(if(calm)0 else 180),label="document ink")
+    val raw=style.documentColours(base);val c=raw.copy(canvas=paper,paper=paper,text=ink,secondary=ink.copy(alpha=.65f),tertiary=ink.copy(alpha=.4f));val chrome=if(style.customised)base.copy(text=if(lightColour(hexColour(style.backdrop) ?: paper))Color(0xFF191919)else Color(0xFFF7F7F7))else base;val footer by androidx.compose.animation.animateColorAsState(hexColour(style.backdropEnd ?: style.backdrop) ?: paper,tween(if(calm)0 else 220),label="footer colour");val metrics=LocalTypeSizes.current.copy(scale=note.textScale);val keyboard=LocalSoftwareKeyboardController.current;val focus=LocalFocusManager.current;var editing by remember(noteId){mutableStateOf(false)}
     FrostedHost {
-    Box(Modifier.fillMaxSize().background(style.brush(base))) {
-            Column(Modifier.fillMaxSize().backdropSource().verticalScroll(rememberScrollState()).padding(horizontal=if(style.framed)12.dp else 0.dp).padding(top=if(style.framed)86.dp else 0.dp,bottom=if(style.framed)110.dp else 0.dp)) {
+    Box(Modifier.fillMaxSize().background(animatedStyleBrush(style,base))) {
+            Column(Modifier.fillMaxSize().backdropSource().background(animatedStyleBrush(style,base)).verticalScroll(rememberScrollState()).padding(horizontal=(12*frame).dp).padding(top=(86*frame).dp,bottom=(110*frame).dp)) {
             CompositionLocalProvider(LocalLeafColors provides c) {
-            Column(Modifier.fillMaxWidth().heightIn(min=if(style.framed)(LocalConfiguration.current.screenHeightDp-220).coerceAtLeast(300).dp else 0.dp).clip(RoundedCornerShape(if(style.framed)22.dp else 0.dp)).background(c.canvas).then(if(style.framed)Modifier.border(.7.dp,c.separator,RoundedCornerShape(22.dp))else Modifier).padding(horizontal=if(style.framed)16.dp else 28.dp).padding(top=if(style.framed)28.dp else 100.dp,bottom=if(style.framed)50.dp else 130.dp)) {
+            Column(Modifier.fillMaxWidth().heightIn(min=((LocalConfiguration.current.screenHeightDp-220).coerceAtLeast(300)*frame).dp).clip(RoundedCornerShape((22*frame).dp)).background(c.canvas).border(.7.dp,c.separator.copy(alpha=c.separator.alpha*frame),RoundedCornerShape((22*frame).dp)).padding(horizontal=(28-12*frame).dp).padding(top=(100-72*frame).dp,bottom=(130-80*frame).dp)) {
                 BasicTextField(note.title,{store.editing?.let{n->store.update(n.copy(title=it))}},singleLine=true,keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(imeAction=androidx.compose.ui.text.input.ImeAction.Next),keyboardActions=androidx.compose.foundation.text.KeyboardActions(onNext={focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Next)}),textStyle=TextStyle(fontSize=metrics.size("title").sp,fontWeight=FontWeight.SemiBold,color=c.text,lineHeight=(metrics.size("title")*1.2).sp,letterSpacing=(-.6).sp),cursorBrush=SolidColor(c.accent),modifier=Modifier.fillMaxWidth().onFocusChanged{editing=it.isFocused},decorationBox={inner->if(note.title.isEmpty())Label("Untitled note",30,FontWeight.SemiBold,c.tertiary);inner()})
                 if(store.heads.count{it.noteId==store.selected}>1)Pressable(Modifier.padding(top=12.dp),"Review versions",onClick=onConflict){Label("Edits from both devices · review",13,color=c.accent)}
                 Spacer(Modifier.height(16.dp))
@@ -385,13 +389,13 @@ fun dateGroup(millis:Long):String {
             }
             }
             }
-            CompositionLocalProvider(LocalLeafColors provides chrome) {
-            ScrollHeader { Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            CompositionLocalProvider(LocalLeafColors provides chrome,LocalChromeTint provides (if(base.dark)Color.Black.copy(alpha=.18f)else Color.White.copy(alpha=.26f))) {
+            ScrollHeader(surface=Color.Transparent) { Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 ChromeButton("back","Back to notes",onClick=onBack);Spacer(Modifier.weight(1f))
                 ChromePill(Modifier.height(48.dp)) {NoteStyleMenu(store,base);Pressable(Modifier.size(44.dp),"Share note",onClick=onShare){Glyph("share")};Pressable(Modifier.size(44.dp),"Note options",onClick=onMore){Glyph("more")}}
                 if(editing)ChromeButton("done","Done editing",prominent=true){keyboard?.hide();activeTextEditor?.clearFocus();focus.clearFocus();editing=false}
             }}
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(132.dp).background(Brush.verticalGradient(listOf(Color.Transparent,hexColour(style.backdropEnd ?: style.backdrop)?.copy(alpha=.92f) ?: chrome.canvas.copy(alpha=.92f)))))
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(132.dp).background(Brush.verticalGradient(listOf(Color.Transparent,footer.copy(alpha=.92f)))))
         Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal=22.dp).padding(top=12.dp,bottom=24.dp),verticalAlignment=Alignment.CenterVertically) {
             ChromePill(Modifier.height(50.dp)) {
                 Pressable(Modifier.size(48.dp),"Format",onClick=onFormat){Glyph("format")}
