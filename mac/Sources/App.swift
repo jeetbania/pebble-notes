@@ -34,6 +34,7 @@ struct LeafNotesApp: App {
     }
 }
 struct LibraryView: View {
+    @AppStorage("showSidebarCounts") private var showSidebarCounts = true
     @EnvironmentObject var store: NoteStore
     @StateObject private var updater = PebbleUpdater.shared
     @StateObject private var clipboard = ClipboardCapture.shared
@@ -232,7 +233,7 @@ struct LibraryView: View {
             }.padding(.horizontal, 8).padding(.top, 15).padding(.bottom, 7)
             ForEach(allCollections, id: \.self) { name in
                 Button { preview = nil; store.select(nil); section = "Collection"; collection = name } label: {
-                    HStack(spacing: 10) { collectionIcon(name).frame(width: 28, height: 28); Text(name.split(separator: "/").last.map(String.init) ?? name).font(.system(size: 13, weight: .medium)); Spacer() }.padding(.horizontal, 7).frame(height: 34).modifier(SidebarSelectionSurface(selected: section == "Collection" && collection == name, motion: motion))
+                    HStack(spacing: 10) { collectionIcon(name).frame(width: 28, height: 28); Text(name.split(separator: "/").last.map(String.init) ?? name).font(.system(size: 13, weight: .medium)); Spacer(); if showSidebarCounts { sidebarCountLabel(store.sidebarCount(name, collection: true)) } }.padding(.horizontal, 7).frame(height: 34).modifier(SidebarSelectionSurface(selected: section == "Collection" && collection == name, motion: motion))
                 }.overlay(RoundedRectangle(cornerRadius: 8).fill(LeafPalette.accent.opacity(folderDropTarget == name ? 0.14 : 0)).allowsHitTesting(false)).overlay(RoundedRectangle(cornerRadius: 8).stroke(LeafPalette.accent.opacity(folderDropTarget == name ? 0.5 : 0), lineWidth: 1).allowsHitTesting(false)).background(GeometryReader { proxy in Color.clear.preference(key: CollectionDropFrames.self, value: [name: proxy.frame(in: .named("libraryDrag"))]) }).opacity(draggedFolder == name ? 0 : 1).background(GeometryReader { proxy in Color.clear.preference(key: GalleryFrames.self, value: [name: proxy.frame(in: .named("folders"))]) }).highPriorityGesture(folderGrab(name)).padding(.leading, CGFloat(name.split(separator: "/").count - 1) * 12).buttonStyle(SidebarButtonStyle()).contextMenu { Button("Edit collection…", systemImage: "pencil") { editCollection(name) }.labelStyle(.titleAndIcon); if name != "Personal" { Button("Delete Collection", systemImage: "trash") { deletingFolder = name }.labelStyle(.titleAndIcon) } }
             }
             if !Set(store.uniqueHeads.flatMap { $0.note.tags }).isEmpty { Text("Tags").font(.system(size: 12, weight: .medium)).foregroundStyle(.tertiary).padding(.horizontal, 8).padding(.top, 16); ForEach(Array(Set(store.uniqueHeads.filter { !$0.note.deleted }.flatMap { $0.note.tags })).sorted(), id: \.self) { tag in nav("#" + tag, "number") } }
@@ -251,10 +252,12 @@ struct LibraryView: View {
         }.onEnded { _ in draggedFolder = nil; folderTranslation = .zero }
     }
     func reorder(_ ids: [String]) { manualOrder = ids + manualOrder.filter { !ids.contains($0) }; sortOrder = "manual"; UserDefaults.standard.set(manualOrder, forKey: "manualOrder"); UserDefaults.standard.set("manual", forKey: "librarySort") }
+    func sidebarCountLabel(_ count: Int) -> some View { Text(String(count)).font(.system(size: 12)).monospacedDigit().foregroundStyle(Color.primary.opacity(0.60)).padding(.trailing, 3) }
     func rowLabel(_ label: String, _ icon: String, selected: Bool = false) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon).font(.system(size: 13, weight: .medium)).frame(width: 28, height: 28)
             Text(label).font(.system(size: 13, weight: .medium)).lineLimit(1); Spacer()
+            if showSidebarCounts && label != "Settings" { sidebarCountLabel(store.sidebarCount(label)) }
         }.padding(.horizontal, 7).frame(height: 34).contentShape(RoundedRectangle(cornerRadius: 8))
     }
     func sidebarRow(_ label: String, _ icon: String, selected: Bool, action: @escaping () -> Void) -> some View {

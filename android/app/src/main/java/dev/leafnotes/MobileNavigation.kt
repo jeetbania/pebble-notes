@@ -24,22 +24,21 @@ val LocalNoteReveal=staticCompositionLocalOf{1f}
 
 @Composable fun MobileDock(page:String,modifier:Modifier=Modifier,onPage:(String)->Unit,onSearch:()->Unit,onCompose:()->Unit) {
     val c=LocalLeafColors.current;val calm=LocalCalmMotion.current
-    val pages=listOf("Notes","Tasks","Settings");val icons=listOf("grid","calendar","settings")
+    val pages=listOf("Notes","Tasks","Settings","Search");val icons=listOf("home","check","settings","search")
     val selected=pages.indexOf(page).coerceAtLeast(0)
     val position by animateFloatAsState(selected.toFloat(),if(calm)snap()else spring(dampingRatio=.82f,stiffness=520f),label="navigation selection")
     Row(modifier.navigationBarsPadding().padding(horizontal=22.dp,vertical=18.dp),horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=Alignment.CenterVertically) {
-        ChromePill(Modifier.weight(1f).height(58.dp).pointerInput(selected){var drag=0f;detectHorizontalDragGestures(onDragStart={drag=0f},onHorizontalDrag={change,amount->change.consume();drag+=amount},onDragEnd={if(kotlin.math.abs(drag)>32.dp.toPx())onPage(pages[(selected+if(drag<0)1 else -1).coerceIn(0,2)])})}) {
+        ChromePill(Modifier.weight(1f).height(58.dp).pointerInput(selected){var drag=0f;detectHorizontalDragGestures(onDragStart={drag=0f},onHorizontalDrag={change,amount->change.consume();drag+=amount},onDragEnd={if(kotlin.math.abs(drag)>32.dp.toPx()){val next=pages[(selected+if(drag<0)1 else -1).coerceIn(0,3)];if(next=="Search")onSearch()else onPage(next)}})}) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
-                val slot=maxWidth/3
+                val slot=maxWidth/4
                 Box(Modifier.offset(x=slot*position).width(slot).fillMaxHeight().padding(vertical=5.dp).background(c.text.copy(alpha=.10f),CircleShape))
                 Row(Modifier.fillMaxSize()){pages.forEachIndexed{i,name->
-                    Pressable(Modifier.weight(1f).fillMaxHeight(),name,onClick={onPage(name)}) {
+                    Pressable(Modifier.weight(1f).fillMaxHeight(),name,onClick={if(name=="Search")onSearch()else onPage(name)}) {
                         Glyph(icons[i],size=24,tint=if(i==selected)c.accent else c.secondary)
                     }
                 }}
             }
         }
-        ChromeButton("search","Search notes",52,onClick=onSearch)
         ChromeButton("compose","New note",52,onClick=onCompose)
     }
 }

@@ -1,5 +1,12 @@
 # Pebble Notes changelog
 
+## 0.19.0 · Search and a colourful library
+
+- Search joins Home, Tasks and Settings in the phone navigation capsule; compose stays separate.
+- Search opens a dedicated page with the keyboard and live note results in your current card or list view.
+- A softer home glow lets scrolling cards show through the faded header blur.
+- Mac sidebar counts show notes in tabs and nested collections, with an option to hide them in Appearance settings.
+
 ## 0.18.0 · Fluid mobile navigation
 
 - Phone notes expand from the tapped card with rounded corners and gently appearing controls; page changes dissolve quickly instead of sliding sideways.

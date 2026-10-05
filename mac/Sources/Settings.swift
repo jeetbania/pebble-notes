@@ -11,6 +11,7 @@ struct SettingsHome: View {
     @AppStorage("profileName") private var profileName = ""
     @AppStorage("appearance") private var appearance = "system"
     @Bindable private var accent = AccentPreference.shared
+    @AppStorage("showSidebarCounts") private var showSidebarCounts = true
     @AppStorage("calmMotion") private var calmMotion = false
     @AppStorage("typeBody") private var typeBody = 18.0
     @AppStorage("typeHeadline") private var typeHeadline = 21.0
@@ -47,6 +48,7 @@ struct SettingsHome: View {
                         HStack(spacing: 8) { ForEach(AccentPreference.choices, id: \.self) { name in
                             Button { accent.name = name } label: { VStack(spacing: 5) { Circle().fill(LeafPalette.color("Accents", name)).frame(width: 28, height: 28).overlay { if accent.name == name { Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(name == "Yellow" || name == "Orange" || name == "Green" ? Color.black : .white) } }; Text(name).font(.system(size: 10)).foregroundStyle(Color.primary.opacity(0.72)) }.frame(maxWidth: .infinity).frame(height: 54).contentShape(Rectangle()) }.buttonStyle(SoftButtonStyle(radius: 10)).accessibilityLabel(name + " accent").accessibilityValue(accent.name == name ? "Selected" : "")
                         } }
+                        SubtleDivider(); Toggle("Sidebar note counts", isOn: $showSidebarCounts)
                         SubtleDivider(); Toggle("Calmer motion", isOn: $calmMotion); Text("Keep subtle feedback and reduce movement. System Reduce Motion is also respected.").font(.caption).foregroundStyle(Color.primary.opacity(0.72))
                     } else if page == "Writing" {
                         caption("Reading width", "Adjust the maximum width of the note canvas.")

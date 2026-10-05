@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
     namespace = "dev.leafnotes"
     compileSdk = 35
-    defaultConfig { testInstrumentationRunner = "dev.leafnotes.LeafSmoke"; applicationId = "dev.leafnotes"; minSdk = 29; targetSdk = 35; versionCode = 28; versionName = "0.18.0"; ndk { abiFilters += "arm64-v8a" } }
+    defaultConfig { testInstrumentationRunner = "dev.leafnotes.LeafSmoke"; applicationId = "dev.leafnotes"; minSdk = 29; targetSdk = 35; versionCode = 29; versionName = "0.19.0"; ndk { abiFilters += "arm64-v8a" } }
     buildFeatures { compose = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

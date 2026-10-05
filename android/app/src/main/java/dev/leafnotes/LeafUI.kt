@@ -37,6 +37,8 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.input.nestedscroll.*
@@ -101,7 +103,7 @@ fun iconResource(name: String): Int = when(name) {
     "forward" -> R.drawable.lucide_chevron_right; "back" -> R.drawable.lucide_chevron_left; "down" -> R.drawable.lucide_chevron_down; "more" -> R.drawable.lucide_ellipsis
     "compose" -> R.drawable.pebble_filled_edit; "search" -> R.drawable.lucide_search; "folder" -> R.drawable.pebble_filled_folder
     "folderPlus" -> R.drawable.lucide_folder_plus; "image" -> R.drawable.lucide_image; "images" -> R.drawable.lucide_images
-    "list" -> R.drawable.lucide_list; "grid" -> R.drawable.lucide_layout_grid; "archive" -> R.drawable.pebble_filled_archive
+    "list" -> R.drawable.lucide_list; "home" -> R.drawable.lucide_house; "grid" -> R.drawable.lucide_layout_grid; "archive" -> R.drawable.pebble_filled_archive
     "trash" -> R.drawable.pebble_filled_trash; "settings" -> R.drawable.lucide_settings_2; "pin" -> R.drawable.pebble_filled_pin
     "link" -> R.drawable.pebble_link; "callout" -> R.drawable.pebble_idea; "quote" -> R.drawable.pebble_quote
     "paintbrush" -> R.drawable.pebble_paintbrush
@@ -168,7 +170,7 @@ fun iconResource(name: String): Int = when(name) {
         else if(!gesture) navigation.animateTo(if(store.selected!=null)0f else width, tween(240,easing=FastOutSlowInEasing))
     }
     fun back() { keyboard?.hide(); store.select(null); formatPanel=false }
-    BackHandler(enabled=store.selected!=null || folders || formatPanel || section!="Notes" || search.isNotEmpty() || batch) { when { formatPanel->formatPanel=false; store.selected!=null->back(); batch->{batch=false;selectedNotes=emptySet()}; folders->folders=false; search.isNotEmpty()->search=""; else->section="Notes" } }
+    BackHandler(enabled=store.selected!=null || folders || formatPanel || section!="Notes" || searching || search.isNotEmpty() || batch) { when { formatPanel->formatPanel=false; store.selected!=null->back(); batch->{batch=false;selectedNotes=emptySet()}; folders->folders=false; searching->{searching=false;search="";keyboard?.hide()}; search.isNotEmpty()->search=""; else->section="Notes" } }
     if(onboarding) { Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()){PebbleOnboarding(store,onFinish={onboarding=false},onConnect=connect)};return }
     val libraryHome=store.selected==null && section !in listOf("Settings","Tasks")
     val statusHeight=WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -179,7 +181,7 @@ fun iconResource(name: String): Int = when(name) {
     val statusTone by androidx.compose.animation.animateColorAsState(noteTop,tween(if(calm)0 else 220),label="status bar colour")
     val bottomTone by androidx.compose.animation.animateColorAsState(noteBottom,tween(if(calm)0 else 220),label="navigation bar colour")
     val pageProgress=(1f-navigation.value/width).coerceIn(0f,1f)
-    val barTop=lerp(if(libraryHome || section!="Settings" && section!="Tasks")homeGlowColor(c.dark).compositeOver(c.page)else c.page,statusTone,pageProgress)
+    val barTop=lerp(if(libraryHome || section!="Settings" && section!="Tasks")(if(searching)Color.Transparent else homeGlowColor(c.dark)).compositeOver(c.page)else c.page,statusTone,pageProgress)
     val barBottom=lerp(c.page,bottomTone,pageProgress)
     val barActivity=LocalContext.current as? android.app.Activity
     val barView=LocalView.current
@@ -190,7 +192,7 @@ fun iconResource(name: String): Int = when(name) {
         // Keep inset-consuming nodes on a stable child; inserting wallpaper
         // modifiers before them can create a consumed-insets cycle during navigation.
         Box(Modifier.fillMaxSize().imePadding()) {
-        Crossfade(targetState=section to folders,modifier=Modifier.fillMaxSize(),animationSpec=tween(if(calm)0 else 140),label="page dissolve") { route -> if(route.first=="Settings") Box(Modifier.fillMaxSize().navigationBarsPadding().padding(bottom=84.dp)){ MobileSettings(store,onTour={onboarding=true},onBack={section="Notes"},onWriting={typographySettings=true},onWhatsNew={releaseHistory=true;whatsNew=true},onConnect=connect,onExport={backup.launch("Pebble Notes Backup.leafbackup")},onImport={restore.launch(arrayOf("*/*"))})} else if(route.first=="Tasks"&&!route.second) Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(bottom=84.dp)){TasksHome(store){section="Notes"}} else LibraryScreen(store,route.first,records,search,{search=it},route.second,{folders=it},gallery,{gallery=!gallery;store.preferences.edit().putBoolean("gallery",gallery).apply()},enabled=store.selected==null,onSection={section=it;folders=false},onMore={menu=true},onOpen={id->if(store.selected==null){val r=store.visibleHeads.firstOrNull{it.noteId==id};if(r?.note?.task!=null)taskDetail=r else {launchFrame=store.cardFrames[id];store.select(id)}}},onNew={launchFrame=null;store.create();if(section in store.collections)store.editing?.let{store.update(it.copy(collection=section))}},onImage={if(store.selected==null)preview=it}) }
+        Crossfade(targetState=Triple(section,folders,searching),modifier=Modifier.fillMaxSize(),animationSpec=tween(if(calm)0 else 140),label="page dissolve") { route -> if(route.first=="Settings") Box(Modifier.fillMaxSize().navigationBarsPadding().padding(bottom=84.dp)){ MobileSettings(store,onTour={onboarding=true},onBack={section="Notes"},onWriting={typographySettings=true},onWhatsNew={releaseHistory=true;whatsNew=true},onConnect=connect,onExport={backup.launch("Pebble Notes Backup.leafbackup")},onImport={restore.launch(arrayOf("*/*"))})} else if(route.first=="Tasks"&&!route.second) Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(bottom=84.dp)){TasksHome(store){section="Notes"}} else LibraryScreen(store,route.first,records,search,{search=it},route.second,{folders=it},gallery,{gallery=!gallery;store.preferences.edit().putBoolean("gallery",gallery).apply()},enabled=store.selected==null,onSection={section=it;folders=false},onMore={menu=true},onOpen={id->if(store.selected==null){val r=store.visibleHeads.firstOrNull{it.noteId==id};if(r?.note?.task!=null)taskDetail=r else {launchFrame=store.cardFrames[id];keyboard?.hide();store.select(id)}}},onNew={launchFrame=null;store.create();if(section in store.collections)store.editing?.let{store.update(it.copy(collection=section))}},onImage={if(store.selected==null)preview=it},searchMode=route.third,onSearchClose={searching=false;search="";keyboard?.hide()}) }
         if(updater.visible && !whatsNew) UpdateDialog(updater)
         val note=store.editing ?: lastNote
         if(note!=null && (store.selected!=null || navigation.value<width-.5f)) {
@@ -220,7 +222,7 @@ fun iconResource(name: String): Int = when(name) {
                 })
             }
         }
-        if(store.selected==null && navigation.value>=width-.5f) CompositionLocalProvider(LocalBackdrop provides (if(section=="Tasks")null else dockBackdrop.value)){MobileDock(section,Modifier.align(Alignment.BottomCenter),onPage={section=it;folders=false},onSearch={searching=true;section="Notes";folders=false},onCompose={launchFrame=null;store.create()})}
+        if(!searching && store.selected==null && navigation.value>=width-.5f) CompositionLocalProvider(LocalBackdrop provides (if(section=="Tasks")null else dockBackdrop.value)){MobileDock(section,Modifier.align(Alignment.BottomCenter),onPage={section=it;folders=false},onSearch={searching=true;section="Notes";folders=false},onCompose={launchFrame=null;store.create()})}
         ClipboardSuggestion(store,Modifier.align(Alignment.BottomEnd).navigationBarsPadding())
         AnimatedVisibility(visible=formatPanel && store.selected!=null,modifier=Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),enter=slideInVertically(if(calm)snap() else spring(dampingRatio=1f,stiffness=460f)){if(calm)0 else it}+fadeIn(tween(if(calm)0 else 160)),exit=slideOutVertically(if(calm)snap() else spring(dampingRatio=1f,stiffness=650f)){if(calm)0 else it}+fadeOut(tween(if(calm)0 else 120))) {
             FormatPanel(Modifier,onClose={formatPanel=false},onStyle={kind -> if(kind=="link"){linking=true}else editor?.let { view -> format(view,kind); store.activeBlock?.let { id -> store.editBlock(id,view.text.toString(),spansFrom(view.text));if(kind in listOf("body","title","subtitle","headline"))store.changeBlock(id){it.copy(textStyle=kind)} } } },onList={kind -> store.setList(kind) },currentStyle=store.editing?.document?.firstOrNull{it.id==store.activeBlock}?.textStyle ?: "body",onLink={url->linkUrl=url;val uri=android.net.Uri.parse(url);if(uri.scheme in listOf("http","https","mailto")){editor?.let{view->val start=view.selectionStart.coerceAtLeast(0);var end=view.selectionEnd.coerceAtLeast(start);if(end==start){view.text.insert(start,url);end=start+url.length};view.text.setSpan(android.text.style.URLSpan(url),start,end,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);store.activeBlock?.let{id->store.editBlock(id,view.text.toString(),spansFrom(view.text))}}}else store.error="Use an http, https, or mailto link"})
@@ -229,7 +231,6 @@ fun iconResource(name: String): Int = when(name) {
     }
     }
     }
-    if(searching)IosSheet("Search notes",onDismiss={searching=false}){MobileField(search,"Search",singleLine=true){search=it};Spacer(Modifier.height(16.dp));IosSegments(listOf("List","Gallery"),if(gallery)1 else 0){gallery=it==1;store.preferences.edit().putBoolean("gallery",gallery).apply()};GhostAction("Show results","search"){searching=false}}
     if(whatsNew) WhatsNew(store,releaseHistory){ReleaseNotes.acknowledge(store.context,store.preferences);whatsNew=false}
     var eraseTrash by remember { mutableStateOf<List<String>>(emptyList()) }
     if(eraseTrash.isNotEmpty())IosSheet("Delete permanently?",onDismiss={eraseTrash=emptyList()}){Label("These items and their saved versions will be removed. This cannot be undone.",15,color=c.secondary);SheetRow("Delete permanently","trash",tint=c.danger){store.permanentlyDelete(eraseTrash);eraseTrash=emptyList()};SheetRow("Cancel","close"){eraseTrash=emptyList()}}
@@ -290,13 +291,30 @@ fun iconResource(name: String): Int = when(name) {
     LaunchedEffect(Unit){while(true){delay(45000);store.expireTrash();if(store.preferences.getBoolean("connected",false))scheduleSync(store.context)}}
 }
 
-@Composable fun LibraryScreen(store:Store,section:String,records:List<Revision>,search:String,onSearch:(String)->Unit,folders:Boolean,onFolders:(Boolean)->Unit,gallery:Boolean,onGallery:()->Unit,enabled:Boolean,onSection:(String)->Unit,onMore:()->Unit,onOpen:(String)->Unit,onNew:()->Unit,onImage:(Media)->Unit) {
+@Composable private fun SearchHeader(query:String,onQuery:(String)->Unit,onClose:()->Unit,count:Int) {
+    val c=LocalLeafColors.current
+    val focus=remember{FocusRequester()};val keyboard=LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit){focus.requestFocus();keyboard?.show()}
+    Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+        ChromePill(Modifier.weight(1f).height(52.dp)) {
+            Row(Modifier.fillMaxSize().padding(start=14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                Glyph("search",size=22,tint=c.secondary)
+                BasicTextField(query,onQuery,Modifier.weight(1f).focusRequester(focus),singleLine=true,textStyle=TextStyle(color=c.text,fontSize=18.sp),cursorBrush=SolidColor(c.accent),decorationBox={inner->Box{if(query.isEmpty())Label("Search notes",18,color=c.secondary);inner()}})
+                if(query.isNotEmpty())ChromeButton("close","Clear search",44){onQuery("")}else Spacer(Modifier.width(14.dp))
+            }
+        }
+        Pressable(Modifier.height(52.dp).padding(horizontal=8.dp),"Cancel search",onClick={keyboard?.hide();onClose()}){Label("Cancel",16,color=c.accent)}
+    }
+    Label("$count ${if(count==1)"note" else "notes"}",13,color=c.secondary,modifier=Modifier.padding(start=23.dp,bottom=14.dp))
+}
+
+@Composable fun LibraryScreen(store:Store,section:String,records:List<Revision>,search:String,onSearch:(String)->Unit,folders:Boolean,onFolders:(Boolean)->Unit,gallery:Boolean,onGallery:()->Unit,enabled:Boolean,onSection:(String)->Unit,onMore:()->Unit,onOpen:(String)->Unit,onNew:()->Unit,onImage:(Media)->Unit,searchMode:Boolean=false,onSearchClose:()->Unit={}) {
     val c=LocalLeafColors.current; val headerDensity=LocalDensity.current; var headerHeight by remember { mutableStateOf(146.dp) }
     var eraseNote by remember { mutableStateOf<String?>(null) };var held by remember { mutableStateOf<String?>(null) }; var choosingMove by remember { mutableStateOf(false) }
     FrostedHost {
     PublishDockBackdrop()
     Box(Modifier.fillMaxSize().background(c.page).then(if(!enabled)Modifier.clearAndSetSemantics{} else Modifier)) {
-            Box(Modifier.fillMaxWidth().height(540.dp).background(homeGlowBrush(c.dark)))
+            if(!searchMode)Box(Modifier.fillMaxWidth().height(540.dp).background(homeGlowBrush(c.dark)))
             Crossfade(targetState=Pair(folders,gallery),animationSpec=tween(if(LocalCalmMotion.current)0 else 180),label="library layout") { (folderMode,galleryMode) ->
             if(folderMode) {
                 LazyColumn(modifier=Modifier.backdropSource(),contentPadding=PaddingValues(start=22.dp,top=headerHeight+12.dp,end=22.dp,bottom=120.dp)) {
@@ -334,13 +352,17 @@ fun iconResource(name: String): Int = when(name) {
                 }
             }
             }
-        ScrollHeader(Modifier.onSizeChanged { headerHeight=with(headerDensity){it.height.toDp()} },homeGlow=true) {
+        ScrollHeader(Modifier.onSizeChanged { headerHeight=with(headerDensity){it.height.toDp()} },homeGlow=!searchMode) {
+            if(searchMode) {
+                SearchHeader(search,onSearch,onSearchClose,records.size)
+            } else {
             Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
                 if(folders) Image(painterResource(R.drawable.leaf_logo),"Pebble Notes",Modifier.size(48.dp).clip(RoundedCornerShape(13.dp))) else ChromeButton("back","Collections") {if(enabled)onFolders(true)}
                 Spacer(Modifier.weight(1f));ChromeButton("more","More options") {if(enabled)onMore()}
             }
             Label(if(folders)"Folders" else section,34,FontWeight.Bold,modifier=Modifier.padding(start=22.dp,top=12.dp))
             Label(if(folders)"" else (if(section in listOf("Notes","Everything") && !store.preferences.getString("profileName","").isNullOrBlank()) "Hello, ${store.preferences.getString("profileName","")} · " else "") + "${records.size} ${if(records.size==1)"Note" else "Notes"}",13,color=c.secondary,modifier=Modifier.padding(start=23.dp,bottom=14.dp))
+            }
         }
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(110.dp).background(Brush.verticalGradient(listOf(c.page.copy(alpha=0f),c.page.copy(alpha=.92f)))))
 

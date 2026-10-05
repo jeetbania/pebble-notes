@@ -28,6 +28,24 @@ import UniformTypeIdentifiers
     private var pendingCommit: Task<Void, Never>?
     var current: Note? { draft?.note ?? allHeads.first(where: { $0.noteId == selected })?.note }
     var uniqueHeads: [Revision] { allHeads.filter { $0.note.recordType == "note" && $0.note.purgedAt == nil } }
+    func sidebarCount(_ section: String, collection: Bool = false) -> Int {
+        uniqueHeads.filter { r in
+            let n = r.note
+            if section == "Trash" && !collection { return n.deleted }
+            if section == "Archive" && !collection { return n.archived && !n.deleted }
+            guard !n.deleted && !n.archived else { return false }
+            if section == "Tasks" && !collection { return n.task != nil }
+            if section.hasPrefix("#") && !collection { return n.tags.contains(String(section.dropFirst())) }
+            guard n.task == nil else { return false }
+            if collection { return n.collection == section || n.collection.hasPrefix(section + "/") }
+            switch section {
+            case "Pinned": return n.pinned
+            case "Images": return n.attachments.contains { $0.mime.hasPrefix("image/") }
+            case "Checklists": return n.document.contains { $0.kind == "check" }
+            default: return true
+            }
+        }.count
+    }
     var folderHeads: [Revision] { allHeads.filter { $0.note.recordType == "folder" && !$0.note.deleted } }
     var collections: [String] {
         Array(Set(allHeads.filter { !$0.note.deleted }.flatMap { r in let parts = r.note.collection.split(separator: "/"); return parts.indices.map { parts.prefix($0 + 1).joined(separator: "/") } } + ["Personal"])).sorted()

@@ -36,15 +36,14 @@ fun Modifier.frosted(shape:Shape,light:Boolean=false,surface:Color?=null):Modifi
 // Background-only fade: labels and touch targets stay fully opaque.
 @Composable fun ScrollHeader(modifier:Modifier=Modifier,homeGlow:Boolean=false,surface:Color?=null,content:@Composable ColumnScope.()->Unit) {
     val c=LocalLeafColors.current
-    val glowHeight=with(androidx.compose.ui.platform.LocalDensity.current){540.dp.toPx()}
     Box(modifier.fillMaxWidth()) {
         Box(Modifier.matchParentSize().graphicsLayer{compositingStrategy=androidx.compose.ui.graphics.CompositingStrategy.Offscreen}.drawWithContent {
             drawContent()
-            drawRect(Brush.verticalGradient(0f to Color.White,.82f to Color.White,1f to Color.Transparent),blendMode=BlendMode.DstIn)
-        }.frosted(RectangleShape,light=true,surface=surface).then(if(homeGlow)Modifier.background(homeGlowBrush(c.dark,glowHeight))else Modifier))
+            drawRect(Brush.verticalGradient(0f to Color.White,.55f to Color.White,1f to Color.Transparent),blendMode=BlendMode.DstIn)
+        }.frosted(RectangleShape,light=!homeGlow,surface=surface ?: if(homeGlow)c.page.copy(alpha=.08f)else null))
         Column(Modifier.statusBarsPadding().padding(bottom=16.dp),content=content)
     }
 }
 
-fun homeGlowColor(dark:Boolean)=Color(0xFF9451E8).copy(alpha=if(dark).64f else .22f)
-fun homeGlowBrush(dark:Boolean,endY:Float=Float.POSITIVE_INFINITY)=Brush.verticalGradient(0f to homeGlowColor(dark),.40f to homeGlowColor(dark).copy(alpha=if(dark).30f else .10f),1f to Color.Transparent,endY=endY)
+fun homeGlowColor(dark:Boolean)=Color(0xFF9451E8).copy(alpha=if(dark).28f else .12f)
+fun homeGlowBrush(dark:Boolean,endY:Float=Float.POSITIVE_INFINITY)=Brush.verticalGradient(0f to homeGlowColor(dark),.40f to homeGlowColor(dark).copy(alpha=if(dark).12f else .05f),1f to Color.Transparent,endY=endY)
