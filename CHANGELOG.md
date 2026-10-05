@@ -1,5 +1,13 @@
 # Pebble Notes changelog
 
+## 0.15.1 · Styles, refined
+
+- Styled note cards now layer the document through the lower edge, leaving the backdrop around the top and sides.
+- Backdrop gradients flow from top to bottom and use a softer same-colour fade around fixed writing controls.
+- Style menus stay inside the app, open beside the paintbrush, and use clearer sections, dividers and previews.
+- Backdrop, document and text colours now have separate palettes matched to their intended role.
+- Phone navigation controls use adaptive translucent materials over every note colour.
+
 ## 0.15.0 · A colour for every thought
 
 - Notes have independent document, backdrop and text colours, saved and synced with each note.

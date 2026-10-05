@@ -128,7 +128,10 @@ struct LibraryView: View {
                     } else if let note = store.current, note.task == nil, let id = store.selected { editor(note, id) }
                     else { gallery }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped().allowsHitTesting(preview == nil).accessibilityHidden(preview != nil)
-                topBar.environment(\.colorScheme, store.current?.style?.chromeScheme ?? scheme).allowsHitTesting(preview == nil).accessibilityHidden(preview != nil).background { if reducedTransparency { Color(nsColor: .windowBackgroundColor) } else { ContentBlur() } }
+                topBar.environment(\.colorScheme, store.current?.style?.chromeScheme ?? scheme).allowsHitTesting(preview == nil).accessibilityHidden(preview != nil).background {
+                    if reducedTransparency { Color(nsColor: .windowBackgroundColor) }
+                    else { ContentBlur().mask(LinearGradient(stops: [.init(color: .white, location: 0), .init(color: .white, location: 0.58), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)) }
+                }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
 
             .panePresented(isPresented: $showConflicts) { conflicts }

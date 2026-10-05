@@ -348,8 +348,8 @@ fun dateGroup(millis:Long):String {
     val surface=if(style.framed)style.brush(base)else if(style.document!=null)Brush.verticalGradient(listOf(c.canvas,c.canvas))else Brush.verticalGradient(listOf(c.paper.copy(alpha=.98f),c.paper.copy(alpha=if(c.dark).72f else .78f)))
     Pressable(Modifier.fillMaxWidth().shadow(8.dp,RoundedCornerShape(23.dp),ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.06f)).clip(RoundedCornerShape(23.dp)).background(surface).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),r.note.displayTitle,onClick=onClick,onLongClick=onHold) {
         CompositionLocalProvider(LocalLeafColors provides c) {
-        Box(Modifier.padding(if(style.framed)8.dp else 0.dp)) {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(if(style.framed)16.dp else 23.dp)).background(if(style.framed)c.canvas else Color.Transparent).padding(17.dp).heightIn(min=150.dp,max=300.dp)) {
+        Box(Modifier.then(if(style.framed)Modifier.padding(start=8.dp,end=8.dp,top=8.dp)else Modifier)) {
+        Column(Modifier.fillMaxWidth().offset(y=if(style.framed)7.dp else 0.dp).clip(RoundedCornerShape(if(style.framed)16.dp else 23.dp)).background(if(style.framed)c.canvas else Color.Transparent).padding(17.dp).heightIn(min=150.dp,max=300.dp)) {
             Label(r.note.displayTitle,19,FontWeight.SemiBold,lines=2);Spacer(Modifier.height(10.dp))
             r.note.attachments.firstOrNull{it.mime.startsWith("image/")}?.let{MediaImage(File(store.media,it.id),Modifier.fillMaxWidth().height(110.dp),radius=12);Spacer(Modifier.height(10.dp))}
             Label(r.note.text,13,color=c.secondary,lines=if(r.note.attachments.isEmpty())8 else 3)
@@ -363,8 +363,8 @@ fun dateGroup(millis:Long):String {
     val base=LocalLeafColors.current;val style=r.note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base
     val surface=if(style.framed)style.brush(base)else if(style.document!=null)Brush.verticalGradient(listOf(c.canvas,c.canvas))else Brush.verticalGradient(listOf(c.paper.copy(alpha=.98f),c.paper.copy(alpha=if(c.dark).72f else .78f)))
     Pressable(Modifier.clip(RoundedCornerShape(23.dp)).background(surface).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),description="View ${a.name}",onClick=onClick,onLongClick=onHold) {
-        Box(Modifier.padding(if(style.framed)8.dp else 0.dp)) {
-            Column(Modifier.clip(RoundedCornerShape(if(style.framed)16.dp else 23.dp)).background(if(style.framed)c.canvas else Color.Transparent).padding(8.dp)) {
+        Box(Modifier.then(if(style.framed)Modifier.padding(start=8.dp,end=8.dp,top=8.dp)else Modifier)) {
+            Column(Modifier.offset(y=if(style.framed)7.dp else 0.dp).clip(RoundedCornerShape(if(style.framed)16.dp else 23.dp)).background(if(style.framed)c.canvas else Color.Transparent).padding(8.dp)) {
                 MediaImage(File(store.media,a.id),Modifier.fillMaxWidth().aspectRatio(1f),radius=17)
                 Label(r.note.collection,11,color=c.secondary,modifier=Modifier.align(Alignment.CenterHorizontally).padding(top=7.dp,bottom=3.dp),lines=1)
             }
@@ -372,7 +372,7 @@ fun dateGroup(millis:Long):String {
     }
 }
 @Composable fun EditorScreen(store:Store,note:Note,noteId:String?,onBack:()->Unit,onMore:()->Unit,onFormat:()->Unit,onImages:()->Unit,onCompose:()->Unit,onPreview:(Media)->Unit,onEditor:(EditText)->Unit,onConflict:()->Unit,onShare:()->Unit) {
-    val base=LocalLeafColors.current;val style=note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base;val chrome=base.copy(canvas=hexColour(style.backdrop) ?: c.canvas,text=if(lightColour(hexColour(style.backdrop) ?: c.canvas))Color.Black else Color.White);val metrics=LocalTypeSizes.current.copy(scale=note.textScale);val keyboard=LocalSoftwareKeyboardController.current;val focus=LocalFocusManager.current;var editing by remember(noteId){mutableStateOf(false)}
+    val base=LocalLeafColors.current;val style=note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base;val chrome=base;val metrics=LocalTypeSizes.current.copy(scale=note.textScale);val keyboard=LocalSoftwareKeyboardController.current;val focus=LocalFocusManager.current;var editing by remember(noteId){mutableStateOf(false)}
     FrostedHost {
     Box(Modifier.fillMaxSize().background(style.brush(base))) {
             Column(Modifier.fillMaxSize().backdropSource().verticalScroll(rememberScrollState()).padding(horizontal=if(style.framed)12.dp else 0.dp).padding(top=if(style.framed)86.dp else 0.dp,bottom=if(style.framed)110.dp else 0.dp)) {
@@ -386,12 +386,12 @@ fun dateGroup(millis:Long):String {
             }
             }
             CompositionLocalProvider(LocalLeafColors provides chrome) {
-            ScrollHeader(surface=chrome.canvas) { Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            ScrollHeader { Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 ChromeButton("back","Back to notes",onClick=onBack);Spacer(Modifier.weight(1f))
                 ChromePill(Modifier.height(48.dp)) {NoteStyleMenu(store,base);Pressable(Modifier.size(44.dp),"Share note",onClick=onShare){Glyph("share")};Pressable(Modifier.size(44.dp),"Note options",onClick=onMore){Glyph("more")}}
                 if(editing)ChromeButton("done","Done editing",prominent=true){keyboard?.hide();activeTextEditor?.clearFocus();focus.clearFocus();editing=false}
             }}
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(105.dp).background(Brush.verticalGradient(listOf(chrome.canvas.copy(alpha=0f),chrome.canvas.copy(alpha=.96f)))))
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(132.dp).background(Brush.verticalGradient(listOf(Color.Transparent,hexColour(style.backdropEnd ?: style.backdrop)?.copy(alpha=.92f) ?: chrome.canvas.copy(alpha=.92f)))))
         Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal=22.dp).padding(top=12.dp,bottom=24.dp),verticalAlignment=Alignment.CenterVertically) {
             ChromePill(Modifier.height(50.dp)) {
                 Pressable(Modifier.size(48.dp),"Format",onClick=onFormat){Glyph("format")}
