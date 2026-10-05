@@ -1,5 +1,14 @@
 # Pebble Notes changelog
 
+## 0.17.0 · Steady menus and useful blocks
+
+- Mac context menus use native submenu tracking and no longer crash when the editor copies them; Style closes from every picker.
+- Note cards reveal quickly once and stay visible across tabs, folders and scrolling.
+- Quotes and Idea blocks preserve editable rich text, undo and sync.
+- Phone formatting offers visible highlight colours, a link field and consistent list controls; block options stay beside their text.
+- Image backdrops fade away with the editor and system bars when going back. Dark documents receive complementary light paper when choosing a backdrop.
+- Phone cards have bounded heights and a Masonry or Grid setting. Scrolling closes swipe actions; settings dividers and reset buttons are consistent.
+
 ## 0.16.0 · Backdrops and thoughtful details
 
 - Choose from eight image wallpapers or upload a custom note backdrop; images travel with sync and backups.

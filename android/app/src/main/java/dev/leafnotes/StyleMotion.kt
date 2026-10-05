@@ -16,11 +16,13 @@ import kotlinx.coroutines.delay
     return Brush.verticalGradient(if(style.gradientDirection=="up")listOf(end,start)else listOf(start,end))
 }
 
-@Composable fun CardFade(route:String,index:Int,content:@Composable ()->Unit) {
+@Composable fun CardFade(store:Store,identity:String,index:Int,content:@Composable ()->Unit) {
     val calm=LocalCalmMotion.current
-    val opacity=remember(route){Animatable(if(calm)1f else 0f)}
-    LaunchedEffect(route) {
-        if(calm)opacity.snapTo(1f) else {delay(index.coerceAtMost(9)*32L);opacity.animateTo(1f,tween(300))}
+    val immediate=calm || index>=16 || identity in store.revealedCards
+    val opacity=remember(identity){Animatable(if(immediate)1f else 0f)}
+    LaunchedEffect(identity) {
+        if(!immediate){delay(index.coerceAtMost(3)*18L);opacity.animateTo(1f,tween(160))}
+        store.revealedCards.add(identity)
     }
     Box(Modifier.graphicsLayer{alpha=opacity.value},content={content()})
 }

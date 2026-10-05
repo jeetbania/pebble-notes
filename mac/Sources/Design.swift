@@ -212,7 +212,7 @@ struct EditorFocusDismissal: NSViewRepresentable {
 
 struct SixDotHandle: View {
     var body: some View { Canvas { context, _ in
-        for x in [9.0, 16.0] { for y in [9.0, 16.0, 23.0] { context.fill(Path(ellipseIn: CGRect(x: x - 1.5, y: y - 1.5, width: 3, height: 3)), with: .color(.secondary)) } }
+        for x in [9.0, 16.0] { for y in [9.0, 16.0, 23.0] { context.fill(Path(ellipseIn: CGRect(x: x - 1.5, y: y - 1.5, width: 3, height: 3)), with: .color(.primary)) } }
     }.accessibilityHidden(true) }
 }
 

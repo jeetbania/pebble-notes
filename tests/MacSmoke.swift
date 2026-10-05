@@ -3,6 +3,23 @@ import AppKit
 
 @main struct MacSmoke {
     @MainActor static func main() async throws {
+        _ = NSApplication.shared
+        MenuAppearance.install()
+        let menu = NSMenu(title: "Editor")
+        let action = NSMenuItem(title: "Turn into", action: nil, keyEquivalent: "")
+        action.image = NSImage(systemSymbolName: "textformat", accessibilityDescription: nil)
+        menu.addItem(action)
+        NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: menu)
+        precondition(action.view == nil && action.image?.isTemplate == false)
+        let copied = action.copy() as! NSMenuItem
+        precondition(copied.title == "Turn into" && copied.view == nil)
+        let ink = TextSpan(start: 0, length: 5, kind: "highlight:#9FCBFF")
+        var highlighted = Note(); highlighted.text = "Hello"; highlighted.spans = [ink]
+        precondition(spansFrom(highlighted.attributed).contains(ink))
+        let darkStyle = NoteStyle(document: "#000000", text: "#FFFFFF").lightDocument(tone: "#1F33AD", defaultDark: true)
+        precondition(NoteStyle.isLight(darkStyle.document!) && darkStyle.text == nil)
+        precondition(NoteStyle(document: "#FEDEDE").lightDocument(tone: "#1F33AD", defaultDark: true).document == "#FEDEDE")
+        print("PASS: native context menu copying and neutral icons, custom highlights and complementary paper")
         var trail = NavigationTrail()
         let tasksRoute = LibraryRoute(section: "Tasks")
         let detailRoute = LibraryRoute(section: "Tasks", note: "task")

@@ -26,6 +26,17 @@ class Store:
 class CoreTests(unittest.TestCase):
     def setUp(self): self.s=Store()
     def tearDown(self): self.s.close()
+    def test_quote_idea_and_coloured_highlight_sync(self):
+        r=revision('ideas',text='Remember');r['schema']=2
+        r['note'].update(tags=[],recordType='note',folderEmoji='',folderImage='')
+        r['note']['blocks']=[dict(id=kind,kind=kind,text='Remember',spans=[dict(start=0,length=8,kind='highlight:#9FCBFF')],checked=False,indent=0,mediaId='',caption='',presentation='large',cells=[]) for kind in ('quote','callout')]
+        r['note']['spans']=[dict(start=0,length=8,kind='highlight:#9FCBFF')]
+        self.assertTrue(self.s.put(r,True));self.assertEqual(self.s.list()[0],r)
+        before=self.s.list()
+        for kind in ('highlight:none','highlight:#GGGGGG','highlight:#123','highlight:#1234567'):
+            bad=revision();bad['note']['spans']=[dict(start=0,length=1,kind=kind)]
+            self.assertFalse(self.s.put(bad));self.assertEqual(self.s.list(),before)
+
     def test_permanent_deletion_blocks_old_backups_and_offline_edits(self):
         original=revision('secret'); original['note']['attachments']=[dict(id='a'*64,name='secret.png',mime='image/png')]
         self.assertTrue(self.s.put(original));self.assertTrue(self.s.put(revision('trash',['secret'],deleted=True)))

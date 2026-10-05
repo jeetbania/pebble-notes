@@ -16,19 +16,23 @@ struct SidebarSelectionSurface: ViewModifier {
     }
 }
 
+@MainActor enum CardRevealHistory {
+    static var seen: Set<String> = []
+}
 struct CardEntrance: ViewModifier {
-    var route: String
+    var route: String // Stable note identity, independent of folder or revision.
     var index: Int
     var reduced: Bool
     @LeafState private var visible = false
+    init(route: String, index: Int, reduced: Bool) { self.route = route; self.index = index; self.reduced = reduced; _visible = LeafState(wrappedValue: reduced || index >= 16 || CardRevealHistory.seen.contains(route)) }
     func body(content: Content) -> some View {
         content.opacity(visible ? 1 : 0).task(id: route) {
-            var transaction = Transaction(); transaction.disablesAnimations = true
-            withTransaction(transaction) { visible = reduced }
-            guard !reduced else { return }
-            try? await Task.sleep(for: .milliseconds(min(index, 9) * 32))
+            guard !visible else { CardRevealHistory.seen.insert(route); return }
+            if reduced || index >= 16 || CardRevealHistory.seen.contains(route) { visible = true; CardRevealHistory.seen.insert(route); return }
+            try? await Task.sleep(for: .milliseconds(min(index, 3) * 18))
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.30)) { visible = true }
+            withAnimation(.easeOut(duration: 0.16)) { visible = true }
+            CardRevealHistory.seen.insert(route)
         }
     }
 }

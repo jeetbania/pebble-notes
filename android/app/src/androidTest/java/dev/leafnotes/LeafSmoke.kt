@@ -15,6 +15,20 @@ class LeafSmoke : Instrumentation() {
         try {
             val isolated = object : ContextWrapper(targetContext) { override fun getFilesDir() = root }
             runOnMainSync {
+                val blue=androidx.compose.ui.graphics.Color.Blue
+                val paper=NoteStyle(document="#000000",text="#FFFFFF").lightDocument(blue,true)
+                check(lightColour(hexColour(paper.document)!!) && paper.text==null)
+                check(NoteStyle(document="#FEDEDE").lightDocument(blue,true).document=="#FEDEDE")
+                val quote=Block(kind="quote",text="Remember",spans=listOf(Span(0,8,"highlight:#9FCBFF")))
+                val idea=quote.copy(id=uid(),kind="callout")
+                val styledNote=Note(blocks=listOf(quote,idea)).prepared()
+                check(styledNote.text=="Remember\nRemember")
+                check(spansFrom(attributed(quote.renderedNote))==quote.spans)
+                val colourEditor=android.widget.EditText(targetContext)
+                colourEditor.setText(attributed(quote.renderedNote));colourEditor.setSelection(0,8)
+                format(colourEditor,"highlight:#FFB5C4");check(spansFrom(colourEditor.text)==listOf(Span(0,8,"highlight:#FFB5C4")))
+                format(colourEditor,"highlight:none");check(spansFrom(colourEditor.text).isEmpty())
+                results.append("PASS: quote/idea text, custom highlight replacement/removal and complementary light document\n")
                 val toneBitmap=android.graphics.Bitmap.createBitmap(40,40,android.graphics.Bitmap.Config.ARGB_8888)
                 toneBitmap.eraseColor(android.graphics.Color.BLUE)
                 for(x in 0 until 10)for(y in 0 until 40)toneBitmap.setPixel(x,y,android.graphics.Color.RED)
@@ -22,6 +36,8 @@ class LeafSmoke : Instrumentation() {
                 toneBitmap.eraseColor(android.graphics.Color.TRANSPARENT);check(prominentWallpaperColour(toneBitmap)==androidx.compose.ui.graphics.Color.Transparent);toneBitmap.recycle()
                 results.append("PASS: prominent wallpaper tone follows the dominant colour rather than a mixed average\n")
                 val store = Store(isolated)
+                val ideaStore=Store(object:ContextWrapper(targetContext){override fun getFilesDir()=File(root,"ideas").apply{mkdirs()}})
+                ideaStore.create();ideaStore.update(styledNote);ideaStore.flush();check(ideaStore.error==null);check(ideaStore.revisions().last().note.document.map{it.kind}==listOf("quote","callout"));check(markdown(styledNote).contains("> 💡 Remember"))
                 val styleStore=Store(object:ContextWrapper(targetContext){override fun getFilesDir()=File(root,"style").apply{mkdirs()}})
                 styleStore.create();styleStore.update(Note(title="Style fixture",text="Text"));styleStore.flush();val styleId=styleStore.selected!!;val plain=styleStore.editing!!
                 val style=NoteStyle("#F8F0FF","#FFBD19","#FFE7E3","#185B51")

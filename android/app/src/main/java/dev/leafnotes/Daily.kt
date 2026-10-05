@@ -21,7 +21,7 @@ class LocalBackupWorker(context:Context,params:WorkerParameters):Worker(context,
 fun markdown(note:Note):String {
     val lines=mutableListOf("# "+note.displayTitle,"");if(note.tags.isNotEmpty())lines.add(note.tags.joinToString(" "){"#"+it});var number=0
     note.document.forEach{b->val prefix="  ".repeat(b.indent+note.depth(b));when(b.kind){
-        "toggle"->lines.add(prefix+"> "+b.text)
+        "quote"->lines.addAll(b.text.lines().map{prefix+"> "+it});"callout"->lines.addAll(b.text.lines().mapIndexed{i,line->prefix+"> "+(if(i==0)"💡 "else "")+line});"toggle"->lines.add(prefix+"> "+b.text)
         "divider"->lines.add("---")
         "bullet"->lines.add(prefix+"- "+b.text)
         "number"->lines.add(prefix+"${++number}. "+b.text)

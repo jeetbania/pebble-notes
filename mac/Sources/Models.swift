@@ -20,7 +20,7 @@ struct DocumentBlock: Codable, Equatable, Identifiable {
     var presentation = "large"
     var cells: [[String]] = []
     var asNote: Note { var note = Note(); note.text = text; note.spans = spans; if let textStyle, textStyle != "body", !text.isEmpty { note.spans = spans.filter { !["title", "subtitle", "headline"].contains($0.kind) } + [TextSpan(start: 0, length: text.utf16.count, kind: textStyle)] }; return note }
-    var isText: Bool { ["text", "bullet", "number", "check", "toggle"].contains(kind) }
+    var isText: Bool { ["text", "bullet", "number", "check", "toggle", "quote", "callout"].contains(kind) }
 }
 struct TaskDetails: Codable, Equatable {
     var dueAt: Int64 = 0
@@ -170,6 +170,8 @@ extension Note {
                 result.addAttribute(NSAttributedString.Key("leafTextStyle"), value: span.kind, range: range)
             case let kind where kind.hasPrefix("link:"):
                 result.addAttribute(.link, value: String(kind.dropFirst(5)), range: range)
+            case let kind where kind.hasPrefix("highlight:#"):
+                if let c = NoteStyle.colour(String(kind.dropFirst(10))) { result.addAttribute(.backgroundColor, value: NSColor(c).withAlphaComponent(0.3), range: range); result.addAttribute(NSAttributedString.Key("leafHighlight"), value: kind, range: range) }
             case "highlight": result.addAttribute(.backgroundColor, value: NSColor.systemYellow.withAlphaComponent(0.3), range: range)
             case "strike": result.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: range)
             case "underline": result.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
@@ -188,7 +190,7 @@ func spansFrom(_ text: NSAttributedString) -> [TextSpan] {
             if traits.contains(.italicFontMask) { spans.append(.init(start: range.location, length: range.length, kind: "italic")) }
         }
         if let style = attributes[NSAttributedString.Key("leafTextStyle")] as? String, ["title", "subtitle", "headline"].contains(style) { spans.append(.init(start: range.location, length: range.length, kind: style)) }
-        if attributes[.backgroundColor] != nil { spans.append(.init(start: range.location, length: range.length, kind: "highlight")) }
+        if attributes[.backgroundColor] != nil { spans.append(.init(start: range.location, length: range.length, kind: attributes[NSAttributedString.Key("leafHighlight")] as? String ?? "highlight")) }
         if let link = attributes[.link] { spans.append(.init(start: range.location, length: range.length, kind: "link:" + String(describing: link))) }
         for (key, kind) in [(NSAttributedString.Key.strikethroughStyle, "strike"), (.underlineStyle, "underline")] {
             if let value = attributes[key] as? Int, value != 0, !(kind == "strike" && attributes[NSAttributedString.Key("leafCompletionStrike")] as? Bool == true) { spans.append(.init(start: range.location, length: range.length, kind: kind)) }

@@ -360,7 +360,7 @@ struct LibraryView: View {
                                     } menu: { itemMenu(r.noteId) }.frame(width: width).modifier(GalleryGrab(id: r.noteId, dragging: dragging, gesture: grab(r)))
 
                                 }
-                                }.modifier(CardEntrance(route: title, index: index, reduced: reducedMotion || calmMotion))
+                                }.modifier(CardEntrance(route: r.noteId, index: index, reduced: reducedMotion || calmMotion))
                             }
                         }
                     }.padding(.horizontal, 24).padding(.top, 98).padding(.bottom, 100).frame(maxWidth: .infinity, alignment: .leading)

@@ -8,6 +8,8 @@ enum PortableExport {
         for b in note.document {
             let prefix = String(repeating: "  ", count: b.indent + note.depth(b))
             switch b.kind {
+            case "quote": lines += b.text.components(separatedBy: "\n").map { prefix + "> " + $0 }
+            case "callout": lines += b.text.components(separatedBy: "\n").enumerated().map { prefix + "> " + ($0.offset == 0 ? "💡 " : "") + $0.element }
             case "toggle": lines.append(prefix + "> " + b.text)
             case "divider": lines.append("---")
             case "bullet": lines.append(prefix + "- " + b.text)

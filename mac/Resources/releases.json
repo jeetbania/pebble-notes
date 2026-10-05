@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.17.0",
+    "title": "Steady menus and useful blocks",
+    "changes": [
+      "Mac context menus use native submenu tracking and no longer crash when the editor copies them; Style closes from every picker.",
+      "Note cards reveal quickly once and stay visible across tabs, folders and scrolling.",
+      "Quotes and Idea blocks preserve editable rich text, undo and sync.",
+      "Phone formatting offers visible highlight colours, a link field and consistent list controls; block options stay beside their text.",
+      "Image backdrops fade away with the editor and system bars when going back. Dark documents receive complementary light paper when choosing a backdrop.",
+      "Phone cards have bounded heights and a Masonry or Grid setting. Scrolling closes swipe actions; settings dividers and reset buttons are consistent."
+    ]
+  },
+  {
     "version": "0.16.0",
     "title": "Backdrops and thoughtful details",
     "changes": [
@@ -40,7 +52,7 @@
       "Notes have independent document, backdrop and text colours, saved and synced with each note.",
       "A paintbrush opens a temporary Style menu with a live preview, colour palettes and custom colours.",
       "Choose a solid or gradient backdrop to frame the document as a rounded card on Mac and phone.",
-      "Library previews reflect each note\u2019s colours. Reset style returns to the original appearance."
+      "Library previews reflect each note’s colours. Reset style returns to the original appearance."
     ]
   },
   {
@@ -83,7 +95,7 @@
     "version": "0.14.3",
     "title": "At your fingertips",
     "changes": [
-      "Mac keyboard shortcuts include sidebar, search, new notes and navigation. Find the full list in Settings \u2192 Shortcuts.",
+      "Mac keyboard shortcuts include sidebar, search, new notes and navigation. Find the full list in Settings → Shortcuts.",
       "The desktop frame has even insets when the sidebar is hidden. Drag notes onto sidebar collections with clear target feedback.",
       "Desktop empty-state cards use solid adaptive surfaces, so overlapping artwork stays clean in light and dark modes.",
       "Click anywhere on a task card to open details. Back and Forward follow real navigation history, with unavailable arrows dimmed.",
@@ -142,7 +154,7 @@
       "Android checks periodically for updates and can notify you. Choose Download now, Later, or Install after verification.",
       "Mac downloads signed updates and offers Install and restart. Updates are distributed through free public GitHub releases.",
       "A new welcome tour introduces notes, visual inspiration, and tasks. Choose an optional name and accent, then start offline or connect Google Drive.",
-      "Android\u2019s home header has a soft accent glow that fades into the page."
+      "Android’s home header has a soft accent glow that fades into the page."
     ]
   },
   {
@@ -198,7 +210,7 @@
     "version": "0.8.0",
     "title": "A little news with every update",
     "changes": [
-      "What\u2019s New now appears once after an update, so you can see what changed.",
+      "What’s New now appears once after an update, so you can see what changed.",
       "A translucent release panel keeps the app softly visible behind it.",
       "Reopen the changelog from Settings whenever you like."
     ]

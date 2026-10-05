@@ -80,28 +80,29 @@ fun attributed(note: Note, metrics: TextMetrics = TextMetrics()): SpannableStrin
     val s = SpannableString(note.text)
     for(span in note.spans) {
         if(span.start < 0 || span.length <= 0 || span.start > s.length || span.length > s.length - span.start) continue
-        val style: Any = when(span.kind) { "bold" -> StyleSpan(Typeface.BOLD); "italic" -> StyleSpan(Typeface.ITALIC); "highlight" -> android.text.style.BackgroundColorSpan(0x55FFCC00); "strike" -> StrikethroughSpan(); "underline" -> UnderlineSpan(); "title", "subtitle", "headline" -> SemanticSize(span.kind,metrics.size(span.kind)); else -> if(span.kind.startsWith("link:")) android.text.style.URLSpan(span.kind.removePrefix("link:")) else continue }
+        val style: Any = when(span.kind) { "bold" -> StyleSpan(Typeface.BOLD); "italic" -> StyleSpan(Typeface.ITALIC); "highlight" -> SemanticHighlight("highlight",0x55FFCC00); "strike" -> StrikethroughSpan(); "underline" -> UnderlineSpan(); "title", "subtitle", "headline" -> SemanticSize(span.kind,metrics.size(span.kind)); else -> if(span.kind.startsWith("highlight:#") && validHex(span.kind.removePrefix("highlight:"))!=null) SemanticHighlight(span.kind, (android.graphics.Color.parseColor(span.kind.removePrefix("highlight:")) and 0xffffff) or 0x55000000) else if(span.kind.startsWith("link:")) android.text.style.URLSpan(span.kind.removePrefix("link:")) else continue }
         s.setSpan(style, span.start, span.start + span.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
     }; return s
 }
 fun spansFrom(s: Spanned): List<Span> {
     val spans = mutableListOf<Span>()
     s.getSpans(0, s.length, Any::class.java).forEach { value ->
-        val kinds = when(value) { is StyleSpan -> when(value.style) { Typeface.BOLD -> listOf("bold"); Typeface.ITALIC -> listOf("italic"); Typeface.BOLD_ITALIC -> listOf("bold", "italic"); else -> emptyList() }; is android.text.style.BackgroundColorSpan -> listOf("highlight"); is UnderlineSpan -> listOf("underline"); is CompletionStrike -> emptyList(); is StrikethroughSpan -> listOf("strike"); is SemanticSize -> listOf(value.kind); is android.text.style.AbsoluteSizeSpan -> listOf(when(value.size){30->"title";22->"subtitle";else->"headline"}); is android.text.style.URLSpan -> listOf("link:"+value.url); else -> emptyList() }
+        val kinds = when(value) { is StyleSpan -> when(value.style) { Typeface.BOLD -> listOf("bold"); Typeface.ITALIC -> listOf("italic"); Typeface.BOLD_ITALIC -> listOf("bold", "italic"); else -> emptyList() }; is SemanticHighlight -> listOf(value.kind); is android.text.style.BackgroundColorSpan -> listOf("highlight"); is UnderlineSpan -> listOf("underline"); is CompletionStrike -> emptyList(); is StrikethroughSpan -> listOf("strike"); is SemanticSize -> listOf(value.kind); is android.text.style.AbsoluteSizeSpan -> listOf(when(value.size){30->"title";22->"subtitle";else->"headline"}); is android.text.style.URLSpan -> listOf("link:"+value.url); else -> emptyList() }
         for(kind in kinds) { val start = s.getSpanStart(value); val length = s.getSpanEnd(value) - start; if(start >= 0 && length > 0) spans += Span(start, length, kind) }
     }; return canonicalSpans(spans)
 }
+class SemanticHighlight(val kind:String,colour:Int):android.text.style.BackgroundColorSpan(colour)
 val typingStyles=java.util.WeakHashMap<EditText,MutableSet<String>>()
 fun applyTypingStyle(view:EditText,start:Int,count:Int) { val styles=typingStyles[view] ?: return;if(count<=0)return;val spans=styles.map{Span(start,count,it)};val styled=attributed(Note(text=view.text.toString(),spans=spans), editorMetrics[view] ?: TextMetrics());styled.getSpans(start,start+count,Any::class.java).forEach{view.text.setSpan(it,start,start+count,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)} }
 fun format(view: EditText, kind: String) {
     val text=view.text.toString();val cursor=view.selectionStart.coerceAtLeast(0);var start=cursor;var end=view.selectionEnd.coerceAtLeast(cursor)
-    if(end==start && (kind !in listOf("title","subtitle","headline","body") || text.isEmpty())){val styles=typingStyles.getOrPut(view){mutableSetOf()};if(kind in listOf("title","subtitle","headline","body"))styles.removeAll(listOf("title","subtitle","headline","body"));if(kind!="body"){if(!styles.add(kind))styles.remove(kind)};return}
+    if(end==start && (kind !in listOf("title","subtitle","headline","body") || text.isEmpty())){val styles=typingStyles.getOrPut(view){mutableSetOf()};if(kind.startsWith("highlight"))styles.removeAll{it.startsWith("highlight")};if(kind in listOf("title","subtitle","headline","body"))styles.removeAll(listOf("title","subtitle","headline","body"));if(kind!="body"&&kind!="highlight:none"){if(!styles.add(kind))styles.remove(kind)};return}
     if(end==start){start=if(cursor==0)0 else text.lastIndexOf('\n',cursor-1).let{if(it<0)0 else it+1};end=text.indexOf('\n',cursor).let{if(it<0)text.length else it}}
     if(end<=start)return
-    val headings=listOf("title","subtitle","headline","body");val old=spansFrom(view.text);val remove=if(kind in headings)headings else listOf(kind)
+    val headings=listOf("title","subtitle","headline","body");val old=spansFrom(view.text);val remove=if(kind in headings)headings else if(kind.startsWith("highlight"))old.map{it.kind}.filter{it.startsWith("highlight")} else listOf(kind)
     val exists=old.any{it.kind==kind&&it.start<end&&it.start+it.length>start}
     val result=old.flatMap{span->if(span.kind !in remove || span.start>=end || span.start+span.length<=start)listOf(span) else buildList{if(span.start<start)add(span.copy(length=start-span.start));if(span.start+span.length>end)add(span.copy(start=end,length=span.start+span.length-end))}}.toMutableList()
-    if(kind!="body" && (kind in headings || !exists))result+=Span(start,end-start,kind)
+    if(kind!="body" && kind!="highlight:none" && (kind in headings || !exists))result+=Span(start,end-start,kind)
     view.tag=true;view.setText(attributed(Note(text=text,spans=result), editorMetrics[view] ?: TextMetrics()));view.setSelection(start,end);view.tag=false
 }
 

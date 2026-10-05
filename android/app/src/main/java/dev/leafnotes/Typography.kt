@@ -30,7 +30,7 @@ class SemanticSize(val kind:String,size:Int):android.text.style.AbsoluteSizeSpan
             PillSlider(value.toFloat(),{if(it.toInt()!=value){haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);store.preferences.edit().putInt(key,it.toInt()).apply()}},valueRange=range.first.toFloat()..range.last.toFloat(),steps=range.last-range.first-1,description=name+" text size")
         }
         Label("A quieter place for your thoughts.",metrics.body,modifier=Modifier.padding(vertical=12.dp))
-        SheetRow("Reset text sizes","undo"){store.preferences.edit().remove("typeBody").remove("typeHeadline").remove("typeSubtitle").remove("typeTitle").apply()}
+        GhostAction("Reset text sizes","undo"){store.preferences.edit().remove("typeBody").remove("typeHeadline").remove("typeSubtitle").remove("typeTitle").apply()}
     }
 }
 @Composable fun NoteSizeControl(store:Store) {

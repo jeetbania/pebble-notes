@@ -52,6 +52,7 @@ import java.io.File
                         SettingsGroup("Preferences") {
                             SettingsRow("Appearance","sun"){page="Appearance"}
                             SettingsRow("Writing & text sizes","format",onWriting)
+                            SettingsRow("Card layout","grid"){page="Card layout"}
                             SettingsRow("Clipboard suggestions","clip"){page="Clipboard"}
                         }
                         SettingsGroup("Your library") {
@@ -83,15 +84,16 @@ import java.io.File
                         SettingsGroup("Motion") {IosSegments(listOf("Fluid","Calmer"),if(store.preferences.getBoolean("calmMotion",false))1 else 0){store.preferences.edit().putBoolean("calmMotion",it==1).apply()}}
                     }
                     "Clipboard" -> SettingsGroup("Clipboard suggestions") {IosSegments(listOf("On","Off"),if(store.preferences.getBoolean("clipboardSuggestions",true))0 else 1){store.preferences.edit().putBoolean("clipboardSuggestions",it==0).apply()}}
+                    "Card layout" -> SettingsGroup("Note cards") {IosSegments(listOf("Masonry","Grid"),if(store.preferences.getString("cardLayout","masonry")=="grid")1 else 0){store.preferences.edit().putString("cardLayout",if(it==1)"grid"else "masonry").apply()}}
                     "Sync & backups" -> {
-                        SettingsGroup("Google Drive") {SheetRow(if(store.preferences.getBoolean("connected",false))"Sync now"else "Connect Google Drive","sync",onClick=onConnect);Label(store.status,13,color=c.secondary)}
-                        SettingsGroup("Backups") {SettingsRow("Export backup","share",onExport);SettingsRow("Import backup","archive",onImport)}
+                        SettingsGroup("Google Drive") {SettingsRow(if(store.preferences.getBoolean("connected",false))"Sync now"else "Connect Google Drive","sync",onClick=onConnect);Label(store.status,13,color=c.secondary,modifier=Modifier.padding(start=35.dp,bottom=8.dp))}
+                        SettingsGroup("Backups") {SettingsRow("Export backup","share",onExport);SubtleDivider();SettingsRow("Import backup","archive",onImport)}
                     }
                     "App updates" -> SettingsGroup("Updates") {
-                        SheetRow(if(updater.checking)"Checking…" else "Check for updates","download"){scope.launch{updater.check(manual=true)}}
+                        SettingsRow(if(updater.checking)"Checking…" else "Check for updates","download"){scope.launch{updater.check(manual=true)}}
                         if(updater.message.isNotEmpty())Label(updater.message,13,color=c.secondary)
-                        if(updater.available!=null)SheetRow("View update","next"){updater.visible=true}
-                        SubtleDivider();SheetRow("Update notifications","bell"){if(android.os.Build.VERSION.SDK_INT>=33)notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)}
+                        if(updater.available!=null)SettingsRow("View update","next"){updater.visible=true}
+                        SubtleDivider();SettingsRow("Update notifications","bell"){if(android.os.Build.VERSION.SDK_INT>=33)notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)}
                     }
                     "About" -> SettingsGroup("Pebble Notes") {Image(androidx.compose.ui.res.painterResource(R.drawable.leaf_logo),"Pebble Notes",Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)));Label("Notes, images and small plans.",17,FontWeight.Medium);Label("Version "+ReleaseNotes.version(store.context),13,color=c.secondary);SubtleDivider();SheetRow("What’s new","sparkle",onClick=onWhatsNew);SheetRow("Welcome tour","next",onClick=onTour)}
                 }

@@ -30,12 +30,12 @@ import java.util.Date
     val reorder=remember{ReorderGroup()};var draggingBlock by remember{mutableStateOf<String?>(null)}
     var blockMenu by remember { mutableStateOf<String?>(null) };var focusNext by remember { mutableStateOf<String?>(null) }
     var slashBlock by remember { mutableStateOf<String?>(null) };var slashQuery by remember { mutableStateOf("") };var slashRange by remember { mutableStateOf(0..0) }
-    fun suggestions(query:String)=listOf("text" to "Text","title" to "Heading 1","subtitle" to "Heading 2","headline" to "Heading 3","bullet" to "Bulleted list","number" to "Numbered list","check" to "Checklist","toggle" to "Toggle list","table" to "Table","divider" to "Divider").filter{val q=query.lowercase().filter{it.isLetterOrDigit()};val alias=when(it.first){"title"->"h1 heading1";"subtitle"->"h2 heading2";"headline"->"h3 heading3";"check"->"todo checkbox";else->""};q.isEmpty()||(it.first+" "+it.second+" "+alias).lowercase().split(" ").any{word->word.startsWith(q)}||it.second.lowercase().filter{ch->ch.isLetterOrDigit()}.startsWith(q)}
+    fun suggestions(query:String)=listOf("text" to "Text","title" to "Heading 1","subtitle" to "Heading 2","headline" to "Heading 3","bullet" to "Bulleted list","number" to "Numbered list","check" to "Checklist","toggle" to "Toggle list","quote" to "Quote","callout" to "Idea","table" to "Table","divider" to "Divider").filter{val q=query.lowercase().filter{it.isLetterOrDigit()};val alias=when(it.first){"title"->"h1 heading1";"subtitle"->"h2 heading2";"headline"->"h3 heading3";"check"->"todo checkbox";else->""};q.isEmpty()||(it.first+" "+it.second+" "+alias).lowercase().split(" ").any{word->word.startsWith(q)}||it.second.lowercase().filter{ch->ch.isLetterOrDigit()}.startsWith(q)}
     fun applyCommand(id:String,command:String) {
         val live=store.editing?.document?.firstOrNull{it.id==id}?:return
         val start=slashRange.first.coerceIn(0,live.text.length);val end=(slashRange.last+1).coerceIn(start,live.text.length)
         val text=live.text.removeRange(start,end)
-        store.changeBlock(id){it.copy(text=text,spans=emptyList(),textStyle=if(command in listOf("title","subtitle","headline"))command else "body",kind=if(command in listOf("title","subtitle","headline"))"text"else command,cells=if(command=="table")listOf(listOf("",""),listOf("",""))else it.cells,collapsed=false)}
+        store.changeBlock(id){it.copy(text=text,spans=clipSpans(it.spans,0,start)+clipSpans(it.spans,end,it.text.length-end).map{s->s.copy(start=s.start+start)},textStyle=if(command in listOf("title","subtitle","headline"))command else "body",kind=if(command in listOf("title","subtitle","headline"))"text"else command,cells=if(command=="table")listOf(listOf("",""),listOf("",""))else it.cells,collapsed=false)}
         activeTextEditor?.let{typingStyles[it]=if(command in listOf("title","subtitle","headline"))mutableSetOf(command)else mutableSetOf()};slashBlock=null
     }
     fun enter(id:String,position:Int) {
@@ -44,9 +44,11 @@ import java.util.Date
     }
     note.document.forEachIndexed { index,block -> if(note.blockVisible(block,draggingBlock))key(noteId,block.id) {
         var wraps by remember{mutableStateOf(false)}
-        Column(Modifier.fillMaxWidth().reorderTarget(block.id,reorder).padding(top=if(index==0)0.dp else if(block.textStyle in listOf("headline","title","subtitle"))12.dp else if(block.parentId!=null || block.kind in listOf("check","bullet","number"))2.dp else 5.dp)) {
+        Column(Modifier.fillMaxWidth().reorderTarget(block.id,reorder).background(if(block.kind=="callout")c.text.copy(alpha=.065f)else Color.Transparent,RoundedCornerShape(12.dp)).padding(if(block.kind=="callout")10.dp else 0.dp).padding(top=if(index==0)0.dp else if(block.textStyle in listOf("headline","title","subtitle"))12.dp else if(block.parentId!=null || block.kind in listOf("check","bullet","number"))2.dp else 5.dp)) {
             if(block.isText) Row(Modifier.fillMaxWidth().padding(start=(block.indent*18+note.depth(block)*36).dp),verticalAlignment=if(wraps)Alignment.Top else Alignment.CenterVertically) {
-                Box(Modifier.width(24.dp)) { if(store.activeBlock==block.id)ReorderGrip(block.id,reorder,note.document.filter{it.parentId==block.parentId}.map{it.id},onDragging={draggingBlock=if(it)block.id else null}){ids->store.editing?.let{n->val peers=n.document.filter{it.parentId==block.parentId}.map{it.id};val old=peers.indexOf(block.id);val next=ids.indexOf(block.id);if(old!=next)store.moveBlock(block.id,next-old)}} }
+                Box(Modifier.width(24.dp)) { ReorderGrip(block.id,reorder,note.document.filter{it.parentId==block.parentId}.map{it.id},onDragging={draggingBlock=if(it)block.id else null}){ids->store.editing?.let{n->val peers=n.document.filter{it.parentId==block.parentId}.map{it.id};val old=peers.indexOf(block.id);val next=ids.indexOf(block.id);if(old!=next)store.moveBlock(block.id,next-old)}} }
+                if(block.kind=="quote")Box(Modifier.width(3.dp).heightIn(min=32.dp).height((metrics.size("body")*1.6f).dp).background(c.text.copy(alpha=.35f),RoundedCornerShape(2.dp)).padding(end=6.dp))
+                if(block.kind=="callout")Glyph("callout",size=23)
                 if(block.kind=="toggle")Pressable(Modifier.width(36.dp).height(if(wraps)(metrics.size(block.textStyle ?: "body")*1.25f).dp else 32.dp),"Expand or collapse toggle",onClick={store.changeBlock(block.id){it.copy(collapsed=it.collapsed!=true)}}){Box(Modifier.graphicsLayer{rotationZ=if(block.collapsed==true || draggingBlock==block.id)0f else 90f}){Glyph("next",size=14)}}
                 if(block.kind=="check") Pressable(Modifier.size(36.dp),if(block.checked)"Uncheck item" else "Check item",onClick={store.changeBlock(block.id){it.copy(checked=!it.checked)}}){Box(Modifier.size(22.dp).then(if(block.checked)Modifier.background(c.accent,CircleShape)else Modifier.border(1.3.dp,c.tertiary,CircleShape)),contentAlignment=Alignment.Center){if(block.checked)Glyph("done",size=15,tint=Color.White)}}
                 else if(block.kind in listOf("bullet","number")) Label(if(block.kind=="bullet")"•" else "${note.document.take(index+1).count{it.kind=="number"}}.",18,color=c.secondary,modifier=Modifier.width(30.dp).padding(top=4.dp))
@@ -70,7 +72,8 @@ import java.util.Date
                     view.tag=true;view.text.getSpans(0,view.text.length,CompletionStrike::class.java).forEach{view.text.removeSpan(it)};if(live.kind=="check" && live.checked && view.text.isNotEmpty())view.text.setSpan(CompletionStrike(),0,view.text.length,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);view.tag=false
                     if(view.hasFocus()){store.activeBlock=block.id;onEditor(view)}
                     if(focusNext==block.id){view.requestFocus();view.setSelection(0);focusNext=null}
-                },modifier=Modifier.weight(1f).heightIn(min=32.dp))
+                },modifier=Modifier.weight(1f).heightIn(min=32.dp).padding(start=if(block.kind in listOf("quote","callout"))10.dp else 0.dp))
+                if(store.activeBlock==block.id)Pressable(Modifier.size(44.dp),"Block options",onClick={blockMenu=block.id}){Glyph("more",size=18,tint=c.secondary)}
             }
             else if(block.kind=="divider")Box(Modifier.fillMaxWidth().height(.5.dp).background(c.separator))
             else if(block.kind=="table") {
@@ -99,7 +102,7 @@ import java.util.Date
                     SubtleDivider();SheetRow("Close commands","close"){slashBlock=null}
                 }
             }
-            if(!block.isText || store.activeBlock==block.id)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) { Pressable(Modifier.size(30.dp),"Block options",onClick={store.activeBlock=block.id;blockMenu=block.id}){Glyph("more",size=15,tint=c.tertiary)} }
+            if(!block.isText)Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) { Pressable(Modifier.size(44.dp),"Block options",onClick={store.activeBlock=block.id;blockMenu=block.id}){Glyph("more",size=15,tint=c.tertiary)} }
         }
     }}
     Row(Modifier.fillMaxWidth().padding(top=8.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)){Pressable(Modifier.padding(8.dp),"Add text",onClick={store.addBlock("text")}){Label("+ Text",17,color=c.secondary)};Pressable(Modifier.padding(8.dp),"Add toggle",onClick={store.addBlock("toggle")} ){Label("+ Toggle",17,color=c.secondary)};Pressable(Modifier.padding(8.dp),"Insert table",onClick={store.addBlock("table")}){Label("+ Table",17,color=c.secondary)}}
@@ -108,11 +111,13 @@ import java.util.Date
         SheetRow("Save original file","share"){saveFile.launch(a.name)}
     }}
     blockMenu?.let{id->note.document.firstOrNull{it.id==id}?.let{b->IosSheet("Block options",onDismiss={blockMenu=null}) {
-        SheetRow("Move up","back"){store.moveBlock(id,-1);blockMenu=null};SheetRow("Move down","back"){store.moveBlock(id,1);blockMenu=null};SheetRow("Duplicate","compose"){store.duplicateBlock(id);blockMenu=null}
-        if(b.isText){SheetRow("Indent","list"){store.changeBlock(id){it.copy(indent=(it.indent+1).coerceAtMost(8))};blockMenu=null};SheetRow("Outdent","list"){store.changeBlock(id){it.copy(indent=(it.indent-1).coerceAtLeast(0))};blockMenu=null};SheetRow("Toggle list","list"){store.changeBlock(id){it.copy(kind="toggle",collapsed=false)};blockMenu=null};SheetRow("Checklist","check"){store.changeBlock(id){it.copy(kind=if(it.kind=="check")"text" else "check")};blockMenu=null}}
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){listOf("Move up","Move down","Duplicate").forEachIndexed{index,title->Pressable(Modifier.weight(1f).height(48.dp).background(c.fill,CircleShape),title,onClick={if(index==2)store.duplicateBlock(id)else store.moveBlock(id,if(index==0)-1 else 1);blockMenu=null}){Box(Modifier.graphicsLayer{rotationZ=if(index==0)90f else if(index==1)-90f else 0f}){Glyph(if(index==2)"copy"else "back",description=title)}}}}
+        Spacer(Modifier.height(12.dp))
+        if(b.isText){Label("Turn into",14,color=c.secondary);listOf("text" to "Text","check" to "Checklist","bullet" to "Bullets","number" to "Numbers","toggle" to "Toggle","quote" to "Quote","callout" to "Idea").forEach{(kind,title)->SheetRow(title,if(kind=="text")"format"else if(kind=="bullet")"list"else kind){store.setList(kind);blockMenu=null}}}
+        if(b.isText)Row(Modifier.fillMaxWidth().padding(vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(10.dp)){listOf(-1 to "Outdent",1 to "Indent").forEach{(delta,title)->Pressable(Modifier.weight(1f).height(48.dp).background(c.fill,CircleShape),title,onClick={store.changeBlock(id){it.copy(indent=(it.indent+delta).coerceIn(0,8))};blockMenu=null}){Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){Glyph(if(delta<0)"back"else "next",size=18);Label(title,15)}}}}
         if(b.kind=="image")SheetRow(if(b.presentation=="large")"Small image" else "Large image","images"){store.changeBlock(id){it.copy(presentation=if(it.presentation=="large")"small" else "large")};blockMenu=null}
         if(b.kind=="table"){SheetRow("Remove last row","trash"){store.changeBlock(id){if(it.cells.size>1)it.copy(cells=it.cells.dropLast(1))else it};blockMenu=null};SheetRow("Remove last column","trash"){store.changeBlock(id){if(it.cells[0].size>1)it.copy(cells=it.cells.map{r->r.dropLast(1)})else it};blockMenu=null}}
-        SheetRow("Remove block","trash",tint=c.danger){store.removeBlock(id);blockMenu=null}
+        GhostAction("Remove block","trash",tint=c.danger){store.removeBlock(id);blockMenu=null}
     }}}
 }
 @Composable fun DailySheet(store:Store,onDismiss:()->Unit) {

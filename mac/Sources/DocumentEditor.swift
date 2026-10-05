@@ -45,7 +45,7 @@ struct DocumentEditor: View {
                             blockView(block, index: index, width: width).frame(maxWidth: .infinity, alignment: .leading)
                             Button { blockOptions = block.id } label: { SixDotHandle().frame(width: 26, height: 32).contentShape(Rectangle()) }
                                 .buttonStyle(.plain)
-                                .opacity(hoveredBlock == block.id || draggedBlock == block.id || store.activeBlock == block.id ? 0.85 : 0)
+                                .opacity(hoveredBlock == block.id || draggedBlock == block.id || store.activeBlock == block.id ? 0.85 : 0.32)
                                 .offset(x: block.kind == "toggle" ? -62 : -30, y: markerOffset(block)).help("Block options · drag to reorder")
                                 .accessibilityLabel("Block options")
                                 .highPriorityGesture(DragGesture(minimumDistance: 5, coordinateSpace: .named("noteBlocks")).onChanged { value in
@@ -119,7 +119,7 @@ struct DocumentEditor: View {
         store.update { n in
             var blocks = n.document
             guard let index = blocks.firstIndex(where: { $0.id == id }) else { return }
-            let kind = ["title", "subtitle", "headline", "quote"].contains(command) ? "text" : command
+            let kind = ["title", "subtitle", "headline"].contains(command) ? "text" : command
             if blocks[index].kind == "toggle", kind != "toggle" {
                 let parent = blocks[index].parentId
                 for child in blocks.indices where blocks[child].parentId == id { blocks[child].parentId = parent }
@@ -128,7 +128,7 @@ struct DocumentEditor: View {
             if command == "table" { blocks[index].cells = [["", ""], ["", ""]] }
             if ["text", "title", "subtitle", "headline"].contains(command) { blocks[index].textStyle = command == "text" ? "body" : command; blocks[index].spans.removeAll { ["title", "subtitle", "headline"].contains($0.kind) } }
             if command == "toggle" { blocks[index].indent = 0 }
-            if command == "quote" { blocks[index].indent = 1 }
+            if ["quote", "callout"].contains(command) { blocks[index].indent = 0; blocks[index].textStyle = "body" }
             n.blocks = blocks
         }
     }
@@ -146,11 +146,13 @@ struct DocumentEditor: View {
             HStack(alignment: .top, spacing: 10) {
 
 
-                if block.kind == "check" { Button { store.changeBlock(block.id) { $0.checked.toggle() } } label: { Image(systemName: block.checked ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(block.checked ? LeafPalette.accent : Color.secondary) }.frame(width: 32, height: 32).buttonStyle(SoftButtonStyle()).offset(y: markerOffset(block)) }
+                if block.kind == "quote" { RoundedRectangle(cornerRadius: 2).fill((note.style ?? NoteStyle()).foreground.opacity(0.35)).frame(width: 3, height: height) }
+                else if block.kind == "callout" { Image(systemName: "lightbulb").frame(width: 24, height: 32) }
+                else if block.kind == "check" { Button { store.changeBlock(block.id) { $0.checked.toggle() } } label: { Image(systemName: block.checked ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(block.checked ? LeafPalette.accent : Color.secondary) }.frame(width: 32, height: 32).buttonStyle(SoftButtonStyle()).offset(y: markerOffset(block)) }
                 else if block.kind == "bullet" || block.kind == "number" { Text(block.kind == "bullet" ? "•" : "\(note.document.prefix(index + 1).filter { $0.kind == "number" }.count).").foregroundStyle(.secondary).frame(width: 20, height: 32).offset(y: markerOffset(block)) }
                 RichEditor(note: styledBlock(block), onEdit: { text, spans in store.editBlock(block.id, text: text, spans: spans) }, onImages: { store.importFiles($0) }, onFocus: { store.activeBlock = block.id }, onEnter: { splitList(block) }, completed: block.kind == "check" && block.checked, onCommand: { command in applyCommand(command, to: block.id) }, blockId: block.id, blockStyle: block.textStyle ?? block.spans.first(where: { ["title", "subtitle", "headline"].contains($0.kind) })?.kind ?? "body", onStyle: { style in store.changeBlock(block.id) { $0.textStyle = style } }, onBackspace: { backspace(block.id) }).id(noteId + block.id)
                     .frame(maxWidth: .infinity).frame(height: height).opacity(block.checked ? 0.55 : 1)
-            }.padding(.leading, CGFloat(block.indent * 18)).overlay(alignment: .topLeading) {
+            }.padding(block.kind == "callout" ? 12 : 0).background((note.style ?? NoteStyle()).foreground.opacity(block.kind == "callout" ? 0.065 : 0), in: RoundedRectangle(cornerRadius: 12)).padding(.leading, CGFloat(block.indent * 18)).overlay(alignment: .topLeading) {
                 if block.kind == "toggle" { GlassIcon(icon: block.collapsed == true ? "arrowtriangle.right.fill" : "arrowtriangle.down.fill", label: "Expand or collapse toggle", size: 11) { store.changeBlock(block.id) { $0.collapsed = !($0.collapsed ?? false) } }.offset(x: -36, y: markerOffset(block)) }
             }
             if block.kind == "toggle", block.collapsed != true, note.descendants(of: block.id).count == 1 { Button { store.addChild(to: block.id); focusBlock(store.activeBlock) } label: { Label("Add inside toggle", systemImage: "plus").font(.system(size: 15)).foregroundStyle(.secondary) }.buttonStyle(SoftButtonStyle()) }
@@ -173,7 +175,7 @@ struct DocumentEditor: View {
         let position = min(view.selectedRange().location, block.text.utf16.count)
         if block.text.isEmpty && ["bullet", "number", "check"].contains(block.kind) { store.changeBlock(block.id) { $0.kind = "text"; $0.textStyle = "body" }; return true }
         let text = block.text as NSString
-        var next = DocumentBlock(); next.kind = block.kind; next.indent = block.indent; next.parentId = block.parentId; next.text = text.substring(from: position); next.spans = clippedSpans(block.spans, start: position, length: text.length - position); if block.kind == "text" { next.spans.removeAll { ["title", "subtitle", "headline", "bold"].contains($0.kind) }; next.textStyle = "body" }
+        var next = DocumentBlock(); next.kind = ["quote", "callout"].contains(block.kind) ? "text" : block.kind; next.indent = block.indent; next.parentId = block.parentId; next.text = text.substring(from: position); next.spans = clippedSpans(block.spans, start: position, length: text.length - position); if block.kind == "text" { next.spans.removeAll { ["title", "subtitle", "headline", "bold"].contains($0.kind) }; next.textStyle = "body" }
         store.update { n in var blocks = n.document; if let i = blocks.firstIndex(where: { $0.id == block.id }) { blocks[i].text = text.substring(to: position); blocks[i].spans = clippedSpans(block.spans, start: 0, length: position); blocks.insert(next, at: i + 1); n.blocks = blocks } }
         store.activeBlock = next.id
         focusBlock(next.id)

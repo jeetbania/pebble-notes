@@ -22,7 +22,8 @@ struct BlockCommand: Identifiable {
         .init(id: "check", title: "Checklist", icon: "checklist", hint: "Things to do"),
         .init(id: "toggle", title: "Toggle list", icon: "chevron.right", hint: "Collapsible content"),
         .init(id: "table", title: "Table", icon: "tablecells", hint: "Rows and columns"),
-        .init(id: "quote", title: "Quote", icon: "quote.opening", hint: "Indented text"),
+        .init(id: "quote", title: "Quote", icon: "quote.opening", hint: "Text with a quotation bar"),
+        .init(id: "callout", title: "Idea", icon: "lightbulb", hint: "Highlighted callout"),
         .init(id: "divider", title: "Divider", icon: "minus", hint: "Separate sections")
     ]
 }
