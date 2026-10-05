@@ -1,5 +1,12 @@
 # Pebble Notes changelog
 
+## 0.18.0 · Fluid mobile navigation
+
+- Phone notes expand from the tapped card with rounded corners and gently appearing controls; page changes dissolve quickly instead of sliding sideways.
+- Scrolling content extends behind the status bar while header controls stay safely inset. Wallpaper and system bar colours transition together.
+- A floating glass navigation capsule offers Notes, Tasks and Settings with a spring selection and swipe switching. Search and compose remain separate actions.
+- Phone block handles move to the right edge and open options with a tap; body text aligns with the note title.
+
 ## 0.17.0 · Steady menus and useful blocks
 
 - Mac context menus use native submenu tracking and no longer crash when the editor copies them; Style closes from every picker.

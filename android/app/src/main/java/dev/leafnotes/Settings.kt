@@ -43,8 +43,9 @@ import java.io.File
         else Box(Modifier.size(size.dp).background(accentColor(avatarColor,c.dark).copy(alpha=.22f),CircleShape),contentAlignment=Alignment.Center){Label(name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "P",size/2,FontWeight.SemiBold,color=accentColor(avatarColor,c.dark))}}
     }
     FrostedHost {
+    PublishDockBackdrop()
         Box(Modifier.fillMaxSize().background(c.page)) {
-            Column(Modifier.fillMaxSize().backdropSource().verticalScroll(rememberScrollState()).padding(horizontal=22.dp).padding(top=92.dp,bottom=40.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
+            Column(Modifier.fillMaxSize().backdropSource().verticalScroll(rememberScrollState()).padding(horizontal=22.dp).padding(top=92.dp+WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),bottom=40.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
                 Label(page,30,FontWeight.Bold)
                 when(page) {
                     "Settings" -> {

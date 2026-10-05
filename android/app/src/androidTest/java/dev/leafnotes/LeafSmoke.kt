@@ -15,6 +15,11 @@ class LeafSmoke : Instrumentation() {
         try {
             val isolated = object : ContextWrapper(targetContext) { override fun getFilesDir() = root }
             runOnMainSync {
+                val card=androidx.compose.ui.geometry.Rect(20f,180f,180f,460f);val screen=androidx.compose.ui.geometry.Rect(0f,0f,400f,850f)
+                check(morphBounds(card,screen,0f)==card && morphBounds(card,screen,1f)==screen)
+                check(morphBounds(card,screen,.5f)==androidx.compose.ui.geometry.Rect(10f,90f,290f,655f))
+                check(morphBounds(card,screen,-1f)==card && morphBounds(card,screen,2f)==screen)
+                results.append("PASS: reversible card geometry starts at the tapped bounds and clamps interruption progress\n")
                 val blue=androidx.compose.ui.graphics.Color.Blue
                 val paper=NoteStyle(document="#000000",text="#FFFFFF").lightDocument(blue,true)
                 check(lightColour(hexColour(paper.document)!!) && paper.text==null)

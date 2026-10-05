@@ -46,7 +46,6 @@ import java.util.Date
         var wraps by remember{mutableStateOf(false)}
         Column(Modifier.fillMaxWidth().reorderTarget(block.id,reorder).background(if(block.kind=="callout")c.text.copy(alpha=.065f)else Color.Transparent,RoundedCornerShape(12.dp)).padding(if(block.kind=="callout")10.dp else 0.dp).padding(top=if(index==0)0.dp else if(block.textStyle in listOf("headline","title","subtitle"))12.dp else if(block.parentId!=null || block.kind in listOf("check","bullet","number"))2.dp else 5.dp)) {
             if(block.isText) Row(Modifier.fillMaxWidth().padding(start=(block.indent*18+note.depth(block)*36).dp),verticalAlignment=if(wraps)Alignment.Top else Alignment.CenterVertically) {
-                Box(Modifier.width(24.dp)) { ReorderGrip(block.id,reorder,note.document.filter{it.parentId==block.parentId}.map{it.id},onDragging={draggingBlock=if(it)block.id else null}){ids->store.editing?.let{n->val peers=n.document.filter{it.parentId==block.parentId}.map{it.id};val old=peers.indexOf(block.id);val next=ids.indexOf(block.id);if(old!=next)store.moveBlock(block.id,next-old)}} }
                 if(block.kind=="quote")Box(Modifier.width(3.dp).heightIn(min=32.dp).height((metrics.size("body")*1.6f).dp).background(c.text.copy(alpha=.35f),RoundedCornerShape(2.dp)).padding(end=6.dp))
                 if(block.kind=="callout")Glyph("callout",size=23)
                 if(block.kind=="toggle")Pressable(Modifier.width(36.dp).height(if(wraps)(metrics.size(block.textStyle ?: "body")*1.25f).dp else 32.dp),"Expand or collapse toggle",onClick={store.changeBlock(block.id){it.copy(collapsed=it.collapsed!=true)}}){Box(Modifier.graphicsLayer{rotationZ=if(block.collapsed==true || draggingBlock==block.id)0f else 90f}){Glyph("next",size=14)}}
@@ -73,7 +72,7 @@ import java.util.Date
                     if(view.hasFocus()){store.activeBlock=block.id;onEditor(view)}
                     if(focusNext==block.id){view.requestFocus();view.setSelection(0);focusNext=null}
                 },modifier=Modifier.weight(1f).heightIn(min=32.dp).padding(start=if(block.kind in listOf("quote","callout"))10.dp else 0.dp))
-                if(store.activeBlock==block.id)Pressable(Modifier.size(44.dp),"Block options",onClick={blockMenu=block.id}){Glyph("more",size=18,tint=c.secondary)}
+                Box(Modifier.width(44.dp)) { ReorderGrip(block.id,reorder,note.document.filter{it.parentId==block.parentId}.map{it.id},onOptions={blockMenu=block.id},onDragging={draggingBlock=if(it)block.id else null}){ids->store.editing?.let{n->val peers=n.document.filter{it.parentId==block.parentId}.map{it.id};val old=peers.indexOf(block.id);val next=ids.indexOf(block.id);if(old!=next)store.moveBlock(block.id,next-old)}} }
             }
             else if(block.kind=="divider")Box(Modifier.fillMaxWidth().height(.5.dp).background(c.separator))
             else if(block.kind=="table") {

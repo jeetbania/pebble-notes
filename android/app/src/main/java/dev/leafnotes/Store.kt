@@ -86,6 +86,7 @@ object Libraries {
 }
 class Store(val context: Context) {
     val revealedCards=mutableSetOf<String>()
+    val cardFrames=mutableMapOf<String,androidx.compose.ui.geometry.Rect>()
     val root = File(context.filesDir, "LeafNotes").apply { mkdirs() }
     val media = File(root, "media").apply { mkdirs() }
     val preferences = context.getSharedPreferences("leaf", Context.MODE_PRIVATE)

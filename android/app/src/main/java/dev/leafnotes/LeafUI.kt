@@ -43,6 +43,11 @@ import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
@@ -126,12 +131,15 @@ fun iconResource(name: String): Int = when(name) {
 }
 
 @Composable fun LeafLibrary(store: Store, connect: () -> Unit) {
+    val dockBackdrop=remember{mutableStateOf<Backdrop?>(null)}
     val updater=remember { PebbleUpdater.get(store.context) }
     LaunchedEffect(Unit) { updater.check() }
     val settingsVersion=LocalPreferencesVersion.current
     var onboarding by rememberSaveable { mutableStateOf(!store.preferences.getBoolean("onboardingComplete",false)) }
     var whatsNew by rememberSaveable { mutableStateOf(ReleaseNotes.needsPresentation(store.context,store.preferences)) }
     var releaseHistory by rememberSaveable { mutableStateOf(false) }
+    var searching by remember{mutableStateOf(false)}
+    var launchFrame by remember{mutableStateOf<Rect?>(null)}
     var section by remember { mutableStateOf("Notes") }; var search by remember { mutableStateOf("") }; var folders by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }; var formatPanel by remember { mutableStateOf(false) }; var conflicts by remember { mutableStateOf(false) }; var preview by remember { mutableStateOf<Media?>(null) }
     var moving by remember { mutableStateOf(false) }; var folderName by remember { mutableStateOf("") }
@@ -157,7 +165,7 @@ fun iconResource(name: String): Int = when(name) {
     LaunchedEffect(store.selected) {
         formatPanel=false
         if(calm)navigation.snapTo(if(store.selected!=null)0f else width)
-        else if(!gesture) navigation.animateTo(if(store.selected!=null)0f else width, tween(180,easing=FastOutSlowInEasing))
+        else if(!gesture) navigation.animateTo(if(store.selected!=null)0f else width, tween(240,easing=FastOutSlowInEasing))
     }
     fun back() { keyboard?.hide(); store.select(null); formatPanel=false }
     BackHandler(enabled=store.selected!=null || folders || formatPanel || section!="Notes" || search.isNotEmpty() || batch) { when { formatPanel->formatPanel=false; store.selected!=null->back(); batch->{batch=false;selectedNotes=emptySet()}; folders->folders=false; search.isNotEmpty()->search=""; else->section="Notes" } }
@@ -176,18 +184,30 @@ fun iconResource(name: String): Int = when(name) {
     val barActivity=LocalContext.current as? android.app.Activity
     val barView=LocalView.current
     SideEffect {barActivity?.let{androidx.core.view.WindowCompat.getInsetsController(it.window,barView).apply{isAppearanceLightStatusBars=lightColour(barTop);isAppearanceLightNavigationBars=lightColour(barBottom)}}}
+    CompositionLocalProvider(LocalDockBackdrop provides dockBackdrop) {
+    FrostedHost {
     Box(Modifier.fillMaxSize().background(c.page).drawBehind {drawRect(barTop,size=androidx.compose.ui.geometry.Size(size.width,statusHeight.toPx()));drawRect(barBottom,topLeft=androidx.compose.ui.geometry.Offset(0f,size.height-navigationHeight.toPx()),size=androidx.compose.ui.geometry.Size(size.width,navigationHeight.toPx()))}) {
         // Keep inset-consuming nodes on a stable child; inserting wallpaper
         // modifiers before them can create a consumed-insets cycle during navigation.
-        Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
-        Box(Modifier.fillMaxSize().graphicsLayer{val progress=(1f-navigation.value/width).coerceIn(0f,1f);translationX=if(calm)0f else -20f*progress;scaleX=if(calm)1f else 1f-.015f*progress;scaleY=scaleX}) { if(section=="Settings") MobileSettings(store,onTour={onboarding=true},onBack={section="Notes"},onWriting={typographySettings=true},onWhatsNew={releaseHistory=true;whatsNew=true},onConnect=connect,onExport={backup.launch("Pebble Notes Backup.leafbackup")},onImport={restore.launch(arrayOf("*/*"))}) else if(section=="Tasks"&&!folders) TasksHome(store){section="Notes"} else LibraryScreen(store,section,records,search,{search=it},folders,{folders=it},gallery,{gallery=!gallery;store.preferences.edit().putBoolean("gallery",gallery).apply()},enabled=store.selected==null,onSection={section=it;folders=false},onMore={menu=true},onOpen={id->if(store.selected==null){val r=store.visibleHeads.firstOrNull{it.noteId==id};if(r?.note?.task!=null)taskDetail=r else store.select(id)}},onNew={store.create();if(section in store.collections)store.editing?.let{store.update(it.copy(collection=section))}},onImage={if(store.selected==null)preview=it}) }
+        Box(Modifier.fillMaxSize().imePadding()) {
+        Crossfade(targetState=section to folders,modifier=Modifier.fillMaxSize(),animationSpec=tween(if(calm)0 else 140),label="page dissolve") { route -> if(route.first=="Settings") Box(Modifier.fillMaxSize().navigationBarsPadding().padding(bottom=84.dp)){ MobileSettings(store,onTour={onboarding=true},onBack={section="Notes"},onWriting={typographySettings=true},onWhatsNew={releaseHistory=true;whatsNew=true},onConnect=connect,onExport={backup.launch("Pebble Notes Backup.leafbackup")},onImport={restore.launch(arrayOf("*/*"))})} else if(route.first=="Tasks"&&!route.second) Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(bottom=84.dp)){TasksHome(store){section="Notes"}} else LibraryScreen(store,route.first,records,search,{search=it},route.second,{folders=it},gallery,{gallery=!gallery;store.preferences.edit().putBoolean("gallery",gallery).apply()},enabled=store.selected==null,onSection={section=it;folders=false},onMore={menu=true},onOpen={id->if(store.selected==null){val r=store.visibleHeads.firstOrNull{it.noteId==id};if(r?.note?.task!=null)taskDetail=r else {launchFrame=store.cardFrames[id];store.select(id)}}},onNew={launchFrame=null;store.create();if(section in store.collections)store.editing?.let{store.update(it.copy(collection=section))}},onImage={if(store.selected==null)preview=it}) }
         if(updater.visible && !whatsNew) UpdateDialog(updater)
         val note=store.editing ?: lastNote
         if(note!=null && (store.selected!=null || navigation.value<width-.5f)) {
-            Box(Modifier.fillMaxSize().graphicsLayer { val outgoing=store.selected==null;translationX=if(outgoing)navigation.value*.05f else navigation.value;alpha=if(outgoing)(1f-navigation.value/width).coerceIn(0f,1f)else 1f }) {
-                EditorScreen(store,note,lastId,onBack={back()},onMore={menu=true},onFormat={keyboard?.hide();formatPanel=!formatPanel},onImages={store.insertionOffset=editor?.selectionStart;images.launch(arrayOf("*/*"))},onCompose={store.create()},onPreview={preview=it},onEditor={editor=it},onConflict={conflicts=true},onShare={
+            Box(Modifier.fillMaxSize().graphicsLayer{alpha=pageProgress}.background(animatedStyleBrush(presentationStyle,c)).wallpaper(presentationStyle))
+            Box(Modifier.fillMaxSize().graphicsLayer {
+                val progress=(1f-navigation.value/width).coerceIn(0f,1f)
+                alpha=if(calm || launchFrame==null)progress else (progress*8f).coerceIn(0f,1f)
+                clip=!calm && launchFrame!=null
+                transformOrigin=TransformOrigin(0f,0f)
+                val origin=launchFrame
+                if(!calm && origin!=null){val bounds=morphBounds(origin,Rect(0f,0f,size.width,size.height),progress);scaleX=bounds.width/size.width;scaleY=bounds.height/size.height;translationX=bounds.left;translationY=bounds.top}
+                shape=GenericShape { size,_ -> addRoundRect(RoundRect(Rect(0f,0f,size.width,size.height),CornerRadius(23.dp.toPx()*(1f-progress)/scaleX.coerceAtLeast(.01f)))) }
+            }) {
+                CompositionLocalProvider(LocalNoteReveal provides pageProgress) { EditorScreen(store,note,lastId,onBack={back()},onMore={menu=true},onFormat={keyboard?.hide();formatPanel=!formatPanel},onImages={store.insertionOffset=editor?.selectionStart;images.launch(arrayOf("*/*"))},onCompose={launchFrame=null;store.create()},onPreview={preview=it},onEditor={editor=it},onConflict={conflicts=true},onShare={
                     store.flush(); val intent=Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT,note.displayTitle+"\n\n"+note.text) }; store.context.startActivity(Intent.createChooser(intent,"Share note").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 })
+                }
                 // This recognizer is limited to the edge; horizontal text selection remains native.
                 Box(Modifier.align(Alignment.CenterStart).width(20.dp).fillMaxHeight().pointerInput(store.selected,width) {
                     val velocity=VelocityTracker()
@@ -200,12 +220,16 @@ fun iconResource(name: String): Int = when(name) {
                 })
             }
         }
-        ClipboardSuggestion(store,Modifier.align(Alignment.BottomEnd))
-        AnimatedVisibility(visible=formatPanel && store.selected!=null,modifier=Modifier.align(Alignment.BottomCenter),enter=slideInVertically(if(calm)snap() else spring(dampingRatio=1f,stiffness=460f)){if(calm)0 else it}+fadeIn(tween(if(calm)0 else 160)),exit=slideOutVertically(if(calm)snap() else spring(dampingRatio=1f,stiffness=650f)){if(calm)0 else it}+fadeOut(tween(if(calm)0 else 120))) {
+        if(store.selected==null && navigation.value>=width-.5f) CompositionLocalProvider(LocalBackdrop provides (if(section=="Tasks")null else dockBackdrop.value)){MobileDock(section,Modifier.align(Alignment.BottomCenter),onPage={section=it;folders=false},onSearch={searching=true;section="Notes";folders=false},onCompose={launchFrame=null;store.create()})}
+        ClipboardSuggestion(store,Modifier.align(Alignment.BottomEnd).navigationBarsPadding())
+        AnimatedVisibility(visible=formatPanel && store.selected!=null,modifier=Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),enter=slideInVertically(if(calm)snap() else spring(dampingRatio=1f,stiffness=460f)){if(calm)0 else it}+fadeIn(tween(if(calm)0 else 160)),exit=slideOutVertically(if(calm)snap() else spring(dampingRatio=1f,stiffness=650f)){if(calm)0 else it}+fadeOut(tween(if(calm)0 else 120))) {
             FormatPanel(Modifier,onClose={formatPanel=false},onStyle={kind -> if(kind=="link"){linking=true}else editor?.let { view -> format(view,kind); store.activeBlock?.let { id -> store.editBlock(id,view.text.toString(),spansFrom(view.text));if(kind in listOf("body","title","subtitle","headline"))store.changeBlock(id){it.copy(textStyle=kind)} } } },onList={kind -> store.setList(kind) },currentStyle=store.editing?.document?.firstOrNull{it.id==store.activeBlock}?.textStyle ?: "body",onLink={url->linkUrl=url;val uri=android.net.Uri.parse(url);if(uri.scheme in listOf("http","https","mailto")){editor?.let{view->val start=view.selectionStart.coerceAtLeast(0);var end=view.selectionEnd.coerceAtLeast(start);if(end==start){view.text.insert(start,url);end=start+url.length};view.text.setSpan(android.text.style.URLSpan(url),start,end,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);store.activeBlock?.let{id->store.editBlock(id,view.text.toString(),spansFrom(view.text))}}}else store.error="Use an http, https, or mailto link"})
         }
     }
     }
+    }
+    }
+    if(searching)IosSheet("Search notes",onDismiss={searching=false}){MobileField(search,"Search",singleLine=true){search=it};Spacer(Modifier.height(16.dp));IosSegments(listOf("List","Gallery"),if(gallery)1 else 0){gallery=it==1;store.preferences.edit().putBoolean("gallery",gallery).apply()};GhostAction("Show results","search"){searching=false}}
     if(whatsNew) WhatsNew(store,releaseHistory){ReleaseNotes.acknowledge(store.context,store.preferences);whatsNew=false}
     var eraseTrash by remember { mutableStateOf<List<String>>(emptyList()) }
     if(eraseTrash.isNotEmpty())IosSheet("Delete permanently?",onDismiss={eraseTrash=emptyList()}){Label("These items and their saved versions will be removed. This cannot be undone.",15,color=c.secondary);SheetRow("Delete permanently","trash",tint=c.danger){store.permanentlyDelete(eraseTrash);eraseTrash=emptyList()};SheetRow("Cancel","close"){eraseTrash=emptyList()}}
@@ -270,6 +294,7 @@ fun iconResource(name: String): Int = when(name) {
     val c=LocalLeafColors.current; val headerDensity=LocalDensity.current; var headerHeight by remember { mutableStateOf(146.dp) }
     var eraseNote by remember { mutableStateOf<String?>(null) };var held by remember { mutableStateOf<String?>(null) }; var choosingMove by remember { mutableStateOf(false) }
     FrostedHost {
+    PublishDockBackdrop()
     Box(Modifier.fillMaxSize().background(c.page).then(if(!enabled)Modifier.clearAndSetSemantics{} else Modifier)) {
             Box(Modifier.fillMaxWidth().height(540.dp).background(homeGlowBrush(c.dark)))
             Crossfade(targetState=Pair(folders,gallery),animationSpec=tween(if(LocalCalmMotion.current)0 else 180),label="library layout") { (folderMode,galleryMode) ->
@@ -318,19 +343,7 @@ fun iconResource(name: String): Int = when(name) {
             Label(if(folders)"" else (if(section in listOf("Notes","Everything") && !store.preferences.getString("profileName","").isNullOrBlank()) "Hello, ${store.preferences.getString("profileName","")} · " else "") + "${records.size} ${if(records.size==1)"Note" else "Notes"}",13,color=c.secondary,modifier=Modifier.padding(start=23.dp,bottom=14.dp))
         }
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(110.dp).background(Brush.verticalGradient(listOf(c.page.copy(alpha=0f),c.page.copy(alpha=.92f)))))
-        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal=22.dp).padding(top=12.dp,bottom=24.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-            if(folders) {
-                Label(store.status,12,color=c.secondary,modifier=Modifier.weight(1f),lines=1)
-                ChromeButton("compose","New note",52){if(enabled){onFolders(false);onNew()}}
-            } else {
-                ChromePill(Modifier.weight(1f).height(52.dp)) {
-                    Glyph("search",size=20,tint=c.secondary);Spacer(Modifier.width(9.dp))
-                    BasicTextField(search,{if(enabled)onSearch(it)},singleLine=true,textStyle=TextStyle(fontSize=17.sp,color=c.text),cursorBrush=SolidColor(c.accent),modifier=Modifier.weight(1f),decorationBox={inner->if(search.isEmpty())Label("Search",17,color=c.secondary);inner()})
-                    Pressable(Modifier.size(38.dp),if(search.isEmpty())"Change view" else "Clear search",onClick={if(enabled){if(search.isNotEmpty())onSearch("") else onGallery()}}){Glyph(if(search.isNotEmpty())"close" else if(gallery)"list" else "grid",size=19,tint=c.secondary)}
-                }
-                ChromeButton("calendar","Tasks",52){if(enabled)onSection("Tasks")};ChromeButton("settings","Settings",52){if(enabled)onSection("Settings")};ChromeButton("compose","New note",52){if(enabled)onNew()}
-            }
-        }
+
     }
     eraseNote?.let{id->IosSheet("Delete permanently?",onDismiss={eraseNote=null}){Label("The item and its saved versions will be removed. This cannot be undone.",15,color=c.secondary);SheetRow("Delete permanently","trash",tint=c.danger){store.permanentlyDelete(listOf(id));eraseNote=null};SheetRow("Cancel","close"){eraseNote=null}}}
     held?.let { id -> val revision=store.visibleHeads.firstOrNull{it.noteId==id}; if(revision!=null) IosSheet(if(choosingMove)"Move to collection" else revision.note.displayTitle,onDismiss={held=null;choosingMove=false}) {
@@ -363,7 +376,7 @@ fun dateGroup(millis:Long):String {
             detectHorizontalDragGestures(onDragStart={tracker.resetTracking();scope.launch{x.stop()}},onHorizontalDrag={change,amount->change.consume();tracker.addPosition(change.uptimeMillis,change.position);scope.launch(start=CoroutineStart.UNDISPATCHED){val raw=x.value+amount;val damped=if(abs(raw)>actionWidth*1.4f)sign(raw)*(actionWidth*1.4f+(abs(raw)-actionWidth*1.4f)*.2f) else raw;x.snapTo(damped)}},onDragCancel={scope.launch{x.animateTo(0f,spring(dampingRatio=.85f,stiffness=500f))}},onDragEnd={val v=tracker.calculateVelocity().x;val predicted=x.value+v*.08f;val target=if(abs(predicted)>actionWidth*.5f)sign(predicted)*actionWidth else 0f;scope.launch{x.animateTo(target,spring(dampingRatio=.86f,stiffness=500f),initialVelocity=v)}})
         }) {
             if(divider)Box(Modifier.fillMaxWidth().padding(start=30.dp).height(.5.dp).background(c.separator))
-            Pressable(Modifier.fillMaxWidth(),r.note.displayTitle,enabled,onClick={if(abs(x.value)>5f)scope.launch{x.animateTo(0f)} else onOpen()},onLongClick={scope.launch{x.animateTo(0f)};onHold()}){
+            Pressable(Modifier.fillMaxWidth().onGloballyPositioned{store.cardFrames[r.noteId]=it.boundsInRoot()},r.note.displayTitle,enabled,onClick={if(abs(x.value)>5f)scope.launch{x.animateTo(0f)} else onOpen()},onLongClick={scope.launch{x.animateTo(0f)};onHold()}){
                 Row(Modifier.fillMaxWidth().padding(start=30.dp,end=13.dp,top=12.dp,bottom=12.dp).heightIn(min=42.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.weight(1f)){Label(r.note.displayTitle,17,FontWeight.SemiBold,lines=1);Label(SimpleDateFormat("M/d/yy",Locale.getDefault()).format(Date(r.createdAt))+"  "+r.note.text.replace('\n',' ').ifBlank{"New note"},15,color=c.secondary,modifier=Modifier.padding(top=2.dp),lines=1)}
                     r.note.attachments.firstOrNull{it.mime.startsWith("image/")}?.let{MediaImage(File(store.media,it.id),Modifier.size(43.dp),radius=8)}
@@ -377,7 +390,7 @@ fun dateGroup(millis:Long):String {
     val cardHeight=if(uniform)250.dp else if(r.note.text.length>240 || r.note.attachments.any{it.mime.startsWith("image/")})280.dp else 220.dp
     val base=LocalLeafColors.current;val style=r.note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base
     val surface=if(style.framed)style.brush(base)else if(style.document!=null)Brush.verticalGradient(listOf(c.canvas,c.canvas))else Brush.verticalGradient(listOf(c.paper.copy(alpha=.98f),c.paper.copy(alpha=if(c.dark).72f else .78f)))
-    Pressable(Modifier.fillMaxWidth().height(cardHeight).shadow(8.dp,RoundedCornerShape(23.dp),ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.06f)).clip(RoundedCornerShape(23.dp)).background(surface).wallpaper(style).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),r.note.displayTitle,onClick=onClick,onLongClick=onHold) {
+    Pressable(Modifier.fillMaxWidth().height(cardHeight).onGloballyPositioned{store.cardFrames[r.noteId]=it.boundsInRoot()}.shadow(8.dp,RoundedCornerShape(23.dp),ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.06f)).clip(RoundedCornerShape(23.dp)).background(surface).wallpaper(style).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),r.note.displayTitle,onClick=onClick,onLongClick=onHold) {
         CompositionLocalProvider(LocalLeafColors provides c) {
         Box(Modifier.then(if(style.framed)Modifier.padding(start=8.dp,end=8.dp,top=8.dp)else Modifier)) {
         Column(Modifier.fillMaxSize().offset(y=if(style.framed)7.dp else 0.dp).clip(RoundedCornerShape(if(style.framed)16.dp else 23.dp)).background(if(style.framed)c.canvas else Color.Transparent).padding(17.dp)) {
@@ -403,6 +416,7 @@ fun dateGroup(millis:Long):String {
     }
 }
 @Composable fun EditorScreen(store:Store,note:Note,noteId:String?,onBack:()->Unit,onMore:()->Unit,onFormat:()->Unit,onImages:()->Unit,onCompose:()->Unit,onPreview:(Media)->Unit,onEditor:(EditText)->Unit,onConflict:()->Unit,onShare:()->Unit) {
+    val reveal=LocalNoteReveal.current
     val base=LocalLeafColors.current;val style=note.style ?: NoteStyle();val calm=LocalCalmMotion.current
     val frame by animateFloatAsState(if(style.framed)1f else 0f,if(calm)snap()else spring(dampingRatio=1f,stiffness=450f),label="document frame")
     val paper by androidx.compose.animation.animateColorAsState(style.paper(base),tween(if(calm)0 else 220),label="document colour")
@@ -411,7 +425,7 @@ fun dateGroup(millis:Long):String {
     val raw=style.documentColours(base);val c=raw.copy(canvas=paper,paper=paper,text=ink,secondary=ink.copy(alpha=.65f),tertiary=ink.copy(alpha=.4f));val chrome=if(style.customised)base.copy(text=if(lightColour(edgeColour))Color(0xFF191919)else Color(0xFFF7F7F7))else base;val footer by androidx.compose.animation.animateColorAsState(hexColour(style.backdropEnd ?: style.backdrop) ?: paper,tween(if(calm)0 else 220),label="footer colour");val metrics=LocalTypeSizes.current.copy(scale=note.textScale);val keyboard=LocalSoftwareKeyboardController.current;val focus=LocalFocusManager.current;var editing by remember(noteId){mutableStateOf(false)}
     FrostedHost {
     Box(Modifier.fillMaxSize().background(animatedStyleBrush(style,base)).wallpaper(style)) {
-            Column(Modifier.fillMaxSize().backdropSource().background(animatedStyleBrush(style,base)).wallpaper(style).verticalScroll(rememberScrollState()).padding(horizontal=(12*frame).dp).padding(top=(86*frame).dp,bottom=(110*frame).dp)) {
+            Column(Modifier.fillMaxSize().backdropSource().background(animatedStyleBrush(style,base)).wallpaper(style).verticalScroll(rememberScrollState()).padding(horizontal=(12*frame).dp).padding(top=(86*frame).dp+WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),bottom=(110*frame).dp+WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
             CompositionLocalProvider(LocalLeafColors provides c) {
             Column(Modifier.fillMaxWidth().heightIn(min=((LocalConfiguration.current.screenHeightDp-220).coerceAtLeast(300)*frame).dp).clip(RoundedCornerShape((22*frame).dp)).background(c.canvas).border(.7.dp,c.separator.copy(alpha=c.separator.alpha*frame),RoundedCornerShape((22*frame).dp)).padding(horizontal=(28-12*frame).dp).padding(top=(100-72*frame).dp,bottom=(130-80*frame).dp)) {
                 BasicTextField(note.title,{store.editing?.let{n->store.update(n.copy(title=it))}},singleLine=false,keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(imeAction=androidx.compose.ui.text.input.ImeAction.Next),keyboardActions=androidx.compose.foundation.text.KeyboardActions(onNext={focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Next)}),textStyle=TextStyle(fontSize=metrics.size("title").sp,fontWeight=FontWeight.SemiBold,color=c.text,lineHeight=(metrics.size("title")*1.2).sp,letterSpacing=(-.6).sp),cursorBrush=SolidColor(c.accent),modifier=Modifier.fillMaxWidth().onFocusChanged{editing=it.isFocused},decorationBox={inner->if(note.title.isEmpty())Label("Untitled note",30,FontWeight.SemiBold,c.tertiary);inner()})
@@ -422,14 +436,14 @@ fun dateGroup(millis:Long):String {
             }
             }
             CompositionLocalProvider(LocalLeafColors provides chrome,LocalChromeTint provides (if(base.dark)Color.Black.copy(alpha=.18f)else Color.White.copy(alpha=.26f))) {
-            ScrollHeader(surface=Color.Transparent) { Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            ScrollHeader(modifier=Modifier.graphicsLayer{alpha=((reveal-.45f)/.55f).coerceIn(0f,1f)},surface=Color.Transparent) { Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 ChromeButton("back","Back to notes",onClick=onBack);Spacer(Modifier.weight(1f))
                 ChromePill(Modifier.height(48.dp)) {NoteStyleMenu(store,base);Pressable(Modifier.size(44.dp),"Share note",onClick=onShare){Glyph("share")};Pressable(Modifier.size(44.dp),"Note options",onClick=onMore){Glyph("more")}}
                 if(editing)ChromeButton("done","Done editing",prominent=true){keyboard?.hide();activeTextEditor?.clearFocus();focus.clearFocus();editing=false}
             }}
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(132.dp).background(Brush.verticalGradient(listOf(Color.Transparent,footer.copy(alpha=.92f)))))
         CompositionLocalProvider(LocalLeafColors provides chrome.copy(text=if(lightColour(footer))Color(0xFF191919)else Color(0xFFF7F7F7))) {
-        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal=22.dp).padding(top=12.dp,bottom=24.dp),verticalAlignment=Alignment.CenterVertically) {
+        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().graphicsLayer{alpha=((reveal-.60f)/.40f).coerceIn(0f,1f)}.navigationBarsPadding().padding(horizontal=22.dp).padding(top=12.dp,bottom=24.dp),verticalAlignment=Alignment.CenterVertically) {
             ChromePill(Modifier.height(50.dp)) {
                 Pressable(Modifier.size(48.dp),"Format",onClick=onFormat){Glyph("format")}
                 Pressable(Modifier.size(48.dp),"Add images",onClick=onImages){Glyph("clip")}

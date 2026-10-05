@@ -42,7 +42,7 @@ fun Modifier.frosted(shape:Shape,light:Boolean=false,surface:Color?=null):Modifi
             drawContent()
             drawRect(Brush.verticalGradient(0f to Color.White,.82f to Color.White,1f to Color.Transparent),blendMode=BlendMode.DstIn)
         }.frosted(RectangleShape,light=true,surface=surface).then(if(homeGlow)Modifier.background(homeGlowBrush(c.dark,glowHeight))else Modifier))
-        Column(Modifier.padding(bottom=16.dp),content=content)
+        Column(Modifier.statusBarsPadding().padding(bottom=16.dp),content=content)
     }
 }
 

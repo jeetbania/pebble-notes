@@ -1,5 +1,6 @@
 package dev.leafnotes
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
@@ -14,10 +15,10 @@ import androidx.compose.ui.unit.dp
 
 class ReorderGroup { val frames=mutableStateMapOf<String,Rect>() }
 fun Modifier.reorderTarget(id:String,group:ReorderGroup)=onGloballyPositioned{group.frames[id]=it.boundsInRoot()}
-@Composable fun ReorderGrip(id:String,group:ReorderGroup,order:List<String>,onDragging:(Boolean)->Unit={},onOrder:(List<String>)->Unit) {
+@Composable fun ReorderGrip(id:String,group:ReorderGroup,order:List<String>,onDragging:(Boolean)->Unit={},onOptions:(()->Unit)?=null,onOrder:(List<String>)->Unit) {
     val currentOrder by rememberUpdatedState(order);val change by rememberUpdatedState(onOrder);val haptic=LocalHapticFeedback.current
     var bounds by remember{mutableStateOf(Rect.Zero)}
-    Box(Modifier.width(24.dp).height(30.dp).onGloballyPositioned{bounds=it.boundsInRoot()}.pointerInput(id){var pointer=Offset.Zero;detectDragGesturesAfterLongPress(
+    Box(Modifier.width(if(onOptions!=null)44.dp else 24.dp).height(if(onOptions!=null)44.dp else 30.dp).clickable(enabled=onOptions!=null,onClick={onOptions?.invoke()}).onGloballyPositioned{bounds=it.boundsInRoot()}.pointerInput(id){var pointer=Offset.Zero;detectDragGesturesAfterLongPress(
         onDragStart={point->onDragging(true);pointer=bounds.topLeft+point;haptic.performHapticFeedback(HapticFeedbackType.LongPress)},
         onDragEnd={onDragging(false)},onDragCancel={onDragging(false)},
         onDrag={event,amount->event.consume();pointer+=amount;val target=group.frames.entries.firstOrNull{it.key!=id&&it.value.contains(pointer)}?.key;if(target!=null){val ids=currentOrder.toMutableList();val from=ids.indexOf(id);val to=ids.indexOf(target);if(from>=0&&to>=0){ids.removeAt(from);ids.add(to,id);change(ids);haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)}}}
