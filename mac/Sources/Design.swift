@@ -40,7 +40,7 @@ struct SoftButtonStyle: ButtonStyle {
         @LeafState<Bool> private var hovering = false
         @Environment(\.accessibilityReduceMotion) var reduced
         @AppStorage("calmMotion") var calm = false
-        var body: some View { configuration.label.frame(minWidth: 32, minHeight: 32).contentShape(Rectangle()).background(Color.primary.opacity(hovering ? 0.055 : 0), in: RoundedRectangle(cornerRadius: radius)).opacity(configuration.isPressed ? 0.65 : 1).scaleEffect(configuration.isPressed && !reduced && !calm ? 0.98 : 1).onHover { hovering = $0 }.animation(reduced || calm ? nil : .easeInOut(duration: 0.14), value: hovering).animation(reduced || calm ? nil : .easeOut(duration: 0.12), value: configuration.isPressed) }
+        var body: some View { configuration.label.frame(minWidth: 32, minHeight: 32).contentShape(Rectangle()).background(Color.primary.opacity(hovering ? 0.055 : 0), in: RoundedRectangle(cornerRadius: radius)).opacity(configuration.isPressed ? PebbleTokens.pressedOpacity : 1).scaleEffect(configuration.isPressed && !reduced && !calm ? PebbleTokens.pressScale : 1).onHover { hovering = $0 }.animation(reduced || calm ? nil : .easeInOut(duration: 0.14), value: hovering).animation(reduced || calm ? nil : .easeOut(duration: 0.12), value: configuration.isPressed) }
     }
 }
 extension View {
@@ -53,8 +53,8 @@ struct GlassIcon: View {
     @Environment(\.isEnabled) private var enabled
     var icon: String; var label: String; var size: CGFloat = 16; var action: () -> Void
     var body: some View {
-        Button(action: action) { Image(systemName: icon).font(.system(size: size, weight: .medium)).frame(width: 36, height: 36).contentShape(Rectangle()) }
-            .buttonStyle(.plain).opacity(enabled ? 1 : 0.35).help(label).accessibilityLabel(label)
+        Button(action: action) { Image(systemName: icon).font(.system(size: size, weight: .medium)).frame(width: CGFloat(PebbleTokens.desktopTarget), height: CGFloat(PebbleTokens.desktopTarget)).contentShape(Rectangle()) }
+            .buttonStyle(.plain).opacity(enabled ? 1 : PebbleTokens.disabledOpacity).help(label).accessibilityLabel(label)
     }
 }
 
@@ -99,7 +99,7 @@ struct SidebarButtonStyle: ButtonStyle {
         @LeafState<Bool> private var hovering = false
         var body: some View {
             configuration.label.frame(minWidth: 32, minHeight: 32).contentShape(Rectangle()).foregroundStyle(hovering ? Color.primary : Color.secondary)
-                .opacity(configuration.isPressed ? 0.65 : 1).onHover { hovering = $0 }
+                .opacity(configuration.isPressed ? PebbleTokens.pressedOpacity : 1).onHover { hovering = $0 }
                 .animation(.easeInOut(duration: 0.14), value: hovering)
         }
     }
@@ -175,10 +175,10 @@ struct GlassDialog<Panel: View>: View {
 
 struct MaterialActionStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.system(size: 13, weight: .medium)).foregroundStyle(Color.primary).padding(.horizontal, 12).frame(minWidth: 36, minHeight: 36).background(Color.primary.opacity(configuration.isPressed ? 0.14 : 0.075), in: RoundedRectangle(cornerRadius: 10)).overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5)).contentShape(Rectangle())
+        configuration.label.font(.system(size: 13, weight: .medium)).foregroundStyle(Color.primary).padding(.horizontal, 12).frame(minWidth: CGFloat(PebbleTokens.desktopTarget), minHeight: CGFloat(PebbleTokens.desktopTarget)).background(Color.primary.opacity(configuration.isPressed ? PebbleTokens.actionPressedOpacity : PebbleTokens.actionFillOpacity), in: RoundedRectangle(cornerRadius: CGFloat(PebbleTokens.actionRadius))).overlay(RoundedRectangle(cornerRadius: CGFloat(PebbleTokens.actionRadius)).strokeBorder(Color.primary.opacity(PebbleTokens.actionBorderOpacity), lineWidth: 0.5)).contentShape(Rectangle())
     }
 }
-struct SubtleDivider: View { var body: some View { Rectangle().fill(Color.primary.opacity(0.10)).frame(height: 0.5).accessibilityHidden(true) } }
+struct SubtleDivider: View { var body: some View { Rectangle().fill(Color.primary.opacity(PebbleTokens.dividerOpacity)).frame(height: PebbleTokens.desktopDividerWidth).accessibilityHidden(true) } }
 struct AdaptiveSlider: View {
     @Binding var value: Double; var range: ClosedRange<Double>; var step: Double
     var count: Int { min(21, Int((range.upperBound - range.lowerBound) / step) + 1) }

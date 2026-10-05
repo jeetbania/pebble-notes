@@ -95,7 +95,7 @@ val LocalLeafColors = staticCompositionLocalOf { lightLeafColors }
     }
 }
 @Composable fun Label(text: String, size: Int = 17, weight: FontWeight = FontWeight.Normal, color: Color = LocalLeafColors.current.text, modifier: Modifier = Modifier, lines: Int = Int.MAX_VALUE) {
-    androidx.compose.material3.Text(text, modifier, color=color, fontSize=size.sp, fontWeight=weight, lineHeight=(size*1.32).sp, letterSpacing=if(size>=28) (-0.7).sp else (-0.15).sp, maxLines=lines, overflow=TextOverflow.Ellipsis)
+    androidx.compose.material3.Text(text, modifier, color=color, fontSize=size.sp, fontWeight=weight, lineHeight=(size*PebbleTokens.lineHeightRatio).sp, letterSpacing=if(size>=28) (-0.7).sp else (-0.15).sp, maxLines=lines, overflow=TextOverflow.Ellipsis)
 }
 fun iconResource(name: String): Int = when(name) {
     "calendar" -> R.drawable.leaf_calendar; "clock" -> R.drawable.leaf_clock; "minus" -> R.drawable.leaf_minus; "flag" -> R.drawable.pebble_filled_flag
@@ -121,10 +121,10 @@ fun iconResource(name: String): Int = when(name) {
 @Composable fun Pressable(modifier: Modifier = Modifier, description: String? = null, enabled: Boolean = true, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
     val haptic=androidx.compose.ui.platform.LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }; val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if(pressed && !LocalCalmMotion.current) .98f else 1f, spring(dampingRatio=1f,stiffness=900f), label="press")
-    Box(modifier.graphicsLayer { scaleX=scale; scaleY=scale; alpha=if(enabled) 1f else .35f }.then(if(description!=null) Modifier.semantics { contentDescription=description } else Modifier).combinedClickable(interactionSource=interaction, indication=null, enabled=enabled, onClick={haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);onClick()}, onLongClick=onLongClick), contentAlignment=Alignment.Center) { content() }
+    val scale by animateFloatAsState(if(pressed && !LocalCalmMotion.current) PebbleTokens.pressScale else 1f, spring(dampingRatio=1f,stiffness=PebbleTokens.pressStiffness), label="press")
+    Box(modifier.graphicsLayer { scaleX=scale; scaleY=scale; alpha=if(enabled) 1f else PebbleTokens.disabledOpacity }.then(if(description!=null) Modifier.semantics { contentDescription=description } else Modifier).combinedClickable(interactionSource=interaction, indication=null, enabled=enabled, onClick={haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);onClick()}, onLongClick=onLongClick), contentAlignment=Alignment.Center) { content() }
 }
-@Composable fun ChromeButton(name: String, label: String, size: Int = 48, prominent: Boolean = false, onClick: () -> Unit) {
+@Composable fun ChromeButton(name: String, label: String, size: Int = PebbleTokens.mobileTarget, prominent: Boolean = false, onClick: () -> Unit) {
     val c=LocalLeafColors.current
     Pressable(Modifier.size(size.dp).shadow(14.dp,CircleShape, ambientColor=Color.Black.copy(alpha=.035f),spotColor=Color.Black.copy(alpha=.06f)).then(if(prominent)Modifier.background(c.accent,CircleShape) else Modifier.frosted(CircleShape,surface=LocalChromeTint.current)).border(.5.dp,c.text.copy(alpha=.025f),CircleShape),label,onClick=onClick) { Glyph(name, size=23, tint=if(prominent) Color.White else c.text) }
 }
@@ -530,8 +530,8 @@ fun prefixLine(view:EditText,prefix:String) {
 @Composable fun SheetRow(label:String,icon:String,tint:Color=LocalLeafColors.current.text,onClick:()->Unit) {
     val c=LocalLeafColors.current
     Column {
-        Pressable(Modifier.fillMaxWidth().heightIn(min=48.dp),label,onClick=onClick){Row(Modifier.fillMaxWidth().padding(vertical=9.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){Box(Modifier.size(32.dp).background(tint.copy(alpha=.065f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Glyph(icon,size=19,tint=tint)};Label(label,15,color=tint,modifier=Modifier.weight(1f))}}
-        Box(Modifier.fillMaxWidth().padding(start=44.dp).height(1.dp).background(c.text.copy(alpha=.10f)))
+        Pressable(Modifier.fillMaxWidth().heightIn(min=PebbleTokens.mobileTarget.dp),label,onClick=onClick){Row(Modifier.fillMaxWidth().padding(vertical=9.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){Box(Modifier.size(PebbleTokens.sheetIconTile.dp).background(tint.copy(alpha=.065f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Glyph(icon,size=PebbleTokens.sheetIconSize,tint=tint)};Label(label,15,color=tint,modifier=Modifier.weight(1f))}}
+        Box(Modifier.fillMaxWidth().padding(start=PebbleTokens.sheetDividerInset.dp).height(PebbleTokens.mobileDividerWidth.dp).background(c.text.copy(alpha=PebbleTokens.dividerOpacity)))
     }
 }
 val LocalSheetAction=compositionLocalOf<((()->Unit)->Unit)>{ {action->action()} }

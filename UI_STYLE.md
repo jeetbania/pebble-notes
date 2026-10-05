@@ -1,6 +1,6 @@
 # Pebble interface rules
 
-Read this before changing any user-facing UI. The user’s explicit direction takes precedence.
+Read this and [the Pebble design system](design-system/README.md) before changing any user-facing UI. The user’s explicit direction takes precedence. Reuse the catalog and shared tokens by default.
 
 - A window has one seamless translucent frame. Sidebars inherit it; never draw a separate sidebar card or blur layer. Inner content can use a stronger neutral material.
 - Inputs are visible, spacious rounded fields: semantic primary text, secondary placeholders, subtle neutral fill and border. Never use the platform’s opaque black rounded text-field default inside glass settings.
@@ -18,7 +18,7 @@ Read this before changing any user-facing UI. The user’s explicit direction ta
 - Playtest all affected controls in an isolated library, including empty blocks, wrapping, nested toggles, persistence, light/dark appearance and narrow windows. Automated checks supplement real interaction, not replace it.
 
 - Mobile action buttons use capsule or circular shapes; fields, cards and menu rows retain their appropriate rounded rectangles. Do not add small page/brand labels to the top-right navigation area.
-- Mobile home uses a restrained purple glow behind cards with a long, smooth falloff and a paler light-mode variant. Status/navigation bars blend with the current page and use readable system icons. Scrolled content passes behind a blurred, faded header; header labels remain crisp.
+- Mobile home uses a restrained purple glow behind cards with a long, smooth falloff and a paler light-mode variant. Status/navigation bars blend with the current page and use readable system icons. Library notes clip below the fixed header with rounded inward corners; do not blur the header.
 - Mobile settings starts with a compact grouped index and opens focused inner pages. Avoid promotional paragraphs and redundant explanations. Sheet titles and primary actions remain visible while the form scrolls, with space above the keyboard and system gesture area.
 
 - Fixed mobile task navigation uses the page surface, with no separate frosted strip or duplicate system inset. Glass release cards have one strong blurred material and a transparent dialog window; never add an opaque slab behind the copy.
@@ -52,7 +52,7 @@ Read this before changing any user-facing UI. The user’s explicit direction ta
 - Phone gallery cards have bounded 220/280 dp heights in Masonry and 250 dp equal heights in Grid, selectable in Settings. Scrolling dismisses open swipe actions. Newly choosing a backdrop on a dark document supplies a complementary light paper and automatic readable text. Quote blocks have a quotation bar; Idea blocks have an icon and subtle tinted surface. Both preserve rich text, children, undo and sync.
 - Native desktop context menus retain AppKit row tracking and submenu navigation. Never replace globally observed menu items with custom NSViews: text menus copy/archive their items.
 
-- Phone notes open with a rounded 240 ms card-to-page morph and a synchronised background dissolve; ordinary page changes use a 140 ms dissolve. Reverse from the current progress, including edge-back. Header/footer actions fade in late in the reveal, never block input behind an animation delay. Calmer motion removes the spatial morph.
+- Phone notes open with a rounded 300 ms card-to-page morph and a synchronised background dissolve; ordinary page changes use a 140 ms dissolve. Reverse from the current progress, including edge-back. Header/footer actions fade in late in the reveal, never block input behind an animation delay. Calmer motion removes the spatial morph.
 - Scrolling content and wallpaper extend behind the status bar. Header labels/actions and footer controls retain system-safe padding; never inset the entire scrolling viewport below an opaque status strip. Mobile block grips live on the right in a 44 dp target, tap for options and long-press to reorder. Ordinary body text aligns with its title.
 - Phone navigation is one persistent glass capsule with Notes, Tasks and Settings, a restrained spring selection, and swipe switching. Search is the fourth option inside the capsule; compose remains a separate circular action. Search opens a focused page with the keyboard and live results using the home list/gallery preference. Keep keyboard and gesture-area clearance.
 

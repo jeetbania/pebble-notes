@@ -41,3 +41,7 @@ Version 0.14.0 passed 19 core, 26 Mac and 18 Android emulator checks; see [the a
 The physical Vivo previously passed all 17 Android automated checks on 0.13.1; live welcome navigation, keyboard resizing/dismissal and preserved library were checked over USB. Future-version installation, live simultaneous-device conflicts, interrupted image uploads, cloud cleanup after permanent deletion, and sleep/background timing still need acceptance. OCR/scanning, drawings, audio, widgets, encrypted locks, and collaborative editing are later work. Google OAuth long-term configuration is separate from app distribution.
 
 SQLite is public domain; Lucide vectors retain their MIT license in `assets/LUCIDE-LICENSE`. Dependencies retain their upstream licenses.
+
+## Design system
+
+[The Pebble design system](design-system/README.md) documents shared tokens, native components, motion, layouts and interaction rules for Mac and Android. Edit its token manifest and run `python3 scripts/design-tokens.py` to generate the Swift/Kotlin foundation constants; `--check` verifies they are current. Future UI work should reuse these components and rules by default.
