@@ -76,8 +76,14 @@ struct DocumentEditor: View {
                         Button { store.addBlock("table") } label: { Label("Table", systemImage: "tablecells") }
                         Button { store.addFiles() } label: { Label("Attach", systemImage: "paperclip") }
                     }.font(.system(size: 15)).buttonStyle(SoftButtonStyle()).foregroundStyle(.secondary).padding(.top, 12)
-                }.frame(width: width, alignment: .leading).padding(.top, 82).padding(.bottom, 90).frame(maxWidth: .infinity)
-            }.scrollIndicators(.never).coordinateSpace(name: "noteBlocks").onPreferenceChange(BlockFrames.self) { blockFrames = $0 }
+                }.frame(width: width, alignment: .leading).padding(.horizontal, note.style?.framed == true ? 40 : 0).padding(.top, note.style?.framed == true ? 40 : 82).padding(.bottom, 90)
+                .frame(minHeight: note.style?.framed == true ? max(300, geometry.size.height - 120) : nil, alignment: .topLeading)
+                .background { if note.style?.framed == true { (note.style ?? NoteStyle()).paper } }
+                .clipShape(RoundedRectangle(cornerRadius: note.style?.framed == true ? 22 : 0))
+                .overlay { if note.style?.framed == true { RoundedRectangle(cornerRadius: 22).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.7) } }
+                .shadow(color: .black.opacity(note.style?.framed == true ? 0.12 : 0), radius: 18, y: 8)
+                .padding(.top, note.style?.framed == true ? 76 : 0).padding(.bottom, note.style?.framed == true ? 24 : 0).frame(maxWidth: .infinity)
+            }.background { if let style = note.style { if style.framed { style.background() } else if let paper = NoteStyle.colour(style.document) { paper } } }.foregroundStyle((note.style ?? NoteStyle()).foreground).scrollIndicators(.never).coordinateSpace(name: "noteBlocks").onPreferenceChange(BlockFrames.self) { blockFrames = $0 }
             .overlay(alignment: .topLeading) {
                 if let id = draggedBlock, let snapshot = dragSnapshot {
                     VStack(alignment: .leading, spacing: 6) {
@@ -131,7 +137,7 @@ struct DocumentEditor: View {
         let style = block.textStyle ?? block.spans.first(where: { ["title", "subtitle", "headline"].contains($0.kind) })?.kind ?? "body"
         return min(0, (Typography.size(style) * note.textScale * 1.25 - 32) / 2)
     }
-    func styledBlock(_ block: DocumentBlock) -> Note { var value = block.asNote; value.textScale = note.textScale; return value }
+    func styledBlock(_ block: DocumentBlock) -> Note { var value = block.asNote; value.textScale = note.textScale; value.style = note.style; return value }
     func gap(before index: Int) -> CGFloat { guard index > 0 else { return 0 }; let block = displayed.document[index]; let previous = displayed.document[index - 1]; if block.textStyle != nil && block.textStyle != "body" || block.spans.contains(where: { ["headline", "title", "subtitle"].contains($0.kind) }) { return 22 }; if ["check", "bullet", "number"].contains(block.kind) { return previous.kind == block.kind ? 3 : 7 }; return previous.kind == "toggle" ? 6 : (previous.textStyle != nil && previous.textStyle != "body") || previous.spans.contains(where: { ["headline", "title", "subtitle"].contains($0.kind) }) ? 6 : 12 }
     @ViewBuilder func blockView(_ block: DocumentBlock, index: Int, width: CGFloat) -> some View {
         if block.isText {
@@ -187,7 +193,7 @@ struct DocumentEditor: View {
             window.makeFirstResponder(text); text.setSelectedRange(NSRange(location: 0, length: 0))
             if text.string.isEmpty, let block = store.current?.document.first(where: { $0.id == id }) {
                 let style = block.textStyle ?? "body"
-                text.typingAttributes = [.font: NSFont.systemFont(ofSize: Typography.size(style) * (store.current?.textScale ?? 1), weight: style == "body" ? .regular : .semibold), .foregroundColor: NSColor.labelColor, NSAttributedString.Key("leafTextStyle"): style, NSAttributedString.Key("leafTextScale"): store.current?.textScale ?? 1]
+                text.typingAttributes = [.font: NSFont.systemFont(ofSize: Typography.size(style) * (store.current?.textScale ?? 1), weight: style == "body" ? .regular : .semibold), .foregroundColor: (store.current?.style ?? NoteStyle()).ink, NSAttributedString.Key("leafTextStyle"): style, NSAttributedString.Key("leafTextScale"): store.current?.textScale ?? 1]
             }
             for input in queued { if let target = window.firstResponder as? LeafTextView { if input == "\n" { target.insertNewline(nil) } else { target.insertText(input, replacementRange: target.selectedRange()) } } }
         }
@@ -222,7 +228,7 @@ struct DocumentEditor: View {
                     ForEach(block.cells.indices, id: \.self) { row in
                         HStack(spacing: 0) {
                             ForEach(block.cells[row].indices, id: \.self) { col in
-                                TableCellEditor(text: Binding(get: { store.current?.document.first(where: { $0.id == block.id })?.cells[row][col] ?? "" }, set: { value in store.update(undoKey: "cell:\(block.id):\(row):\(col)") { $0.editBlock(block.id) { $0.cells[row][col] = value } } }), header: row == 0)
+                                TableCellEditor(text: Binding(get: { store.current?.document.first(where: { $0.id == block.id })?.cells[row][col] ?? "" }, set: { value in store.update(undoKey: "cell:\(block.id):\(row):\(col)") { $0.editBlock(block.id) { $0.cells[row][col] = value } } }), header: row == 0, ink: (note.style ?? NoteStyle()).ink)
                                     .padding(12).frame(width: columnWidth(block.id, col), height: rowHeight(block, row)).background(Color.primary.opacity(row == 0 ? 0.05 : 0.02)).border(Color.primary.opacity(0.1), width: 0.5)
                                     .overlay(alignment: .trailing) {
                                         Color.clear.frame(width: 6).contentShape(Rectangle()).onHover { if $0 { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }.gesture(DragGesture(minimumDistance: 0, coordinateSpace: .global).onChanged { v in let key = "tableWidth:" + noteId + ":" + block.id + ":" + String(col); if columnStart == nil { columnStart = columnWidth(block.id, col) }; columnWidths[key] = min(600, max(80, columnStart! + v.translation.width)) }.onEnded { _ in let key = "tableWidth:" + noteId + ":" + block.id + ":" + String(col); UserDefaults.standard.set(columnWidths[key], forKey: key); columnStart = nil })

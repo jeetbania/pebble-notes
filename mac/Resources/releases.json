@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.15.0",
+    "title": "A colour for every thought",
+    "changes": [
+      "Notes have independent document, backdrop and text colours, saved and synced with each note.",
+      "A paintbrush opens a temporary Style menu with a live preview, colour palettes and custom colours.",
+      "Choose a solid or gradient backdrop to frame the document as a rounded card on Mac and phone.",
+      "Library previews reflect each note’s colours. Reset style returns to the original appearance."
+    ]
+  },
+  {
     "version": "0.14.6",
     "title": "Phone details, refined",
     "changes": [

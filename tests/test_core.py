@@ -50,6 +50,18 @@ class CoreTests(unittest.TestCase):
         yearly=revision();yearly['note']['task']=dict(task,repeatRule='yearly');self.assertTrue(self.s.put(yearly));self.assertIn(yearly,self.s.list())
         staged=revision();staged['note']['task']=dict(task,status='review');self.assertTrue(self.s.put(staged));self.assertIn(staged,self.s.list())
         invalid=revision();invalid['note']['task']=None;self.assertFalse(self.s.put(invalid))
+    def test_note_style_sync_round_trip_and_validation(self):
+        style=dict(document='#F8F0FF',backdrop='#FFBD19',backdropEnd='#FFE7E3',text='#185B51')
+        r=revision('styled');r['note']['style']=style
+        self.assertTrue(self.s.put(r,True));self.assertEqual(self.s.list(heads=True)[0]['note']['style'],style)
+        edit=revision('style-edit',['styled']);edit['note']['style']=dict(document='#191B20')
+        self.assertTrue(self.s.put(edit));self.assertEqual(self.s.list(heads=True)[0]['note']['style'],edit['note']['style'])
+        for invalid in ['red','#123','#GGGGGG',123,{},[]]:
+            bad=revision();bad['note']['style']=dict(document=invalid);self.assertFalse(self.s.put(bad))
+        for invalid in [[], 'yellow', {'backdropEnd':'#FFFFFF'}]:
+            bad=revision();bad['note']['style']=invalid;self.assertFalse(self.s.put(bad))
+        reset=revision('style-reset',['style-edit']);self.assertTrue(self.s.put(reset));self.assertNotIn('style',self.s.list(heads=True)[0]['note'])
+
     def test_text_scale_round_trip_and_validation(self):
         for value in (.8, 1, 1.2, 1.6):
             r=revision(); r['note']['textScale']=value

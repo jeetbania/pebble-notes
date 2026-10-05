@@ -47,6 +47,7 @@ struct TaskDetails: Codable, Equatable {
 }
 struct Note: Codable, Equatable {
     var task: TaskDetails? = nil
+    var style: NoteStyle? = nil
     var textScale = 1.0
     var title = ""; var text = ""; var spans: [TextSpan] = []; var attachments: [Attachment] = []
     var collection = "Personal"; var pinned = false; var archived = false; var deleted = false
@@ -58,12 +59,13 @@ struct Note: Codable, Equatable {
     var folderEmoji = ""
     var folderImage = ""
     init() {}
-    enum CodingKeys: String, CodingKey { case deletedAt, purgedAt, task, textScale, title, text, spans, attachments, collection, pinned, archived, deleted, blocks, tags, recordType, folderEmoji, folderImage }
+    enum CodingKeys: String, CodingKey { case style, deletedAt, purgedAt, task, textScale, title, text, spans, attachments, collection, pinned, archived, deleted, blocks, tags, recordType, folderEmoji, folderImage }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         deletedAt = try c.decodeIfPresent(Int64.self, forKey: .deletedAt)
         purgedAt = try c.decodeIfPresent(Int64.self, forKey: .purgedAt)
         task = try c.decodeIfPresent(TaskDetails.self, forKey: .task)
+        style = try c.decodeIfPresent(NoteStyle.self, forKey: .style)
         textScale = min(1.6, max(0.8, try c.decodeIfPresent(Double.self, forKey: .textScale) ?? 1))
         title = try c.decode(String.self, forKey: .title); text = try c.decode(String.self, forKey: .text)
         spans = try c.decode([TextSpan].self, forKey: .spans); attachments = try c.decode([Attachment].self, forKey: .attachments)
@@ -83,7 +85,7 @@ struct Note: Codable, Equatable {
         return [body] + attachments.map { media in var b = DocumentBlock(); b.id = "media-" + media.id; b.kind = media.mime.hasPrefix("image/") ? "image" : "file"; b.mediaId = media.id; return b }
     }
     mutating func prepare(previous: Note? = nil) {
-        if purgedAt != nil { title = ""; text = ""; spans = []; attachments = []; blocks = []; tags = []; task = nil; folderEmoji = ""; folderImage = ""; deleted = true; return }
+        if purgedAt != nil { title = ""; text = ""; spans = []; attachments = []; blocks = []; tags = []; task = nil; style = nil; folderEmoji = ""; folderImage = ""; deleted = true; return }
         if deleted { if deletedAt == nil { deletedAt = Int64(Date().timeIntervalSince1970 * 1000) } } else { deletedAt = nil }
         if let previous, blocks == previous.blocks, text != previous.text || spans != previous.spans, blocks != nil {
             if let i = blocks?.firstIndex(where: { $0.isText }), blocks?.filter({ $0.isText }).count == 1 { blocks?[i].text = text; blocks?[i].spans = spans }
@@ -152,7 +154,7 @@ enum LeafError: LocalizedError {
 extension Note {
     var attributed: NSAttributedString {
         let paragraph = NSMutableParagraphStyle(); paragraph.lineSpacing = 3
-        let result = NSMutableAttributedString(string: text, attributes: [.paragraphStyle: paragraph, .font: NSFont.systemFont(ofSize: Typography.size("body") * textScale), NSAttributedString.Key("leafTextScale"): textScale, .foregroundColor: NSColor.labelColor])
+        let result = NSMutableAttributedString(string: text, attributes: [.paragraphStyle: paragraph, .font: NSFont.systemFont(ofSize: Typography.size("body") * textScale), NSAttributedString.Key("leafTextScale"): textScale, .foregroundColor: (style ?? NoteStyle()).ink])
         for span in spans.sorted(by: { ["title", "subtitle", "headline"].contains($0.kind) && !["title", "subtitle", "headline"].contains($1.kind) }) {
             guard span.start >= 0, span.length > 0, span.start <= result.length, span.length <= result.length - span.start else { continue }
             let range = NSRange(location: span.start, length: span.length)

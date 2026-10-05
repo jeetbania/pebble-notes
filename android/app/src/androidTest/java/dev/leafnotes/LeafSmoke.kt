@@ -16,6 +16,15 @@ class LeafSmoke : Instrumentation() {
             val isolated = object : ContextWrapper(targetContext) { override fun getFilesDir() = root }
             runOnMainSync {
                 val store = Store(isolated)
+                val styleStore=Store(object:ContextWrapper(targetContext){override fun getFilesDir()=File(root,"style").apply{mkdirs()}})
+                styleStore.create();styleStore.update(Note(title="Style fixture",text="Text"));styleStore.flush();val styleId=styleStore.selected!!;val plain=styleStore.editing!!
+                val style=NoteStyle("#F8F0FF","#FFBD19","#FFE7E3","#185B51")
+                styleStore.update(plain.copy(style=style));styleStore.undo();check(styleStore.editing==plain);styleStore.redo();check(styleStore.editing?.style==style);styleStore.flush()
+                styleStore.restore(styleStore.backup());check(styleStore.visibleHeads.first{it.noteId==styleId}.note.style==style)
+                val reopenedStyle=Store(object:ContextWrapper(targetContext){override fun getFilesDir()=File(root,"style")});reopenedStyle.select(styleId);reopenedStyle.editing?.let{reopenedStyle.update(it.copy(title="Edited"))};reopenedStyle.flush();check(reopenedStyle.editing?.style==style)
+                check(Note.from(styleStore.editing!!.json()).style==style);check(Note.from(Note().json()).style==null)
+                check(lightColour(hexColour("#F8F0FF")!!)&&!lightColour(hexColour("#191B20")!!));check(style.documentColours(darkLeafColors).text==hexColour("#185B51"))
+                results.append("PASS: note style JSON, persistence, backup, edits, undo/redo and automatic contrast\n")
                 val taskStore=Store(object:ContextWrapper(targetContext){override fun getFilesDir()=File(root,"tasks").apply{mkdirs()}});taskStore.create()
                 val taskNote=Note(title="Test task",task=TaskDetails(dueAt=1791091800000,hasTime=true,priority=3,repeatRule="weekly",list="Work",remind=true))
                 val taskId=taskStore.selected!!;taskStore.update(taskNote);taskStore.flush()

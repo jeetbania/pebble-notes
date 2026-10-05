@@ -18,6 +18,16 @@ import AppKit
         defer { try? FileManager.default.removeItem(at: root) }
         let store = NoteStore(root: root)
         precondition(store.error == nil)
+        let styleStore = NoteStore(root: root.appendingPathComponent("style")); styleStore.create(); styleStore.update { $0.title = "Style fixture"; $0.text = "Styled text" }; styleStore.flush()
+        let styleID = styleStore.selected!; let unstyled = styleStore.current!
+        let noteStyle = NoteStyle(document: "#F8F0FF", backdrop: "#FFBD19", backdropEnd: "#FFE7E3", text: "#185B51")
+        styleStore.update { $0.style = noteStyle }; precondition(styleStore.current?.style == noteStyle)
+        styleStore.undo(); precondition(styleStore.current == unstyled); styleStore.redo(); precondition(styleStore.current?.style == noteStyle); styleStore.flush()
+        let reopenedStyle = NoteStore(root: styleStore.root, recoverDrafts: false); reopenedStyle.select(styleID); precondition(reopenedStyle.current?.style == noteStyle)
+        precondition((reopenedStyle.current!.attributed.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor) == noteStyle.ink)
+        precondition(NoteStyle.isLight("#F8F0FF") && !NoteStyle.isLight("#191B20"))
+        let stylePeer = NoteStore(root: root.appendingPathComponent("style-peer")); try stylePeer.ingest(try encode(reopenedStyle.uniqueHeads.first { $0.noteId == styleID }!), remote: true); stylePeer.reload(); stylePeer.select(styleID); stylePeer.update { $0.title += " edited" }; stylePeer.flush(); precondition(stylePeer.current?.style == noteStyle)
+        print("PASS: note styles retain colours through persistence, remote ingest, editing and undo/redo; automatic contrast and native text colour agree")
         var taskNote = Note(); taskNote.title = "Test task"; taskNote.task = TaskDetails(dueAt: 1791091800000, hasTime: true, priority: 3, repeatRule: "weekly", list: "Work", completed: false, remind: true)
         let taskStore = NoteStore(root: root.appendingPathComponent("tasks")); taskStore.create(); let taskID = taskStore.selected!; taskStore.update { $0 = taskNote }; taskStore.flush()
         precondition(taskStore.uniqueHeads.first(where: { $0.noteId == taskID })!.note.task == taskNote.task)

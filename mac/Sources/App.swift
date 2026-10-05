@@ -128,7 +128,7 @@ struct LibraryView: View {
                     } else if let note = store.current, note.task == nil, let id = store.selected { editor(note, id) }
                     else { gallery }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).clipped().allowsHitTesting(preview == nil).accessibilityHidden(preview != nil)
-                topBar.allowsHitTesting(preview == nil).accessibilityHidden(preview != nil).background { if reducedTransparency { Color(nsColor: .windowBackgroundColor) } else { ContentBlur() } }
+                topBar.environment(\.colorScheme, store.current?.style?.chromeScheme ?? scheme).allowsHitTesting(preview == nil).accessibilityHidden(preview != nil).background { if reducedTransparency { Color(nsColor: .windowBackgroundColor) } else { ContentBlur() } }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
 
             .panePresented(isPresented: $showConflicts) { conflicts }
@@ -148,7 +148,7 @@ struct LibraryView: View {
         .clipShape(RoundedRectangle(cornerRadius: 22))
         .overlay(alignment: .topLeading) {
             if let r = grabbedRevision, dragging != nil {
-                Group { if let a = grabbedImage { ImageCard(attachment: a, collection: r.note.collection, media: store.media) } else { NoteCard(revision: r, conflict: false) } }
+                Group { if let a = grabbedImage { ImageCard(attachment: a, collection: r.note.collection, media: store.media, style: r.note.style) } else { NoteCard(revision: r, conflict: false) } }
                     .frame(width: grabbedFrame.width).scaleEffect(dropSettling ? 0.12 : 0.96).opacity(dropSettling ? 0 : 1).shadow(color: .black.opacity(0.18), radius: 12, y: 8)
                     .position(x: grabbedFrame.midX + dragTranslation.width, y: grabbedFrame.midY + dragTranslation.height)
                     .allowsHitTesting(false).zIndex(20)
@@ -268,6 +268,7 @@ struct LibraryView: View {
                 }.leafGlass(in: Capsule())
                 Spacer()
                 HStack(spacing: 0) {
+                    if store.current != nil { NoteStyleButton(store: store, interfaceScheme: scheme) }
                     if store.selected == nil {
                         if searchVisible {
                             Image(systemName: "magnifyingglass").font(.system(size: 15)).foregroundStyle(.secondary).padding(.leading, 12)
@@ -331,7 +332,7 @@ struct LibraryView: View {
             Button(revision.note.deleted ? "Restore" : "Move to Trash", systemImage: revision.note.deleted ? "arrow.uturn.backward" : "trash") { let ids = selectedItems.contains(id) ? Array(selectedItems) : [id]; for target in ids { store.mutate(target) { $0.deleted = !revision.note.deleted } }; selectedItems.subtract(ids); if store.selected == id { store.select(nil) } }.labelStyle(.titleAndIcon)
         }
     }
-    var formatting: some View { EditorToolbar(store: store) }
+    var formatting: some View { EditorToolbar(store: store, showsStyle: false) }
     var gallery: some View {
         GeometryReader { geometry in
             let count = max(3, Int((geometry.size.width - 48 + 18) / 218))
@@ -345,7 +346,7 @@ struct LibraryView: View {
                                 if section == "Images" || (r.note.document.filter { $0.isText }.allSatisfy { $0.text.isEmpty } && r.note.attachments.contains { $0.mime.hasPrefix("image/") }) {
                                     ForEach(r.note.attachments.filter { $0.mime.hasPrefix("image/") }) { a in
                                         CardInteraction(selected: selectedItems.contains(r.noteId), action: { openCard(r.noteId, image: a) }) {
-                                            ImageCard(attachment: a, collection: r.note.collection, media: store.media)
+                                            ImageCard(attachment: a, collection: r.note.collection, media: store.media, style: r.note.style)
                                         } menu: { Button("View Image", systemImage: "photo") { preview = a }.labelStyle(.titleAndIcon); Button("Copy Image", systemImage: "doc.on.doc") { copyImage(a) }.labelStyle(.titleAndIcon); Divider(); itemMenu(r.noteId) }.frame(width: width).modifier(GalleryGrab(id: r.noteId, dragging: dragging, gesture: grab(r, image: a)))
                                     }
                                 } else {
@@ -405,7 +406,7 @@ struct LibraryView: View {
         return GhostEmpty(kind: kind, title: title, detail: detail, actionLabel: ["trash", "archive"].contains(kind) ? nil : kind == "search" ? "Clear search" : kind == "pinned" ? "Browse notes" : "Create a note", action: { if kind == "search" { search = "" } else if kind == "pinned" { section = "Everything" } else { createNote() } })
     }
     func editor(_ note: Note, _ id: String) -> some View {
-        DocumentEditor(store: store, note: note, noteId: id, onPreview: { preview = $0 }, onConflict: { showConflicts = true })
+        DocumentEditor(store: store, note: note, noteId: id, onPreview: { preview = $0 }, onConflict: { showConflicts = true }).environment(\.colorScheme, note.style?.documentScheme ?? scheme)
     }
     func createNote() { store.create(); if section == "Collection" { store.update { $0.collection = collection } } }
     func openCard(_ id: String, image: Attachment? = nil) {
@@ -513,11 +514,11 @@ struct NoteCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(revision.note.displayTitle).font(.system(size: 20, weight: .semibold)).tracking(-0.4).lineLimit(2)
-            Text(revision.note.text.isEmpty ? "" : revision.note.text).font(.system(size: 14)).lineSpacing(5).foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading).clipped()
+            Text(revision.note.text.isEmpty ? "" : revision.note.text).font(.system(size: 14)).lineSpacing(5).foregroundStyle((revision.note.style ?? NoteStyle()).foreground.opacity(0.65)).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading).clipped()
                 .mask { LinearGradient(stops: [.init(color: .white, location: 0), .init(color: .white, location: 0.68), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom) }
-            HStack(spacing: 5) { Spacer(); CollectionPill(name: revision.note.collection); if revision.note.pinned { Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(.secondary) }; if conflict { Image(systemName: "arrow.triangle.branch").font(.system(size: 10)).foregroundStyle(.orange) }; Spacer() }
-        }.padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 8).frame(height: 200).frame(maxWidth: .infinity, alignment: .leading)
-            .background(CardMaterial())
+            HStack(spacing: 5) { Spacer(); CollectionPill(name: revision.note.collection); if revision.note.pinned { Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle((revision.note.style ?? NoteStyle()).foreground.opacity(0.65)) }; if conflict { Image(systemName: "arrow.triangle.branch").font(.system(size: 10)).foregroundStyle(.orange) }; Spacer() }
+        }.padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 8).frame(height: revision.note.style?.framed == true ? 184 : 200).frame(maxWidth: .infinity, alignment: .leading)
+            .modifier(NotePreviewSurface(style: revision.note.style))
     }
 }
 struct CollectionPill: View {
@@ -525,11 +526,11 @@ struct CollectionPill: View {
     var body: some View { Text(name).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).lineLimit(1).padding(.horizontal, 7).padding(.vertical, 2).overlay(Capsule().stroke(Color.primary.opacity(0.08), lineWidth: 0.7)) }
 }
 struct ImageCard: View {
-    var attachment: Attachment; var collection: String; var media: URL
+    var attachment: Attachment; var collection: String; var media: URL; var style: NoteStyle? = nil
     @Environment(\.colorScheme) var scheme
     var body: some View {
         VStack(spacing: 5) { Thumbnail(url: media.appendingPathComponent(attachment.id)).frame(height: 166).clipShape(RoundedRectangle(cornerRadius: 16)); CollectionPill(name: collection) }
-            .padding(6).frame(height: 200).background(CardMaterial())
+            .padding(6).frame(height: style?.framed == true ? 184 : 200).modifier(NotePreviewSurface(style: style))
     }
 }
 func imageAspect(_ url: URL) -> Double {
@@ -717,12 +718,13 @@ struct RichEditor: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = LeafEditorScrollView(); scroll.hasVerticalScroller = false; scroll.drawsBackground = false
         let view = LeafTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 32)); view.isRichText = true; view.importsGraphics = false; view.isAutomaticTextReplacementEnabled = true; view.isContinuousSpellCheckingEnabled = true; view.drawsBackground = false; view.textContainerInset = NSSize(width: 0, height: 1); view.textContainer?.lineFragmentPadding = 0; view.font = .systemFont(ofSize: 17); view.isVerticallyResizable = true; view.isHorizontallyResizable = false; view.autoresizingMask = [.width]; view.textContainer?.widthTracksTextView = true; view.textContainer?.containerSize = NSSize(width: 600, height: CGFloat.greatestFiniteMagnitude); view.minSize = NSSize(width: 0, height: 32); view.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude); view.allowsUndo = true
-        view.textStorage?.setAttributedString(displayed); if note.text.isEmpty { view.typingAttributes = [.font: NSFont.systemFont(ofSize: Typography.size(blockStyle) * note.textScale, weight: blockStyle == "body" ? .regular : .semibold), NSAttributedString.Key("leafTextStyle"): blockStyle, .foregroundColor: NSColor.labelColor, NSAttributedString.Key("leafTextScale"): note.textScale] }; view.delegate = context.coordinator; view.images = onImages; view.focused = onFocus; view.enter = onEnter; view.backspace = onBackspace; view.styleChanged = onStyle; view.identifier = blockId.map { NSUserInterfaceItemIdentifier(rawValue: $0) }; view.slash.apply = onCommand; scroll.documentView = view
+        view.textStorage?.setAttributedString(displayed); if note.text.isEmpty { view.typingAttributes = [.font: NSFont.systemFont(ofSize: Typography.size(blockStyle) * note.textScale, weight: blockStyle == "body" ? .regular : .semibold), NSAttributedString.Key("leafTextStyle"): blockStyle, .foregroundColor: (note.style ?? NoteStyle()).ink, NSAttributedString.Key("leafTextScale"): note.textScale] }; view.delegate = context.coordinator; view.images = onImages; view.focused = onFocus; view.enter = onEnter; view.backspace = onBackspace; view.styleChanged = onStyle; view.identifier = blockId.map { NSUserInterfaceItemIdentifier(rawValue: $0) }; view.slash.apply = onCommand; scroll.documentView = view
         return scroll
     }
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.owner = self
         guard let view = scroll.documentView as? LeafTextView else { return }; view.images = onImages; view.focused = onFocus; view.enter = onEnter; view.backspace = onBackspace; view.styleChanged = onStyle; view.identifier = blockId.map { NSUserInterfaceItemIdentifier(rawValue: $0) }; view.slash.apply = onCommand
+        var inkAttributes = view.typingAttributes; inkAttributes[.foregroundColor] = (note.style ?? NoteStyle()).ink; view.typingAttributes = inkAttributes
         if note.text.isEmpty { var attributes = view.typingAttributes; let style = attributes[NSAttributedString.Key("leafTextStyle")] as? String ?? blockStyle; let font = attributes[.font] as? NSFont ?? .systemFont(ofSize: 18); attributes[.font] = NSFontManager.shared.convert(font, toSize: Typography.size(style) * note.textScale); attributes[NSAttributedString.Key("leafTextScale")] = note.textScale; view.typingAttributes = attributes }
         if !view.attributedString().isEqual(to: displayed) {
             let range = view.selectedRange(); context.coordinator.updating = true; view.textStorage?.setAttributedString(displayed); view.setSelectedRange(NSRange(location: min(range.location, view.string.utf16.count), length: 0)); context.coordinator.updating = false

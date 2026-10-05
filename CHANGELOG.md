@@ -1,5 +1,12 @@
 # Pebble Notes changelog
 
+## 0.15.0 · A colour for every thought
+
+- Notes have independent document, backdrop and text colours, saved and synced with each note.
+- A paintbrush opens a temporary Style menu with a live preview, colour palettes and custom colours.
+- Choose a solid or gradient backdrop to frame the document as a rounded card on Mac and phone.
+- Library previews reflect each note’s colours. Reset style returns to the original appearance.
+
 ## 0.14.6 · Phone details, refined
 
 - Task descriptions begin at the top of the writing area.
