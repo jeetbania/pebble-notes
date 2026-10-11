@@ -68,8 +68,8 @@ import java.util.*
 import kotlin.math.*
 
 val LocalPreferencesVersion = staticCompositionLocalOf { 0 }
-val LocalLeafColors = staticCompositionLocalOf { lightLeafColors }
-@Composable fun LeafTheme(store: Store, content: @Composable () -> Unit) {
+val LocalPebbleColors = staticCompositionLocalOf { lightLeafColors }
+@Composable fun PebbleTheme(store: Store, content: @Composable () -> Unit) {
     var preferenceVersion by remember { mutableIntStateOf(0) }
     val appearance = store.preferences.getString("appearance", "system")
     val typeSizes = remember(preferenceVersion) { TextMetrics.read(store.preferences) }
@@ -90,15 +90,15 @@ val LocalLeafColors = staticCompositionLocalOf { lightLeafColors }
             androidx.core.view.WindowCompat.getInsetsController(activity.window, view).apply { isAppearanceLightStatusBars = store.editing?.let{lightColour(noteTop)} ?: !dark; isAppearanceLightNavigationBars = store.editing?.let{lightColour(noteBottom)} ?: !dark }; activity.window.statusBarColor=android.graphics.Color.TRANSPARENT; activity.window.navigationBarColor=android.graphics.Color.TRANSPARENT; activity.window.isStatusBarContrastEnforced=false; activity.window.isNavigationBarContrastEnforced=false
         }
     }
-    CompositionLocalProvider(LocalNoteMedia provides store.media, LocalLeafColors provides c, LocalTypeSizes provides typeSizes, LocalCalmMotion provides calm, LocalPreferencesVersion provides preferenceVersion) {
+    CompositionLocalProvider(LocalNoteMedia provides store.media, LocalPebbleColors provides c, LocalTypeSizes provides typeSizes, LocalCalmMotion provides calm, LocalPreferencesVersion provides preferenceVersion) {
         MaterialTheme(colorScheme = if(dark) darkColorScheme(primary=c.accent, background=c.page, surface=c.paper, onSurface=c.text) else lightColorScheme(primary=c.accent, background=c.page, surface=c.paper, onSurface=c.text), content=content)
     }
 }
-@Composable fun Label(text: String, size: Int = 17, weight: FontWeight = FontWeight.Normal, color: Color = LocalLeafColors.current.text, modifier: Modifier = Modifier, lines: Int = Int.MAX_VALUE) {
+@Composable fun Label(text: String, size: Int = 17, weight: FontWeight = FontWeight.Normal, color: Color = LocalPebbleColors.current.text, modifier: Modifier = Modifier, lines: Int = Int.MAX_VALUE) {
     androidx.compose.material3.Text(text, modifier, color=color, fontSize=size.sp, fontWeight=weight, lineHeight=(size*PebbleTokens.lineHeightRatio).sp, letterSpacing=if(size>=28) (-0.7).sp else (-0.15).sp, maxLines=lines, overflow=TextOverflow.Ellipsis)
 }
 fun iconResource(name: String): Int = when(name) {
-    "calendar" -> R.drawable.leaf_calendar; "clock" -> R.drawable.leaf_clock; "minus" -> R.drawable.leaf_minus; "flag" -> R.drawable.pebble_filled_flag
+    "calendar" -> R.drawable.pebble_calendar; "clock" -> R.drawable.pebble_clock; "minus" -> R.drawable.pebble_minus; "flag" -> R.drawable.pebble_filled_flag
     "check" -> R.drawable.lucide_list_checks; "edit" -> R.drawable.pebble_filled_edit; "next" -> R.drawable.lucide_chevron_right
     "sun" -> R.drawable.lucide_sun; "moon" -> R.drawable.lucide_moon; "sort" -> R.drawable.lucide_arrow_down_up
     "forward" -> R.drawable.lucide_chevron_right; "back" -> R.drawable.lucide_chevron_left; "down" -> R.drawable.lucide_chevron_down; "more" -> R.drawable.lucide_ellipsis
@@ -113,7 +113,7 @@ fun iconResource(name: String): Int = when(name) {
     "download" -> R.drawable.pebble_download; "bell" -> R.drawable.pebble_bell; "info" -> R.drawable.pebble_info; "sparkle" -> R.drawable.pebble_sparkle; "sync" -> R.drawable.lucide_arrow_left_right
     "copy" -> R.drawable.pebble_filled_copy; "note" -> R.drawable.pebble_note; "todo" -> R.drawable.pebble_filled_todo; "progress" -> R.drawable.pebble_filled_progress; "review" -> R.drawable.pebble_filled_review; "tray" -> R.drawable.pebble_tray; "plus" -> R.drawable.lucide_plus; else -> R.drawable.pebble_filled_folder
 }
-@Composable fun Glyph(name: String, description: String? = null, size: Int = 23, tint: Color = LocalLeafColors.current.text) {
+@Composable fun Glyph(name: String, description: String? = null, size: Int = 23, tint: Color = LocalPebbleColors.current.text) {
     if(name == "format") Label("Aa", size, FontWeight.Medium, tint)
     else Icon(painterResource(iconResource(name)), description, tint=tint, modifier=Modifier.size(size.dp))
 }
@@ -125,15 +125,15 @@ fun iconResource(name: String): Int = when(name) {
     Box(modifier.graphicsLayer { scaleX=scale; scaleY=scale; alpha=if(enabled) 1f else PebbleTokens.disabledOpacity }.then(if(description!=null) Modifier.semantics { contentDescription=description } else Modifier).combinedClickable(interactionSource=interaction, indication=null, enabled=enabled, onClick={haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);onClick()}, onLongClick=onLongClick), contentAlignment=Alignment.Center) { content() }
 }
 @Composable fun ChromeButton(name: String, label: String, size: Int = PebbleTokens.mobileTarget, prominent: Boolean = false, onClick: () -> Unit) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     Pressable(Modifier.size(size.dp).shadow(14.dp,CircleShape, ambientColor=Color.Black.copy(alpha=.035f),spotColor=Color.Black.copy(alpha=.06f)).then(if(prominent)Modifier.background(c.accent,CircleShape) else Modifier.frosted(CircleShape,surface=LocalChromeTint.current ?: c.paper.copy(alpha=.22f))).border(.5.dp,c.text.copy(alpha=.025f),CircleShape),label,onClick=onClick) { Glyph(name, size=23, tint=if(prominent) Color.White else c.text) }
 }
 @Composable fun ChromePill(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     Row(modifier.shadow(18.dp, CircleShape, ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.08f)).frosted(CircleShape,surface=LocalChromeTint.current).border(.6.dp,c.text.copy(alpha=.03f),CircleShape).padding(horizontal=8.dp), verticalAlignment=Alignment.CenterVertically, content=content)
 }
 
-@Composable fun LeafLibrary(store: Store, connect: () -> Unit) {
+@Composable fun PebbleLibrary(store: Store, connect: () -> Unit) {
     val dockBackdrop=remember{mutableStateOf<Backdrop?>(null)}
     val updater=remember { PebbleUpdater.get(store.context) }
     LaunchedEffect(Unit) { updater.check() }
@@ -154,7 +154,7 @@ fun iconResource(name: String): Int = when(name) {
     var gallery by remember { mutableStateOf(store.preferences.getBoolean("gallery",false)) }
     var editor by remember(store.selected) { mutableStateOf<EditText?>(null) }
     val calm=LocalCalmMotion.current
-    val scope=rememberCoroutineScope(); val keyboard=LocalSoftwareKeyboardController.current; val c=LocalLeafColors.current
+    val scope=rememberCoroutineScope(); val keyboard=LocalSoftwareKeyboardController.current; val c=LocalPebbleColors.current
     val images=androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> scope.launch { try { withContext(Dispatchers.IO) { uris.forEach { store.attach(it) } } } catch(e: Exception) { store.error=e.message } } }
     val backup=androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> if(uri!=null) scope.launch { try { val bytes=withContext(Dispatchers.IO){store.backup()}; withContext(Dispatchers.IO){store.context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) } ?: error("Could not write backup")}; store.status="Backup exported" }catch(e:Exception){store.error=e.message} } }
     val restore=androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if(uri!=null) scope.launch { try { withContext(Dispatchers.IO){store.context.contentResolver.openInputStream(uri)?.use { store.restore(it.readBytes()) } ?: error("Could not read backup") } }catch(e:Exception){store.error=e.message} } }
@@ -296,7 +296,7 @@ fun iconResource(name: String): Int = when(name) {
 }
 
 @Composable private fun SearchHeader(query:String,onQuery:(String)->Unit,onClose:()->Unit,count:Int) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     val focus=remember{FocusRequester()};val keyboard=LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit){focus.requestFocus();keyboard?.show()}
     Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -313,7 +313,7 @@ fun iconResource(name: String): Int = when(name) {
 }
 
 @Composable fun LibraryScreen(store:Store,section:String,records:List<Revision>,search:String,onSearch:(String)->Unit,folders:Boolean,onFolders:(Boolean)->Unit,gallery:Boolean,onGallery:()->Unit,enabled:Boolean,onSection:(String)->Unit,onMore:()->Unit,onOpen:(String)->Unit,onNew:()->Unit,onImage:(Media)->Unit,searchMode:Boolean=false,onSearchClose:()->Unit={}) {
-    val c=LocalLeafColors.current; val headerDensity=LocalDensity.current; var headerHeight by remember { mutableStateOf(146.dp) }
+    val c=LocalPebbleColors.current; val headerDensity=LocalDensity.current; var headerHeight by remember { mutableStateOf(146.dp) }
     var eraseNote by remember { mutableStateOf<String?>(null) };var held by remember { mutableStateOf<String?>(null) }; var choosingMove by remember { mutableStateOf(false) }
     FrostedHost {
     PublishDockBackdrop()
@@ -361,7 +361,7 @@ fun iconResource(name: String): Int = when(name) {
                 SearchHeader(search,onSearch,onSearchClose,records.size)
             } else {
             Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
-                if(folders) Image(painterResource(R.drawable.leaf_logo),"Pebble Notes",Modifier.size(48.dp).clip(RoundedCornerShape(13.dp))) else ChromeButton("back","Collections") {if(enabled)onFolders(true)}
+                if(folders) Image(painterResource(R.drawable.pebble_logo),"Pebble Notes",Modifier.size(48.dp).clip(RoundedCornerShape(13.dp))) else ChromeButton("back","Collections") {if(enabled)onFolders(true)}
                 Spacer(Modifier.weight(1f));ChromeButton("more","More options") {if(enabled)onMore()}
             }
             Label(if(folders)"Folders" else section,34,FontWeight.Bold,modifier=Modifier.padding(start=22.dp,top=12.dp))
@@ -381,7 +381,7 @@ fun iconResource(name: String): Int = when(name) {
 }
 }
 @Composable fun FolderRow(name:String,icon:String,count:Int,divider:Boolean,onClick:()->Unit) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     if(divider)Box(Modifier.fillMaxWidth().padding(start=52.dp).height(.5.dp).background(c.separator))
     Pressable(Modifier.fillMaxWidth(),description=name,onClick=onClick){Row(Modifier.fillMaxWidth().padding(horizontal=18.dp,vertical=17.dp),verticalAlignment=Alignment.CenterVertically){Glyph(icon,tint=c.accent);Label(name,17,modifier=Modifier.padding(start=12.dp).weight(1f));Label(count.toString(),16,color=c.secondary);Spacer(Modifier.width(10.dp));Glyph("forward",size=16,tint=c.tertiary)}}
 }
@@ -392,7 +392,7 @@ fun dateGroup(millis:Long):String {
     return when {days<=0->"Today";days==1->"Yesterday";days<7->"Previous 7 Days";else->SimpleDateFormat("MMMM",Locale.getDefault()).format(Date(millis))}
 }
 @Composable fun SwipeNoteRow(r:Revision,store:Store,divider:Boolean,shape:RoundedCornerShape,enabled:Boolean,reset:Int,onOpen:()->Unit,onHold:()->Unit) {
-    val c=LocalLeafColors.current; val scope=rememberCoroutineScope();val x=remember(r.noteId){Animatable(0f)};val actionWidth=with(LocalDensity.current){78.dp.toPx()}
+    val c=LocalPebbleColors.current; val scope=rememberCoroutineScope();val x=remember(r.noteId){Animatable(0f)};val actionWidth=with(LocalDensity.current){78.dp.toPx()}
     LaunchedEffect(reset,enabled){if(x.value!=0f)x.animateTo(0f,spring(dampingRatio=1f,stiffness=650f))}
     Box(Modifier.fillMaxWidth().clip(shape).background(c.paper)) {
         Row(Modifier.matchParentSize(),horizontalArrangement=Arrangement.SpaceBetween){Pressable(Modifier.width(78.dp).fillMaxHeight().background(c.accent),"Pin note",enabled,onClick={store.select(r.noteId);store.editing?.let{store.update(it.copy(pinned=!it.pinned))};store.select(null);scope.launch{x.animateTo(0f)}}){Glyph("pin",tint=Color.White)};Pressable(Modifier.width(78.dp).fillMaxHeight().background(c.danger),"Move to Trash",enabled,onClick={store.select(r.noteId);store.editing?.let{store.update(it.copy(deleted=!it.deleted))};store.select(null);scope.launch{x.animateTo(0f)}}){Glyph(if(r.note.deleted)"undo" else "trash",tint=Color.White)}}
@@ -414,10 +414,10 @@ fun dateGroup(millis:Long):String {
 @Composable fun GalleryCard(r:Revision,store:Store,onHold:()->Unit,onClick:()->Unit) {
     val uniform=store.preferences.getString("cardLayout","masonry")=="grid"
     val cardHeight=if(uniform)250.dp else if(r.note.text.length>240 || r.note.attachments.any{it.mime.startsWith("image/")})280.dp else 220.dp
-    val base=LocalLeafColors.current;val style=r.note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base
+    val base=LocalPebbleColors.current;val style=r.note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base
     val surface=if(style.framed)style.brush(base)else if(style.document!=null)Brush.verticalGradient(listOf(c.canvas,c.canvas))else Brush.verticalGradient(listOf(c.paper.copy(alpha=.98f),c.paper.copy(alpha=if(c.dark).72f else .78f)))
     Pressable(Modifier.fillMaxWidth().height(cardHeight).onGloballyPositioned{store.cardFrames[r.noteId]=it.boundsInRoot()}.shadow(8.dp,RoundedCornerShape(23.dp),ambientColor=Color.Black.copy(alpha=.04f),spotColor=Color.Black.copy(alpha=.06f)).clip(RoundedCornerShape(23.dp)).background(surface).wallpaper(style,512).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),r.note.displayTitle,onClick=onClick,onLongClick=onHold) {
-        CompositionLocalProvider(LocalLeafColors provides c) {
+        CompositionLocalProvider(LocalPebbleColors provides c) {
         Box(Modifier.then(if(style.framed)Modifier.padding(start=8.dp,end=8.dp,top=8.dp)else Modifier)) {
         Column(Modifier.fillMaxSize().offset(y=if(style.framed)7.dp else 0.dp).clip(RoundedCornerShape(if(style.framed)16.dp else 23.dp)).background(if(style.framed)c.canvas else Color.Transparent).padding(17.dp)) {
             Label(r.note.displayTitle,19,FontWeight.SemiBold,lines=2);Spacer(Modifier.height(10.dp))
@@ -430,7 +430,7 @@ fun dateGroup(millis:Long):String {
     }
 }
 @Composable fun ImageGalleryCard(r:Revision,a:Media,store:Store,onClick:()->Unit,onHold:()->Unit) {
-    val base=LocalLeafColors.current;val style=r.note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base
+    val base=LocalPebbleColors.current;val style=r.note.style ?: NoteStyle();val c=if(style.customised)style.documentColours(base)else base
     val surface=if(style.framed)style.brush(base)else if(style.document!=null)Brush.verticalGradient(listOf(c.canvas,c.canvas))else Brush.verticalGradient(listOf(c.paper.copy(alpha=.98f),c.paper.copy(alpha=if(c.dark).72f else .78f)))
     Pressable(Modifier.clip(RoundedCornerShape(23.dp)).background(surface).wallpaper(style,512).border(.5.dp,c.text.copy(alpha=.065f),RoundedCornerShape(23.dp)),description="View ${a.name}",onClick=onClick,onLongClick=onHold) {
         Box(Modifier.then(if(style.framed)Modifier.padding(start=8.dp,end=8.dp,top=8.dp)else Modifier)) {
@@ -443,16 +443,19 @@ fun dateGroup(millis:Long):String {
 }
 @Composable fun EditorScreen(store:Store,note:Note,noteId:String?,onBack:()->Unit,onMore:()->Unit,onFormat:()->Unit,onImages:()->Unit,onCompose:()->Unit,onPreview:(Media)->Unit,onEditor:(EditText)->Unit,onConflict:()->Unit,onShare:()->Unit) {
     val reveal=LocalNoteReveal.current
-    val base=LocalLeafColors.current;val style=note.style ?: NoteStyle();val calm=LocalCalmMotion.current
+    val base=LocalPebbleColors.current;val style=note.style ?: NoteStyle();val calm=LocalCalmMotion.current
     val frame by animateFloatAsState(if(style.framed)1f else 0f,if(calm)snap()else spring(dampingRatio=1f,stiffness=450f),label="document frame")
     val paper by androidx.compose.animation.animateColorAsState(style.paper(base),tween(if(calm)0 else 220),label="document colour")
     val ink by androidx.compose.animation.animateColorAsState(style.ink(base),tween(if(calm)0 else 180),label="document ink")
     val edgeColour=noteEdgeColour(style,base)
     val raw=style.documentColours(base);val c=raw.copy(canvas=paper,paper=paper,text=ink,secondary=ink.copy(alpha=.65f),tertiary=ink.copy(alpha=.4f));val chrome=if(style.customised)base.copy(text=if(lightColour(edgeColour))Color(0xFF191919)else Color(0xFFF7F7F7))else base;val footer by androidx.compose.animation.animateColorAsState(hexColour(style.backdropEnd ?: style.backdrop) ?: paper,tween(if(calm)0 else 220),label="footer colour");val metrics=LocalTypeSizes.current.copy(scale=note.textScale);val keyboard=LocalSoftwareKeyboardController.current;val focus=LocalFocusManager.current;var editing by remember(noteId){mutableStateOf(false)}
     FrostedHost {
-    Box(Modifier.fillMaxSize().background(animatedStyleBrush(style,base)).wallpaper(style)) {
-            Column(Modifier.fillMaxSize().backdropSource().background(animatedStyleBrush(style,base)).wallpaper(style).verticalScroll(rememberScrollState()).padding(horizontal=(12*frame).dp).padding(top=(86*frame).dp+WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),bottom=(110*frame).dp+WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
-            CompositionLocalProvider(LocalLeafColors provides c) {
+    Box(Modifier.fillMaxSize()) {
+            // Never record AndroidView text fields into the glass source. Native editor
+            // render nodes must remain outside a layer sampled by sibling glass layers.
+            Box(Modifier.matchParentSize().backdropSource().background(animatedStyleBrush(style,base)).wallpaper(style))
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=(12*frame).dp).padding(top=(86*frame).dp+WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),bottom=(110*frame).dp+WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
+            CompositionLocalProvider(LocalPebbleColors provides c) {
             Column(Modifier.fillMaxWidth().heightIn(min=((LocalConfiguration.current.screenHeightDp-220).coerceAtLeast(300)*frame).dp).clip(RoundedCornerShape((22*frame).dp)).background(c.canvas).border(.7.dp,c.separator.copy(alpha=c.separator.alpha*frame),RoundedCornerShape((22*frame).dp)).padding(horizontal=(28-12*frame).dp).padding(top=(100-72*frame).dp,bottom=(130-80*frame).dp)) {
                 BasicTextField(note.title,{store.editing?.let{n->store.update(n.copy(title=it))}},singleLine=false,keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(imeAction=androidx.compose.ui.text.input.ImeAction.Next),keyboardActions=androidx.compose.foundation.text.KeyboardActions(onNext={focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Next)}),textStyle=TextStyle(fontSize=metrics.size("title").sp,fontWeight=FontWeight.SemiBold,color=c.text,lineHeight=(metrics.size("title")*1.2).sp,letterSpacing=(-.6).sp),cursorBrush=SolidColor(c.accent),modifier=Modifier.fillMaxWidth().onFocusChanged{editing=it.isFocused},decorationBox={inner->if(note.title.isEmpty())Label("Untitled note",30,FontWeight.SemiBold,c.tertiary);inner()})
                 if(store.heads.count{it.noteId==store.selected}>1)Pressable(Modifier.padding(top=12.dp),"Review versions",onClick=onConflict){Label("Edits from both devices · review",13,color=c.accent)}
@@ -461,14 +464,14 @@ fun dateGroup(millis:Long):String {
             }
             }
             }
-            CompositionLocalProvider(LocalLeafColors provides chrome,LocalChromeTint provides (if(lightColour(edgeColour))Color.White.copy(alpha=.24f)else edgeColour.copy(alpha=.22f))) {
+            CompositionLocalProvider(LocalPebbleColors provides chrome,LocalChromeTint provides (if(lightColour(edgeColour))Color.White.copy(alpha=.24f)else edgeColour.copy(alpha=.22f))) {
             ScrollHeader(modifier=Modifier.graphicsLayer{alpha=((reveal()-.35f)/.65f).coerceIn(0f,1f)},surface=Color.Transparent) { Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 ChromeButton("back","Back to notes",onClick=onBack);Spacer(Modifier.weight(1f))
                 ChromePill(Modifier.height(48.dp)) {NoteStyleMenu(store,base);Pressable(Modifier.size(44.dp),"Share note",onClick=onShare){Glyph("share")};Pressable(Modifier.size(44.dp),"Note options",onClick=onMore){Glyph("more")}}
                 if(editing)ChromeButton("done","Done editing",prominent=true){keyboard?.hide();activeTextEditor?.clearFocus();focus.clearFocus();editing=false}
             }}
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(132.dp).background(Brush.verticalGradient(listOf(Color.Transparent,footer.copy(alpha=.92f)))))
-        CompositionLocalProvider(LocalLeafColors provides chrome.copy(text=if(lightColour(footer))Color(0xFF191919)else Color(0xFFF7F7F7))) {
+        CompositionLocalProvider(LocalPebbleColors provides chrome.copy(text=if(lightColour(footer))Color(0xFF191919)else Color(0xFFF7F7F7))) {
         Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().graphicsLayer{alpha=((reveal()-.50f)/.50f).coerceIn(0f,1f)}.navigationBarsPadding().padding(horizontal=22.dp).padding(top=12.dp,bottom=24.dp),verticalAlignment=Alignment.CenterVertically) {
             ChromePill(Modifier.height(50.dp)) {
                 Pressable(Modifier.size(48.dp),"Format",onClick=onFormat){Glyph("format")}
@@ -492,7 +495,7 @@ fun prefixLine(view:EditText,prefix:String) {
     if(text.subSequence(start,end).startsWith(prefix))text.delete(start,start+prefix.length) else text.insert(start,prefix)
 }
 @Composable fun FormatPanel(modifier:Modifier,onClose:()->Unit,onStyle:(String)->Unit,onList:(String)->Unit,onLink:(String)->Unit,currentStyle:String="body") {
-    val c=LocalLeafColors.current;var link by remember{mutableStateOf("")}
+    val c=LocalPebbleColors.current;var link by remember{mutableStateOf("")}
     Column(modifier.fillMaxWidth().padding(start=12.dp,end=12.dp,bottom=16.dp).shadow(20.dp,RoundedCornerShape(28.dp)).background(c.paper,RoundedCornerShape(28.dp)).border(.7.dp,c.separator,RoundedCornerShape(28.dp)).heightIn(max=520.dp).verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Label("Format",24,FontWeight.SemiBold,modifier=Modifier.weight(1f));Pressable(Modifier.size(44.dp).background(c.fill,CircleShape),"Close format",onClick=onClose){Glyph("close")}}
         IosSegments(listOf("Title","Subtitle","Heading","Body"),listOf("title","subtitle","headline","body").indexOf(currentStyle).coerceAtLeast(0)){onStyle(listOf("title","subtitle","headline","body")[it])}
@@ -505,12 +508,12 @@ fun prefixLine(view:EditText,prefix:String) {
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("check" to "Checklist","bullet" to "Bullets","number" to "Numbers").forEach{(kind,label)->Pressable(Modifier.weight(1f).height(48.dp).background(c.fill,CircleShape),label,onClick={onList(kind)}){Glyph(if(kind=="bullet")"list"else kind,description=label)}}}
     }
 }
-@Composable fun GhostAction(title:String,icon:String="undo",tint:Color=LocalLeafColors.current.text,onClick:()->Unit) {
-    val c=LocalLeafColors.current
+@Composable fun GhostAction(title:String,icon:String="undo",tint:Color=LocalPebbleColors.current.text,onClick:()->Unit) {
+    val c=LocalPebbleColors.current
     Pressable(Modifier.fillMaxWidth().heightIn(min=48.dp).background(c.fill,RoundedCornerShape(12.dp)).border(.7.dp,c.separator,RoundedCornerShape(12.dp)),title,onClick=onClick){Row(Modifier.fillMaxWidth().padding(horizontal=14.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){Glyph(icon,size=20,tint=tint);Label(title,16,color=tint)}}
 }
 @Composable fun IosSegments(labels:List<String>,selected:Int,onSelect:(Int)->Unit) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     val haptic=androidx.compose.ui.platform.LocalHapticFeedback.current
     val calm=LocalCalmMotion.current;val scope=rememberCoroutineScope();var width by remember{mutableFloatStateOf(1f)};var dragging by remember{mutableStateOf(false)}
     val currentSelected by rememberUpdatedState(selected);val select by rememberUpdatedState(onSelect)
@@ -527,8 +530,8 @@ fun prefixLine(view:EditText,prefix:String) {
         )}) {labels.forEachIndexed{i,name->Pressable(Modifier.weight(1f).fillMaxHeight().semantics{this.selected=i==selected},name,onClick={onSelect(i)}){Label(name,14,if(i==selected)FontWeight.SemiBold else FontWeight.Normal)}}}
     }
 }
-@Composable fun SheetRow(label:String,icon:String,tint:Color=LocalLeafColors.current.text,onClick:()->Unit) {
-    val c=LocalLeafColors.current
+@Composable fun SheetRow(label:String,icon:String,tint:Color=LocalPebbleColors.current.text,onClick:()->Unit) {
+    val c=LocalPebbleColors.current
     Column {
         Pressable(Modifier.fillMaxWidth().heightIn(min=PebbleTokens.mobileTarget.dp),label,onClick=onClick){Row(Modifier.fillMaxWidth().padding(vertical=9.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){Box(Modifier.size(PebbleTokens.sheetIconTile.dp).background(tint.copy(alpha=.065f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Glyph(icon,size=PebbleTokens.sheetIconSize,tint=tint)};Label(label,15,color=tint,modifier=Modifier.weight(1f))}}
         Box(Modifier.fillMaxWidth().padding(start=PebbleTokens.sheetDividerInset.dp).height(PebbleTokens.mobileDividerWidth.dp).background(c.text.copy(alpha=PebbleTokens.dividerOpacity)))
@@ -536,7 +539,7 @@ fun prefixLine(view:EditText,prefix:String) {
 }
 val LocalSheetAction=compositionLocalOf<((()->Unit)->Unit)>{ {action->action()} }
 @Composable fun IosSheet(title:String,onDismiss:()->Unit,translucent:Boolean=false,footer:(@Composable ()->Unit)?=null,content:@Composable ColumnScope.()->Unit) {
-    val c=LocalLeafColors.current;val calm=LocalCalmMotion.current;val progress=remember{Animatable(0f)};var closing by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
+    val c=LocalPebbleColors.current;val calm=LocalCalmMotion.current;val progress=remember{Animatable(0f)};var closing by remember{mutableStateOf(false)};val scope=rememberCoroutineScope()
     val finish:((()->Unit)->Unit)={action->if(!closing){closing=true;scope.launch{progress.animateTo(0f,tween(if(calm)0 else 180));action()}}}
     val close:()->Unit={finish(onDismiss)}
     LaunchedEffect(Unit){progress.animateTo(1f,if(calm)snap() else spring(dampingRatio=.9f,stiffness=480f))}
@@ -558,18 +561,18 @@ val LocalSheetAction=compositionLocalOf<((()->Unit)->Unit)>{ {action->action()} 
     }
 }
 @Composable fun MediaImage(file:File,modifier:Modifier,fit:Boolean=false,radius:Int=14) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     val bitmap by produceState<android.graphics.Bitmap?>(null,file,fit){value=withContext(Dispatchers.IO){val b=BitmapFactory.Options().apply{inJustDecodeBounds=true};BitmapFactory.decodeFile(file.path,b);var sample=1;val max=if(fit)1800 else 650;while(b.outWidth/sample>max||b.outHeight/sample>max)sample*=2;BitmapFactory.decodeFile(file.path,BitmapFactory.Options().apply{inSampleSize=sample})}}
     Box(modifier.then(if(fit)Modifier else Modifier.shadow(7.dp,RoundedCornerShape(radius.dp),ambientColor=Color.Black.copy(alpha=.035f),spotColor=Color.Black.copy(alpha=.07f))).clip(RoundedCornerShape(radius.dp)).background(c.fill).then(if(fit)Modifier else Modifier.border(.6.dp,c.text.copy(alpha=.08f),RoundedCornerShape(radius.dp)))){bitmap?.let{Image(it.asImageBitmap(),"Attached image",Modifier.fillMaxSize(),contentScale=if(fit)ContentScale.Fit else ContentScale.Crop)}}
 }
 object WorkCanceller {fun cancel(context:android.content.Context){androidx.work.WorkManager.getInstance(context).cancelUniqueWork("leaf-sync");androidx.work.WorkManager.getInstance(context).cancelUniqueWork("leaf-periodic")}}
 
-@Composable fun SheetRowCompact(label:String,onClick:()->Unit){Pressable(Modifier.padding(horizontal=12.dp,vertical=10.dp),label,onClick=onClick){Label(label,15,color=LocalLeafColors.current.secondary)}}
+@Composable fun SheetRowCompact(label:String,onClick:()->Unit){Pressable(Modifier.padding(horizontal=12.dp,vertical=10.dp),label,onClick=onClick){Label(label,15,color=LocalPebbleColors.current.secondary)}}
 
 @Composable fun MobileField(value:String,placeholder:String,modifier:Modifier=Modifier,singleLine:Boolean=false,onChange:(String)->Unit) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     Box(modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.text.copy(alpha=if(c.dark).055f else .035f)).border(.7.dp,c.text.copy(alpha=.12f),RoundedCornerShape(12.dp)).padding(horizontal=14.dp,vertical=14.dp)) {
         BasicTextField(value,onChange,singleLine=singleLine,textStyle=TextStyle(fontSize=16.sp,color=c.text),cursorBrush=SolidColor(c.accent),modifier=Modifier.fillMaxWidth(),decorationBox={inner->if(value.isEmpty())Label(placeholder,16,color=c.secondary);inner()})
     }
 }
-@Composable fun SubtleDivider() { val c=LocalLeafColors.current;Box(Modifier.fillMaxWidth().height(.5.dp).background(c.text.copy(alpha=.08f))) }
+@Composable fun SubtleDivider() { val c=LocalPebbleColors.current;Box(Modifier.fillMaxWidth().height(.5.dp).background(c.text.copy(alpha=.08f))) }

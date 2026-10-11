@@ -69,8 +69,8 @@ import UniformTypeIdentifiers
         UserDefaults.standard.set(deviceId, forKey: "deviceId")
         do {
             try FileManager.default.createDirectory(at: media, withIntermediateDirectories: true)
-            db = leaf_open(root.appendingPathComponent("notes.sqlite").path)
-            guard db != nil else { throw LeafError.message("Could not open the note library") }
+            db = pebble_open(root.appendingPathComponent("notes.sqlite").path)
+            guard db != nil else { throw PebbleError.message("Could not open the note library") }
             reload()
             if recoverDrafts {
                 let pending = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).filter { $0.lastPathComponent == "pending-draft.json" || ($0.lastPathComponent.hasPrefix("pending-draft-") && $0.pathExtension == "json") }
@@ -84,19 +84,19 @@ import UniformTypeIdentifiers
     }
     var draftURL: URL { root.appendingPathComponent(draftFileName) }
     func revisions(pending: Bool = false, headsOnly: Bool = false) throws -> [Revision] {
-        guard let db, let ptr = leaf_list(db, pending ? 1 : 0, headsOnly ? 1 : 0) else { throw LeafError.message("Could not read note library") }
-        defer { leaf_free(ptr) }
+        guard let db, let ptr = pebble_list(db, pending ? 1 : 0, headsOnly ? 1 : 0) else { throw PebbleError.message("Could not read note library") }
+        defer { pebble_free(ptr) }
         return try JSONDecoder().decode([Revision].self, from: Data(String(cString: ptr).utf8))
     }
     func rawRevisions() throws -> String {
-        guard let db, let ptr = leaf_list(db, 0, 0) else { throw LeafError.message("Could not read revisions") }
-        defer { leaf_free(ptr) }; return String(cString: ptr)
+        guard let db, let ptr = pebble_list(db, 0, 0) else { throw PebbleError.message("Could not read revisions") }
+        defer { pebble_free(ptr) }; return String(cString: ptr)
     }
     func ingest(_ raw: String, remote: Bool) throws {
-        guard let db, leaf_put(db, raw, remote ? 1 : 0) != 0 else { throw LeafError.message(String(cString: leaf_error(db))) }
+        guard let db, pebble_put(db, raw, remote ? 1 : 0) != 0 else { throw PebbleError.message(String(cString: pebble_error(db))) }
     }
     func acknowledge(_ id: String) throws {
-        guard let db, leaf_ack(db, id) != 0 else { throw LeafError.message("Could not record sync progress") }
+        guard let db, pebble_ack(db, id) != 0 else { throw PebbleError.message("Could not record sync progress") }
     }
     func reload() { do { heads = try revisions(headsOnly: true); expireTrash(); if automaticBackups { TaskAlerts.refresh(uniqueHeads) } } catch { self.error = error.localizedDescription } }
     func select(_ id: String?) { if selected != id { discardBlankOnLeave() }; flush(); if draft == nil { selected = id; undoNotes = []; redoNotes = []; canUndo = false; canRedo = false; activeBlock = nil; insertionOffset = nil } }
@@ -161,7 +161,7 @@ import UniformTypeIdentifiers
             for url in urls {
                 let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
                 let data = try Data(contentsOf: url)
-                guard NSImage(data: data) != nil else { throw LeafError.message("\(url.lastPathComponent) is not a supported image") }
+                guard NSImage(data: data) != nil else { throw PebbleError.message("\(url.lastPathComponent) is not a supported image") }
                 let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
                 let destination = media.appendingPathComponent(hash)
                 if !FileManager.default.fileExists(atPath: destination.path) { try data.write(to: destination, options: .atomic) }
@@ -189,20 +189,20 @@ import UniformTypeIdentifiers
         flush(); let panel = NSOpenPanel(); guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let data = try Data(contentsOf: url)
-            guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any], object["format"] as? String == "leaf-backup-1", let records = object["revisions"] as? [[String: Any]], let blobs = object["media"] as? [String: String] else { throw LeafError.message("This is not a Leaf backup") }
+            guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any], object["format"] as? String == "leaf-backup-1", let records = object["revisions"] as? [[String: Any]], let blobs = object["media"] as? [String: String] else { throw PebbleError.message("This is not a Leaf backup") }
             // Validate the complete graph in an isolated database before touching the library.
-            guard let validation = leaf_open(":memory:") else { throw LeafError.message("Could not validate backup") }
-            defer { leaf_close(validation) }
+            guard let validation = pebble_open(":memory:") else { throw PebbleError.message("Could not validate backup") }
+            defer { pebble_close(validation) }
             let existing = try JSONSerialization.jsonObject(with: Data(rawRevisions().utf8)) as! [[String: Any]]
-            for record in existing { let raw = String(data: try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]), encoding: .utf8)!; guard leaf_put(validation, raw, 0) != 0 else { throw LeafError.message("Could not validate current library") } }
+            for record in existing { let raw = String(data: try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]), encoding: .utf8)!; guard pebble_put(validation, raw, 0) != 0 else { throw PebbleError.message("Could not validate current library") } }
             for record in records {
                 let raw = String(data: try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]), encoding: .utf8)!
-                guard leaf_put(validation, raw, 0) != 0 else { throw LeafError.message(String(cString: leaf_error(validation))) }
+                guard pebble_put(validation, raw, 0) != 0 else { throw PebbleError.message(String(cString: pebble_error(validation))) }
                 let r = try JSONDecoder().decode(Revision.self, from: Data(raw.utf8))
-                for a in r.note.attachments { guard let b = blobs[a.id], let bytes = Data(base64Encoded: b), SHA256.hash(data: bytes).map({ String(format: "%02x", $0) }).joined() == a.id else { throw LeafError.message("Backup has missing or damaged images") } }
+                for a in r.note.attachments { guard let b = blobs[a.id], let bytes = Data(base64Encoded: b), SHA256.hash(data: bytes).map({ String(format: "%02x", $0) }).joined() == a.id else { throw PebbleError.message("Backup has missing or damaged images") } }
             }
             for (hash, b) in blobs {
-                guard hash.count == 64, hash.allSatisfy({ "0123456789abcdef".contains($0) }), let bytes = Data(base64Encoded: b), SHA256.hash(data: bytes).map({ String(format: "%02x", $0) }).joined() == hash else { throw LeafError.message("Invalid backup attachment") }
+                guard hash.count == 64, hash.allSatisfy({ "0123456789abcdef".contains($0) }), let bytes = Data(base64Encoded: b), SHA256.hash(data: bytes).map({ String(format: "%02x", $0) }).joined() == hash else { throw PebbleError.message("Invalid backup attachment") }
                 try bytes.write(to: media.appendingPathComponent(hash), options: .atomic)
             }
             for record in records { try ingest(String(data: try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]), encoding: .utf8)!, remote: false) }

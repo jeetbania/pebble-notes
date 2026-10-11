@@ -19,47 +19,60 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 
+// Measurements remain fixed for the entire gesture. Only layers move; the document
+// and native text fields are not rebuilt until the drop is committed.
 class ReorderGroup {
-    val frames=mutableStateMapOf<String,Rect>()
+    val frames=mutableMapOf<String,Rect>()
     var draggedId by mutableStateOf<String?>(null)
-    var pointerY by mutableFloatStateOf(0f)
-    var grabY=0f
+    var delta by mutableFloatStateOf(0f)
+    var offsets by mutableStateOf<Map<String,Float>>(emptyMap())
+    var snapshot:Map<String,Rect> = emptyMap()
+    var families:Map<String,Set<String>> = emptyMap()
+    var initialOrder:List<String> = emptyList()
+    var pendingOrder:List<String> = emptyList()
+    fun begin(id:String,order:List<String>,members:Map<String,Set<String>>) {
+        snapshot=frames.toMap();families=members;initialOrder=order;pendingOrder=order
+        delta=0f;offsets=emptyMap();draggedId=id
+    }
+    fun move(amount:Float):Boolean {
+        val id=draggedId ?: return false;delta+=amount
+        val rect=snapshot[id] ?: return false
+        val target=reorderInsertionIndex(initialOrder,id,snapshot,rect.center.y+delta)
+        val next=initialOrder.filter{it!=id}.toMutableList().apply{add(target.coerceIn(0,size),id)}
+        val changed=next!=pendingOrder;pendingOrder=next
+        val displaced=mutableMapOf<String,Float>()
+        // Derive complete family extents, including expanded toggle children.
+        val extents=initialOrder.associateWith{key->(families[key] ?: setOf(key)).mapNotNull{snapshot[it]}.let{rs->Rect(0f,rs.minOfOrNull{it.top} ?: 0f,0f,rs.maxOfOrNull{it.bottom} ?: 0f)}}
+        var y=extents[initialOrder.firstOrNull()]?.top ?: 0f
+        next.forEachIndexed{index,key->
+            val original=extents[key]!!
+            (families[key] ?: setOf(key)).forEach{displaced[it]=if(key==id)delta else y-original.top}
+            val originalIndex=initialOrder.indexOf(key)
+            val gap=initialOrder.getOrNull(originalIndex+1)?.let{extents[it]!!.top-original.bottom} ?: 0f
+            y+=original.height+gap
+        }
+        offsets=displaced;return changed
+    }
+    fun finish():List<String> {val result=pendingOrder;draggedId=null;offsets=emptyMap();delta=0f;return result}
 }
 fun Modifier.reorderTarget(id:String,group:ReorderGroup)=composed {
-    val scope=rememberCoroutineScope();val displacement=remember{Animatable(0f)}
     val calm=LocalCalmMotion.current
-    var animationJob by remember { mutableStateOf<Job?>(null) }
-    var previousY by remember{mutableStateOf<Float?>(null)}
-    var settledFrame by remember{mutableStateOf(Rect.Zero)}
-    var wasDragged by remember{mutableStateOf(false)}
-    val dragging=group.draggedId==id
-    LaunchedEffect(dragging){
-        if(!dragging && wasDragged){animationJob?.cancel();val release=group.pointerY-group.grabY-settledFrame.top;displacement.snapTo(release);if(calm)displacement.snapTo(0f)else displacement.animateTo(0f,spring(dampingRatio=1f,stiffness=550f))}
-        wasDragged=dragging
-    }
+    val dragging=group.draggedId?.let{id in (group.families[it] ?: setOf(it))} ?: false
+    val target=group.offsets[id] ?: 0f
+    val offset by animateFloatAsState(target,if(calm || dragging || group.draggedId==null)tween(0)else spring(dampingRatio=1f,stiffness=480f),label="block gap")
     DisposableEffect(id){onDispose{group.frames.remove(id)}}
-    this.onPlaced { coordinates->
-        val y=coordinates.positionInParent().y;val old=previousY;previousY=y
-        settledFrame=coordinates.boundsInRoot();group.frames[id]=settledFrame
-        if(old!=null && old!=y && !dragging){animationJob?.cancel();animationJob=scope.launch{displacement.snapTo(displacement.value+old-y);if(calm)displacement.snapTo(0f)else displacement.animateTo(0f,spring(dampingRatio=1f,stiffness=480f))}}
-    }.zIndex(if(dragging)1f else 0f).graphicsLayer {
-        translationY=if(dragging)group.pointerY-group.grabY-settledFrame.top else displacement.value
-        alpha=if(dragging).88f else 1f
-    }
+    this.onGloballyPositioned { if(group.draggedId==null)group.frames[id]=it.boundsInRoot() }
+        .zIndex(if(dragging)1f else 0f).graphicsLayer {translationY=if(dragging)target else offset;alpha=if(dragging).92f else 1f}
 }
-@Composable fun ReorderGrip(id:String,group:ReorderGroup,order:List<String>,onDragging:(Boolean)->Unit={},onOptions:(()->Unit)?=null,onOrder:(List<String>)->Unit) {
-    val currentOrder by rememberUpdatedState(order);val change by rememberUpdatedState(onOrder);val dragState by rememberUpdatedState(onDragging);val haptic=LocalHapticFeedback.current
-    var bounds by remember{mutableStateOf(Rect.Zero)}
-    Box(Modifier.width(if(onOptions!=null)44.dp else 24.dp).height(if(onOptions!=null)44.dp else 30.dp).clickable(enabled=onOptions!=null,onClick={onOptions?.invoke()}).onGloballyPositioned{bounds=it.boundsInRoot()}.pointerInput(id){var pointer=Offset.Zero;detectDragGestures(
-        onDragStart={point->pointer=bounds.topLeft+point;group.pointerY=pointer.y;group.grabY=pointer.y-(group.frames[id]?.top ?: bounds.top);group.draggedId=id;dragState(true);haptic.performHapticFeedback(HapticFeedbackType.LongPress)},
-        onDragEnd={group.draggedId=null;dragState(false)},onDragCancel={group.draggedId=null;dragState(false)},
-        onDrag={event,amount->event.consume();pointer+=amount;group.pointerY=pointer.y
-            val ids=currentOrder.toMutableList();val from=ids.indexOf(id)
-            val dragged=group.frames[id]
-            val center=pointer.y-group.grabY+(dragged?.height ?: 0f)/2f
-            val to=reorderInsertionIndex(ids,id,group.frames,center);if(from>=0 && to>=0 && from!=to){ids.removeAt(from);ids.add(to,id);change(ids);haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)}
-        }
-    )},contentAlignment=Alignment.Center){Label("⋮⋮",13,color=LocalLeafColors.current.tertiary)}
+@Composable fun ReorderGrip(id:String,group:ReorderGroup,order:List<String>,families:Map<String,Set<String>> = emptyMap(),onDragging:(Boolean)->Unit={},onOptions:(()->Unit)?=null,onOrder:(List<String>)->Unit) {
+    val currentOrder by rememberUpdatedState(order);val members by rememberUpdatedState(families)
+    val change by rememberUpdatedState(onOrder);val dragState by rememberUpdatedState(onDragging);val haptic=LocalHapticFeedback.current
+    Box(Modifier.width(if(onOptions!=null)44.dp else 24.dp).height(if(onOptions!=null)44.dp else 30.dp).clickable(enabled=onOptions!=null,onClick={onOptions?.invoke()}).pointerInput(id,group){detectDragGestures(
+        onDragStart={group.begin(id,currentOrder,members);dragState(true);haptic.performHapticFeedback(HapticFeedbackType.LongPress)},
+        onDragEnd={val old=group.initialOrder;val next=group.finish();if(next!=old)change(next);dragState(false)},
+        onDragCancel={group.finish();dragState(false)},
+        onDrag={event,amount->event.consume();if(group.move(amount.y))haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)}
+    )},contentAlignment=Alignment.Center){Label("⋮⋮",13,color=LocalPebbleColors.current.tertiary)}
 }
 @Composable fun CollectionRows(store:Store,onOpen:(String)->Unit) {
     val preferenceVersion=LocalPreferencesVersion.current;val group=remember{ReorderGroup()}

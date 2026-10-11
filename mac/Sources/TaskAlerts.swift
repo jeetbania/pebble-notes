@@ -1,16 +1,16 @@
 import Foundation
 @preconcurrency import UserNotifications
 
-final class LeafTaskNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
-    static let shared = LeafTaskNotificationDelegate()
+final class PebbleTaskNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = PebbleTaskNotificationDelegate()
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) { completionHandler([.banner, .sound]) }
 }
 @MainActor enum TaskAlerts {
-    static func configure() { UNUserNotificationCenter.current().delegate = LeafTaskNotificationDelegate.shared }
+    static func configure() { UNUserNotificationCenter.current().delegate = PebbleTaskNotificationDelegate.shared }
     static var signature: String? = nil
     static var generation = 0
     static func refresh(_ records: [Revision]) {
-        #if !LEAF_TEST
+        #if !PEBBLE_TEST
         let active = records.filter { r in let t = r.note.task; return t?.remind == true && t?.completed == false && !r.note.deleted && !r.note.archived && (t?.alertDate ?? .distantPast) > Date() }
         let next = active.map { $0.noteId + ":" + String($0.note.task!.dueAt) + ":" + String($0.note.task!.hasTime) + ":" + $0.note.title + ":" + $0.note.task!.list }.sorted().joined(separator: "|")
         guard signature != next else { return }; signature = next; generation += 1; let revision = generation

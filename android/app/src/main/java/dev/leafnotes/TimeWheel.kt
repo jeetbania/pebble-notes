@@ -12,7 +12,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import java.util.Calendar
 
 @Composable fun RollingTimePicker(time:Long,onChange:(Long)->Unit) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     val calendar=Calendar.getInstance().apply{timeInMillis=time}
     fun change(hour:Int=calendar.get(Calendar.HOUR_OF_DAY),minute:Int=calendar.get(Calendar.MINUTE)) {
         onChange(Calendar.getInstance().apply{timeInMillis=time;set(Calendar.HOUR_OF_DAY,hour);set(Calendar.MINUTE,minute);set(Calendar.SECOND,0);set(Calendar.MILLISECOND,0)}.timeInMillis)

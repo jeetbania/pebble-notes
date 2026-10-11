@@ -3,7 +3,7 @@ import SwiftUI
 struct PebbleOnboarding: View {
     var finish: () -> Void
     var connect: () -> Void
-    @LeafState private var page = 0
+    @PebbleState private var page = 0
     @AppStorage("profileName") private var name = ""
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reducedMotion
@@ -22,7 +22,7 @@ struct PebbleOnboarding: View {
                     if page == 2 {
                         TextField("Your name · optional", text: $name).modifier(PebbleField()).frame(minHeight: 42).onChange(of: name) { _, next in if next.count > 40 { name = String(next.prefix(40)) } }
                         Text("Choose your accent").font(.caption).foregroundStyle(.secondary)
-                        HStack { ForEach(AccentPreference.choices, id: \.self) { choice in Button { accent.name = choice } label: { Circle().fill(LeafPalette.color("Accents", choice)).frame(width: 24, height: 24).overlay { if accent.name == choice { Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(choice == "Yellow" || choice == "Green" || choice == "Orange" ? .black : .white) } }.frame(width: 38, height: 40) }.accessibilityLabel(choice + " accent") } }
+                        HStack { ForEach(AccentPreference.choices, id: \.self) { choice in Button { accent.name = choice } label: { Circle().fill(PebblePalette.color("Accents", choice)).frame(width: 24, height: 24).overlay { if accent.name == choice { Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(choice == "Yellow" || choice == "Green" || choice == "Orange" ? .black : .white) } }.frame(width: 38, height: 40) }.accessibilityLabel(choice + " accent") } }
                     }
                     if page == 3 { Button("Connect Google Drive") { complete(); connect() }; Text("Optional. No account is needed to start writing.").font(.caption).foregroundStyle(.secondary) }
                 }.frame(width: 300, alignment: .leading)

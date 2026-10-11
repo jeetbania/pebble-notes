@@ -8,14 +8,14 @@ Use semantic roles, with opacity applied at the point of use. User-selected note
 
 | Role | Android source | macOS source / usage |
 | --- | --- | --- |
-| Page | `LocalLeafColors.current.page` | Native window background / `WindowMaterial` |
+| Page | `LocalPebbleColors.current.page` | Native window background / `WindowMaterial` |
 | Grouped surface | `paper` | `CardMaterial` or native neutral material |
 | Editor canvas | `canvas`, overridden by `NoteStyle` | `NoteStyle.paper` / native text background |
 | Neutral fill | `fill` | Primary colour with restrained opacity or material |
 | Primary text | `text` | `Color.primary` / native label |
 | Secondary text | `secondary` | `Color.secondary` |
 | Tertiary / decorative text | `tertiary` | Primary at reduced opacity; avoid for required body copy |
-| Accent / selection | `accent` | `LeafPalette.accent` |
+| Accent / selection | `accent` | `PebblePalette.accent` |
 | Destructive | `danger` | Semantic red / palette Red |
 | Separator | `separator` or `text × dividerOpacity` | `Color.primary × dividerOpacity` |
 
@@ -52,7 +52,7 @@ Spacing scale: **4, 8, 12, 16, 20, 24, 32, 40, 48**, named `space4` … `space48
 | `actionRadius` | 10 | Desktop material actions / phone icon tiles |
 | `fieldRadius` | 12 | Rounded fields and ghost actions |
 | `cardRadius` | 22 | Grouped panels / card material |
-| `mobileViewportRadius` | 16 | Inward top clip below the library heading |
+| `mobileViewportRadius` | 28 | Inward top clip below the library heading |
 | `mobileDockHeight` | 58 | Capsule without system insets |
 | `mobileComposeSize` | 52 | Separate compose circle |
 | `sheetIconTile` / `sheetIconSize` | 32 / 19 | Phone action rows |
@@ -67,7 +67,7 @@ Capsules and circles use native capsule/circle shapes, not arbitrary numeric cor
 - Desktop pressed foreground: `pressedOpacity = 0.65`.
 - Desktop material action: fill 0.075, pressed fill 0.14, border 0.07 of primary.
 - Action dividers: `dividerOpacity = 0.10`; phone width 1 dp, desktop 0.5 points.
-- Translucency: use `leafGlass` on desktop, `frosted` inside `FrostedHost` on phones. Keep one owning backdrop; do not stack independent blur layers.
+- Translucency: use `pebbleGlass` on desktop, `frosted` inside `FrostedHost` on phones. Keep one owning backdrop; do not stack independent blur layers.
 - CardMaterial: native material, adaptive white wash, fine stroke and soft shadow. Respect reduced transparency with an opaque adaptive surface.
 
 ## Motion

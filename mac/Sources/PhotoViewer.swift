@@ -14,15 +14,15 @@ struct PhotoViewer: View {
     var done: () -> Void; var openNote: (String) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("calmMotion") private var calm = false
-    @LeafState<Int> private var selection = 0
-    @LeafState<Double> private var zoom = 1
-    @LeafState<CGSize> private var pan = .zero
-    @LeafState<String> private var caption = ""
-    @LeafState<Bool> private var ready = false
-    @LeafState<Bool> private var controlsVisible = true
-    @LeafState<Bool> private var controlsHovered = false
-    @LeafState<Int> private var controlsGeneration = 0
-    @LeafState<[ViewerPhoto]?> private var snapshot = nil
+    @PebbleState<Int> private var selection = 0
+    @PebbleState<Double> private var zoom = 1
+    @PebbleState<CGSize> private var pan = .zero
+    @PebbleState<String> private var caption = ""
+    @PebbleState<Bool> private var ready = false
+    @PebbleState<Bool> private var controlsVisible = true
+    @PebbleState<Bool> private var controlsHovered = false
+    @PebbleState<Int> private var controlsGeneration = 0
+    @PebbleState<[ViewerPhoto]?> private var snapshot = nil
     var photos: [ViewerPhoto] { snapshot ?? items }
     var current: ViewerPhoto? { photos.indices.contains(selection) ? photos[selection] : nil }
     var movement: Animation? { reduceMotion || calm ? nil : .spring(response: 0.42, dampingFraction: 0.78) }
@@ -54,7 +54,7 @@ struct PhotoViewer: View {
                 HStack(spacing: 0) {
                     GlassIcon(icon: "chevron.left", label: "Back to library") { commitCaption(); done() }
                     GlassIcon(icon: "chevron.right", label: "Next image") { choose(selection + 1) }.disabled(selection >= photos.count - 1)
-                }.leafGlass(in: Capsule())
+                }.pebbleGlass(in: Capsule())
                 Spacer(); Text(current?.attachment.name ?? initial.name).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary).lineLimit(1); Spacer()
                 Menu {
                     if let p = current {
@@ -63,8 +63,8 @@ struct PhotoViewer: View {
                         Button("Save Image…", systemImage: "square.and.arrow.down") { let panel = NSSavePanel(); panel.nameFieldStringValue = p.attachment.name; if panel.runModal() == .OK, let url = panel.url { do { try Data(contentsOf: store.media.appendingPathComponent(p.attachment.id)).write(to: url, options: .atomic) } catch { store.error = error.localizedDescription } } }.labelStyle(.titleAndIcon)
                     }
                 } label: { Image(systemName: "ellipsis").font(.system(size: 16, weight: .medium)).frame(width: 36, height: 36) }
-                    .menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).menuIndicator(.hidden).frame(width: 36, height: 36).modifier(HoverSurface()).leafGlass(in: Circle()).accessibilityLabel("Image options")
-                GlassIcon(icon: "xmark", label: "Close image") { commitCaption(); done() }.leafGlass(in: Circle())
+                    .menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).menuIndicator(.hidden).frame(width: 36, height: 36).modifier(HoverSurface()).pebbleGlass(in: Circle()).accessibilityLabel("Image options")
+                GlassIcon(icon: "xmark", label: "Close image") { commitCaption(); done() }.pebbleGlass(in: Circle())
             }.padding(.leading, leadingInset).padding(.trailing, 10).frame(height: 52)
 ; Spacer() }.allowsHitTesting(true)
             VStack { Spacer();
@@ -76,7 +76,7 @@ struct PhotoViewer: View {
                     Slider(value: $zoom, in: 1...5).frame(width: 140).accessibilityLabel("Image zoom")
                     GlassIcon(icon: "plus", label: "Zoom in") { zoom = min(5, zoom + 0.25) }
                     Button("Fit") { zoom = 1 }.buttonStyle(SoftButtonStyle()).padding(.trailing, 12)
-                }.padding(.horizontal, 6).padding(.vertical, 3).leafGlass(in: Capsule()).opacity(controlsVisible ? 1 : 0).allowsHitTesting(controlsVisible).animation(.easeOut(duration: 0.2), value: controlsVisible)
+                }.padding(.horizontal, 6).padding(.vertical, 3).pebbleGlass(in: Capsule()).opacity(controlsVisible ? 1 : 0).allowsHitTesting(controlsVisible).animation(.easeOut(duration: 0.2), value: controlsVisible)
                 }.frame(width: 310, height: 58).contentShape(Rectangle()).onHover { hovering in controlsHovered = hovering; if hovering { revealControls() } else { scheduleControls() } }.simultaneousGesture(TapGesture().onEnded { revealControls() })
             } else {
                 TextField("Add caption", text: $caption, axis: .vertical).textFieldStyle(.plain).multilineTextAlignment(.center).font(.system(size: 14)).lineLimit(1...2).frame(maxWidth: 420).onSubmit { commitCaption() }.onChange(of: caption) { _, _ in if ready { commitCaption() } }.padding(.horizontal, 12).padding(.vertical, 16).frame(minHeight: 64)

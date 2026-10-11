@@ -4,24 +4,23 @@ import Security
 import CryptoKit
 
 struct UpdateAsset: Codable { var url: String; var sha256: String; var size: Int; var build: Int }
-struct PebbleRelease: Codable { var version: String; var title: String; var changes: [String] }
 struct PebbleUpdate: Codable { var schema: Int; var version: String; var releases: [PebbleRelease]; var mac: UpdateAsset; var android: UpdateAsset }
 struct UpdateEnvelope: Codable { var payload: String; var signature: String }
 enum UpdateValidation {
     static let feed = URL(string: "https://github.com/jeetbania/pebble-notes/releases/latest/download/updates.json")!
     static func parse(_ bytes: Data) throws -> PebbleUpdate {
-        guard bytes.count <= 1_048_576 else { throw LeafError.message("Update information is too large") }
+        guard bytes.count <= 1_048_576 else { throw PebbleError.message("Update information is too large") }
         let envelope = try JSONDecoder().decode(UpdateEnvelope.self, from: bytes)
-        guard let payload = Data(base64Encoded: envelope.payload), let signature = Data(base64Encoded: envelope.signature), let keyURL = Bundle.main.url(forResource: "update-public", withExtension: "der") else { throw LeafError.message("Missing update signature") }
+        guard let payload = Data(base64Encoded: envelope.payload), let signature = Data(base64Encoded: envelope.signature), let keyURL = Bundle.main.url(forResource: "update-public", withExtension: "der") else { throw PebbleError.message("Missing update signature") }
         return try parse(payload: payload, signature: signature, publicKey: Data(contentsOf: keyURL))
     }
     static func parse(payload: Data, signature: Data, publicKey: Data) throws -> PebbleUpdate {
         let attributes: [CFString: Any] = [kSecAttrKeyType: kSecAttrKeyTypeRSA, kSecAttrKeyClass: kSecAttrKeyClassPublic]
-        guard let key = SecKeyCreateWithData(publicKey as CFData, attributes as CFDictionary, nil), SecKeyVerifySignature(key, .rsaSignatureMessagePKCS1v15SHA256, payload as CFData, signature as CFData, nil) else { throw LeafError.message("Update signature could not be verified") }
+        guard let key = SecKeyCreateWithData(publicKey as CFData, attributes as CFDictionary, nil), SecKeyVerifySignature(key, .rsaSignatureMessagePKCS1v15SHA256, payload as CFData, signature as CFData, nil) else { throw PebbleError.message("Update signature could not be verified") }
         let update = try JSONDecoder().decode(PebbleUpdate.self, from: payload)
-        guard update.schema == 1, update.releases.first?.version == update.version else { throw LeafError.message("Invalid update information") }
+        guard update.schema == 1, update.releases.first?.version == update.version else { throw PebbleError.message("Invalid update information") }
         for asset in [update.mac, update.android] {
-            guard asset.url.hasPrefix("https://github.com/jeetbania/pebble-notes/releases/download/"), asset.size > 0, asset.size <= 200_000_000, asset.build > 0, asset.sha256.count == 64, asset.sha256.allSatisfy({ "0123456789abcdef".contains($0) }) else { throw LeafError.message("Unexpected update package") }
+            guard asset.url.hasPrefix("https://github.com/jeetbania/pebble-notes/releases/download/"), asset.size > 0, asset.size <= 200_000_000, asset.build > 0, asset.sha256.count == 64, asset.sha256.allSatisfy({ "0123456789abcdef".contains($0) }) else { throw PebbleError.message("Unexpected update package") }
         }
         return update
     }
@@ -48,7 +47,7 @@ enum UpdateValidation {
         do {
             var request = URLRequest(url: UpdateValidation.feed); request.timeoutInterval = 20; request.cachePolicy = .reloadIgnoringLocalCacheData
             let (bytes, response) = try await URLSession.shared.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw LeafError.message("The release server could not be reached") }
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw PebbleError.message("The release server could not be reached") }
             let update = try UpdateValidation.parse(bytes)
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "pebbleUpdateCheck")
             if update.mac.build > currentBuild {
@@ -70,17 +69,17 @@ enum UpdateValidation {
             let zip = directory.appendingPathComponent("update.zip")
             var request = URLRequest(url: URL(string: update.mac.url)!); request.timeoutInterval = 60
             let (bytes, response) = try await URLSession.shared.bytes(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200, response.url?.scheme == "https" else { throw LeafError.message("Download failed") }
+            guard (response as? HTTPURLResponse)?.statusCode == 200, response.url?.scheme == "https" else { throw PebbleError.message("Download failed") }
             FileManager.default.createFile(atPath: zip.path, contents: nil)
             let handle = try FileHandle(forWritingTo: zip); defer { try? handle.close() }
             var hash = SHA256(); var buffer = Data(); var count = 0
-            for try await byte in bytes { buffer.append(byte); count += 1; guard count <= update.mac.size else { throw LeafError.message("Unexpected download size") }; if buffer.count >= 65536 { try handle.write(contentsOf: buffer); hash.update(data: buffer); buffer.removeAll(keepingCapacity: true); progress = Double(count) / Double(update.mac.size) } }
+            for try await byte in bytes { buffer.append(byte); count += 1; guard count <= update.mac.size else { throw PebbleError.message("Unexpected download size") }; if buffer.count >= 65536 { try handle.write(contentsOf: buffer); hash.update(data: buffer); buffer.removeAll(keepingCapacity: true); progress = Double(count) / Double(update.mac.size) } }
             if !buffer.isEmpty { try handle.write(contentsOf: buffer); hash.update(data: buffer) }; try handle.close()
-            guard count == update.mac.size, hash.finalize().map({ String(format: "%02x", $0) }).joined() == update.mac.sha256 else { throw LeafError.message("Downloaded update did not pass verification") }
+            guard count == update.mac.size, hash.finalize().map({ String(format: "%02x", $0) }).joined() == update.mac.sha256 else { throw PebbleError.message("Downloaded update did not pass verification") }
             let unpacked = directory.appendingPathComponent("unpacked", isDirectory: true)
             try await run("/usr/bin/ditto", ["-x", "-k", zip.path, unpacked.path])
             let app = unpacked.appendingPathComponent("Pebble Notes.app")
-            guard let bundle = Bundle(url: app), bundle.bundleIdentifier == "dev.leafnotes.mac", bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String == String(update.mac.build), bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String == update.version else { throw LeafError.message("Update does not match Pebble Notes") }
+            guard let bundle = Bundle(url: app), bundle.bundleIdentifier == "dev.leafnotes.mac", bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String == String(update.mac.build), bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String == update.version else { throw PebbleError.message("Update does not match Pebble Notes") }
             try await run("/usr/bin/codesign", ["--verify", "--deep", "--strict", app.path])
             ready = app; progress = 1; message = "Verified. Ready to install and restart."
         } catch { message = "Could not download: \(error.localizedDescription)"; if let stage { try? FileManager.default.removeItem(at: stage) }; ready = nil }
@@ -114,7 +113,7 @@ enum UpdateValidation {
     private func run(_ executable: String, _ arguments: [String]) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let p = Process(); p.executableURL = URL(fileURLWithPath: executable); p.arguments = arguments; p.standardOutput = FileHandle.nullDevice; p.standardError = FileHandle.nullDevice
-            p.terminationHandler = { process in if process.terminationStatus == 0 { continuation.resume() } else { continuation.resume(throwing: LeafError.message("Package validation failed")) } }
+            p.terminationHandler = { process in if process.terminationStatus == 0 { continuation.resume() } else { continuation.resume(throwing: PebbleError.message("Package validation failed")) } }
             do { try p.run() } catch { continuation.resume(throwing: error) }
         }
     }
@@ -124,7 +123,7 @@ struct PebbleUpdateDialog: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack { Text("Pebble Notes " + (updater.available?.version ?? "")).font(.title2.bold()); Spacer(); if !updater.downloading { GlassIcon(icon: "xmark", label: "Later") { updater.later() } } }
-            LeafScrollView { VStack(alignment: .leading, spacing: 16) { if let update = updater.available { ForEach(UpdateValidation.unseen(update, current: ReleaseNotes.version), id: \.version) { release in Text(release.version + " · " + release.title).font(.headline); ForEach(release.changes, id: \.self) { Text("• " + $0).fixedSize(horizontal: false, vertical: true) } } } } }.frame(maxHeight: 300)
+            PebbleScrollView { VStack(alignment: .leading, spacing: 16) { if let update = updater.available { ForEach(UpdateValidation.unseen(update, current: ReleaseNotes.version), id: \.version) { release in Text(release.version + " · " + release.title).font(.headline); ForEach(release.changes, id: \.self) { Text("• " + $0).fixedSize(horizontal: false, vertical: true) } } } } }.frame(maxHeight: 300)
             Text(updater.message).font(.callout).foregroundStyle(.secondary)
             if updater.downloading { ProgressView(value: updater.progress) } else { HStack { Button("Later") { updater.later() }; Spacer(); Button(updater.ready == nil ? "Download now" : "Install and restart") { if updater.ready != nil { updater.install() } else { Task { await updater.download() } } } } }
         }.padding(28).frame(width: 500).buttonStyle(MaterialActionStyle())

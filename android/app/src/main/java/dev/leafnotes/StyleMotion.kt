@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.delay
 
-@Composable fun animatedStyleBrush(style:NoteStyle,c:LeafColors):Brush {
+@Composable fun animatedStyleBrush(style:NoteStyle,c:PebbleColors):Brush {
     val calm=LocalCalmMotion.current
     val start by animateColorAsState(hexColour(style.backdrop) ?: style.paper(c),tween(if(calm)0 else 220),label="backdrop start")
     val end by animateColorAsState(hexColour(style.backdropEnd ?: style.backdrop) ?: style.paper(c),tween(if(calm)0 else 220),label="backdrop end")

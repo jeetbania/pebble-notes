@@ -34,7 +34,7 @@ enum WallpaperLibrary {
 }
 extension NoteStore {
     func useBackdrop(_ url:URL) {
-        do { guard NSImage(contentsOf:url) != nil else {throw LeafError.message("Choose a supported image")};var a=try stageFiles([url])[0];a.mime="application/x-pebble-backdrop"
+        do { guard NSImage(contentsOf:url) != nil else {throw PebbleError.message("Choose a supported image")};var a=try stageFiles([url])[0];a.mime="application/x-pebble-backdrop"
             update(undoKey:"noteStyle"){n in var s=n.style ?? NoteStyle();s.backdrop=nil;s.backdropEnd=nil;s.backdropImage=a.id;s=s.lightDocument(tone:WallpaperLibrary.prominent(url),defaultDark: !NoteStyle.isLight(NoteStyle.hex(Color(nsColor:.textBackgroundColor))));n.style=s;n.attachments.append(a)};flush()
         } catch {self.error=error.localizedDescription}
     }
@@ -55,7 +55,7 @@ struct WallpaperSelector:View {
 }
 struct GhostButtonStyle:ButtonStyle {
     func makeBody(configuration:Configuration)->some View { Surface(configuration:configuration) }
-    struct Surface:View {let configuration:Configuration;@LeafState private var hover=false
+    struct Surface:View {let configuration:Configuration;@PebbleState private var hover=false
         var body:some View {configuration.label.padding(.horizontal,12).frame(minHeight:36).contentShape(Rectangle()).background(Color.primary.opacity(hover ? 0.10:0.04),in:RoundedRectangle(cornerRadius:12)).overlay(RoundedRectangle(cornerRadius:12).strokeBorder(Color.primary.opacity(hover ? 0.18:0.1),lineWidth:0.7)).opacity(configuration.isPressed ? 0.65:1).onHover{hover=$0}}
     }
 }

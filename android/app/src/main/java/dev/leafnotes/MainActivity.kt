@@ -36,6 +36,13 @@ import kotlinx.coroutines.withContext
 import androidx.lifecycle.lifecycleScope
 import java.io.File
 
+// TextView probes focus neighbours while creating its IME connection. Keep
+// that probe out of the covered Compose lazy library; the document explicitly
+// manages Return and block navigation.
+class PebbleEditText(context: android.content.Context) : EditText(context) {
+    override fun focusSearch(direction: Int): android.view.View? = null
+}
+
 class MainActivity : ComponentActivity() {
     private lateinit var store: Store
     private val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
@@ -50,7 +57,7 @@ class MainActivity : ComponentActivity() {
         if(intent.getBooleanExtra("checkUpdates",false))lifecycleScope.launch { PebbleUpdater.get(this@MainActivity).check(manual=true) }
         handleShared(intent)
         intent.getStringExtra("taskId")?.let{store.select(it)}
-        setContent { LeafTheme(store) { LeafLibrary(store, connect = { connect() }) } }
+        setContent { PebbleTheme(store) { PebbleLibrary(store, connect = { connect() }) } }
     }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); if(intent.getBooleanExtra("checkUpdates",false))lifecycleScope.launch {PebbleUpdater.get(this@MainActivity).check(manual=true)}; handleShared(intent); intent.getStringExtra("taskId")?.let{store.select(it)} }
     private fun handleShared(intent: Intent) {
@@ -100,7 +107,7 @@ fun spansFrom(s: Spanned): List<Span> {
 }
 class SemanticHighlight(val kind:String,colour:Int):android.text.style.BackgroundColorSpan(colour)
 val typingStyles=java.util.WeakHashMap<EditText,MutableSet<String>>()
-fun applyTypingStyle(view:EditText,start:Int,count:Int) { val styles=typingStyles[view] ?: return;if(count<=0)return;val spans=styles.map{Span(start,count,it)};val styled=attributed(Note(text=view.text.toString(),spans=spans), editorMetrics[view] ?: TextMetrics());styled.getSpans(start,start+count,Any::class.java).forEach{view.text.setSpan(it,start,start+count,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)} }
+fun applyTypingStyle(view:EditText,start:Int,count:Int) { val styles=typingStyles[view] ?: return;if(count<=0 || start<0 || start+count>view.text.length)return;val spans=styles.map{Span(start,count,it)};val styled=attributed(Note(text=view.text.toString(),spans=spans), editorMetrics[view] ?: TextMetrics());styled.getSpans(start,start+count,Any::class.java).forEach{view.text.setSpan(it,start,start+count,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)} }
 fun format(view: EditText, kind: String) {
     val text=view.text.toString();val cursor=view.selectionStart.coerceAtLeast(0);var start=cursor;var end=view.selectionEnd.coerceAtLeast(cursor)
     if(end==start && (kind !in listOf("title","subtitle","headline","body") || text.isEmpty())){val styles=typingStyles.getOrPut(view){mutableSetOf()};if(kind.startsWith("highlight"))styles.removeAll{it.startsWith("highlight")};if(kind in listOf("title","subtitle","headline","body"))styles.removeAll(listOf("title","subtitle","headline","body"));if(kind!="body"&&kind!="highlight:none"){if(!styles.add(kind))styles.remove(kind)};return}

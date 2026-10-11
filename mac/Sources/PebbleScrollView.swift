@@ -7,10 +7,10 @@ private struct ScrollMetrics: Equatable {
 }
 private final class ScrollMetricsModel: ObservableObject { @Published var value = ScrollMetrics() }
 
-struct LeafScrollView<Content: View>: View {
+struct PebbleScrollView<Content: View>: View {
     let axes: Axis.Set
     let content: Content
-    @LeafState private var position = ScrollPosition(edge: .top)
+    @PebbleState private var position = ScrollPosition(edge: .top)
     @StateObject private var model = ScrollMetricsModel()
     init(_ axes: Axis.Set = .vertical, @ViewBuilder content: () -> Content) { self.axes = axes; self.content = content() }
     var body: some View {
@@ -26,10 +26,10 @@ private struct ScrollThumbs: View {
     let axes: Axis.Set
     @ObservedObject var model: ScrollMetricsModel
     @Binding var position: ScrollPosition
-    @LeafState private var verticalStart: CGFloat? = nil
-    @LeafState private var horizontalStart: CGFloat? = nil
-    @LeafState private var hoverVertical = false
-    @LeafState private var hoverHorizontal = false
+    @PebbleState private var verticalStart: CGFloat? = nil
+    @PebbleState private var horizontalStart: CGFloat? = nil
+    @PebbleState private var hoverVertical = false
+    @PebbleState private var hoverHorizontal = false
     var metrics: ScrollMetrics { model.value }
     var body: some View {
         Color.clear.allowsHitTesting(false)

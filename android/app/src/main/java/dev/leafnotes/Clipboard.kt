@@ -44,7 +44,7 @@ fun readLimited(input:java.io.InputStream,limit:Int):ByteArray {val result=java.
 fun limitedDownload(url:URL,limit:Int):ByteArray {
     check(url.protocol in listOf("http","https"))
     val connection=url.openConnection() as HttpURLConnection
-    connection.connectTimeout=4000;connection.readTimeout=4000;connection.setRequestProperty("User-Agent","LeafNotes/0.5 Link Preview")
+    connection.connectTimeout=4000;connection.readTimeout=4000;connection.setRequestProperty("User-Agent","PebbleNotes/0.5 Link Preview")
     try {check(connection.responseCode in 200..299);return connection.inputStream.use{readLimited(it,limit)}}finally{connection.disconnect()}
 }
 fun linkPreview(address:String):ClipPreview {
@@ -64,7 +64,7 @@ fun decodeClipImage(bytes:ByteArray):Bitmap? {
     return BitmapFactory.decodeByteArray(bytes,0,bytes.size,BitmapFactory.Options().apply{inSampleSize=sample})
 }
 @Composable fun ClipboardSuggestion(store:Store,modifier:Modifier=Modifier) {
-    val preferenceVersion=LocalPreferencesVersion.current;val c=LocalLeafColors.current;val focused=LocalWindowInfo.current.isWindowFocused;val scope=rememberCoroutineScope();val calm=LocalCalmMotion.current
+    val preferenceVersion=LocalPreferencesVersion.current;val c=LocalPebbleColors.current;val focused=LocalWindowInfo.current.isWindowFocused;val scope=rememberCoroutineScope();val calm=LocalCalmMotion.current
     var candidate by remember{mutableStateOf<ClipboardValue?>(null)};var seen by remember{mutableStateOf("")};var preview by remember{mutableStateOf(ClipPreview())};var saving by remember{mutableStateOf(false)}
     val enabled=store.preferences.getBoolean("clipboardSuggestions",true)
     LaunchedEffect(focused,enabled){

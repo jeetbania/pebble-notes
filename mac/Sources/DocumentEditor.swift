@@ -15,27 +15,27 @@ struct DocumentEditor: View {
     @AppStorage("typeTitle") private var typeTitle = 30.0
     @AppStorage("editorWidth") private var editorWidth = 700.0
     var note: Note; var noteId: String; var onPreview: (Attachment) -> Void; var onConflict: () -> Void
-    @LeafState<Attachment?> private var filePreview = nil
-    @LeafState<String?> private var draggedBlock = nil
-    @LeafState<String?> private var hoveredBlock = nil
-    @LeafState<String?> private var blockOptions = nil
-    @LeafState<[String: CGRect]> private var blockFrames = [:]
-    @LeafState<CGSize> private var blockTranslation = .zero
-    @LeafState<CGRect> private var blockOrigin = .zero
-    @LeafState<[String: Double]> private var columnWidths = [:]
-    @LeafState<Double?> private var columnStart = nil
-    @LeafState<[String: Double]> private var rowHeights = [:]
-    @LeafState<Double?> private var rowStart = nil
-    @LeafState<Note?> private var dragSnapshot = nil
-    @LeafState<[DocumentBlock]?> private var previewBlocks = nil
-    @LeafState<[String: CGRect]> private var dragSlots = [:]
+    @PebbleState<Attachment?> private var filePreview = nil
+    @PebbleState<String?> private var draggedBlock = nil
+    @PebbleState<String?> private var hoveredBlock = nil
+    @PebbleState<String?> private var blockOptions = nil
+    @PebbleState<[String: CGRect]> private var blockFrames = [:]
+    @PebbleState<CGSize> private var blockTranslation = .zero
+    @PebbleState<CGRect> private var blockOrigin = .zero
+    @PebbleState<[String: Double]> private var columnWidths = [:]
+    @PebbleState<Double?> private var columnStart = nil
+    @PebbleState<[String: Double]> private var rowHeights = [:]
+    @PebbleState<Double?> private var rowStart = nil
+    @PebbleState<Note?> private var dragSnapshot = nil
+    @PebbleState<[DocumentBlock]?> private var previewBlocks = nil
+    @PebbleState<[String: CGRect]> private var dragSlots = [:]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var displayed: Note { var n = note; if let previewBlocks { n.blocks = previewBlocks }; return n }
     var movingIDs: Set<String> { guard let draggedBlock else { return [] }; return (dragSnapshot ?? note).descendants(of: draggedBlock) }
     var body: some View {
         GeometryReader { geometry in
             let width = min(editorWidth, max(300.0, geometry.size.width - 144))
-            LeafScrollView {
+            PebbleScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if store.heads.filter({ $0.noteId == noteId }).count > 1 { Button("Edits from both devices · review", action: onConflict).buttonStyle(.plain).foregroundStyle(.orange).font(.system(size: 12)) }
                     TextField("Untitled note", text: Binding(get: { store.current?.title ?? "" }, set: { value in store.update(undoKey: "title") { $0.title = value } })).onSubmit { beginBody() }.font(.system(size: typeTitle * note.textScale, weight: .bold)).textFieldStyle(.plain).padding(.bottom, 10)
@@ -102,7 +102,7 @@ struct DocumentEditor: View {
                         Color.clear.contentShape(Rectangle()).onTapGesture { blockOptions = nil }
                         VStack(alignment: .leading, spacing: 4) {
                             HStack { Text("Turn into").font(.headline); Spacer(); GlassIcon(icon: "xmark", label: "Close block options") { blockOptions = nil } }
-                            LeafScrollView { VStack(alignment: .leading, spacing: 2) {
+                            PebbleScrollView { VStack(alignment: .leading, spacing: 2) {
                                 ForEach(BlockCommand.all.filter { $0.id != "table" || block.kind == "table" }) { command in
                                     Button { applyCommand(command.id, to: id); blockOptions = nil; focusBlock(id) } label: { Label(command.title, systemImage: command.icon).frame(maxWidth: .infinity, alignment: .leading).padding(8).frame(minHeight: 36) }.buttonStyle(SoftButtonStyle())
                                 }
@@ -148,7 +148,7 @@ struct DocumentEditor: View {
 
                 if block.kind == "quote" { RoundedRectangle(cornerRadius: 2).fill((note.style ?? NoteStyle()).foreground.opacity(0.35)).frame(width: 3, height: height) }
                 else if block.kind == "callout" { Image(systemName: "lightbulb").frame(width: 24, height: 32) }
-                else if block.kind == "check" { Button { store.changeBlock(block.id) { $0.checked.toggle() } } label: { Image(systemName: block.checked ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(block.checked ? LeafPalette.accent : Color.secondary) }.frame(width: 32, height: 32).buttonStyle(SoftButtonStyle()).offset(y: markerOffset(block)) }
+                else if block.kind == "check" { Button { store.changeBlock(block.id) { $0.checked.toggle() } } label: { Image(systemName: block.checked ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(block.checked ? PebblePalette.accent : Color.secondary) }.frame(width: 32, height: 32).buttonStyle(SoftButtonStyle()).offset(y: markerOffset(block)) }
                 else if block.kind == "bullet" || block.kind == "number" { Text(block.kind == "bullet" ? "•" : "\(note.document.prefix(index + 1).filter { $0.kind == "number" }.count).").foregroundStyle(.secondary).frame(width: 20, height: 32).offset(y: markerOffset(block)) }
                 RichEditor(note: styledBlock(block), onEdit: { text, spans in store.editBlock(block.id, text: text, spans: spans) }, onImages: { store.importFiles($0) }, onFocus: { store.activeBlock = block.id }, onEnter: { splitList(block) }, completed: block.kind == "check" && block.checked, onCommand: { command in applyCommand(command, to: block.id) }, blockId: block.id, blockStyle: block.textStyle ?? block.spans.first(where: { ["title", "subtitle", "headline"].contains($0.kind) })?.kind ?? "body", onStyle: { style in store.changeBlock(block.id) { $0.textStyle = style } }, onBackspace: { backspace(block.id) }).id(noteId + block.id)
                     .frame(maxWidth: .infinity).frame(height: height).opacity(block.checked ? 0.55 : 1)
@@ -188,9 +188,9 @@ struct DocumentEditor: View {
     }
     func focusBlock(_ id: String?, attempts: Int = 0) {
         guard let id, attempts < 120, let window = NSApp.keyWindow, let root = window.contentView else { return }
-        func find(_ node: NSView) -> LeafTextView? { if let text = node as? LeafTextView, text.identifier?.rawValue == id { return text }; return node.subviews.lazy.compactMap(find).first }
+        func find(_ node: NSView) -> PebbleTextView? { if let text = node as? PebbleTextView, text.identifier?.rawValue == id { return text }; return node.subviews.lazy.compactMap(find).first }
         if let text = find(root) {
-            let previous = window.firstResponder as? LeafTextView
+            let previous = window.firstResponder as? PebbleTextView
             let queued = previous?.queuedInput ?? []
             previous?.awaitingBlock = false; previous?.queuedInput = []
             window.makeFirstResponder(text); text.setSelectedRange(NSRange(location: 0, length: 0))
@@ -198,10 +198,10 @@ struct DocumentEditor: View {
                 let style = block.textStyle ?? "body"
                 text.typingAttributes = [.font: NSFont.systemFont(ofSize: Typography.size(style) * (store.current?.textScale ?? 1), weight: style == "body" ? .regular : .semibold), .foregroundColor: (store.current?.style ?? NoteStyle()).ink, NSAttributedString.Key("leafTextStyle"): style, NSAttributedString.Key("leafTextScale"): store.current?.textScale ?? 1]
             }
-            for input in queued { if let target = window.firstResponder as? LeafTextView { if input == "\n" { target.insertNewline(nil) } else { target.insertText(input, replacementRange: target.selectedRange()) } } }
+            for input in queued { if let target = window.firstResponder as? PebbleTextView { if input == "\n" { target.insertNewline(nil) } else { target.insertText(input, replacementRange: target.selectedRange()) } } }
         }
         else {
-            (window.firstResponder as? LeafTextView)?.awaitingBlock = true
+            (window.firstResponder as? PebbleTextView)?.awaitingBlock = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) { focusBlock(id, attempts: attempts + 1) }
         }
     }
@@ -212,7 +212,7 @@ struct DocumentEditor: View {
     }
     func findNextEditor(after view: NSTextView) {
         guard let window = view.window, let root = window.contentView else { return }
-        func editors(_ node: NSView) -> [LeafTextView] { (node as? LeafTextView).map { [$0] } ?? node.subviews.flatMap(editors) }
+        func editors(_ node: NSView) -> [PebbleTextView] { (node as? PebbleTextView).map { [$0] } ?? node.subviews.flatMap(editors) }
         let all = editors(root); if let i = all.firstIndex(where: { $0 === view }), i + 1 < all.count { window.makeFirstResponder(all[i + 1]); all[i + 1].setSelectedRange(NSRange(location: 0, length: 0)) }
     }
     func columnWidth(_ block: String, _ column: Int) -> Double { let key = "tableWidth:" + noteId + ":" + block + ":" + String(column); return columnWidths[key] ?? (UserDefaults.standard.object(forKey: key) as? Double ?? 160) }
@@ -226,7 +226,7 @@ struct DocumentEditor: View {
     }
     func table(_ block: DocumentBlock) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            LeafScrollView(.horizontal) {
+            PebbleScrollView(.horizontal) {
                 VStack(spacing: 0) {
                     ForEach(block.cells.indices, id: \.self) { row in
                         HStack(spacing: 0) {
@@ -258,17 +258,17 @@ struct DocumentEditor: View {
 struct DailyTools: View {
     @ObservedObject var store: NoteStore
     var onDone: () -> Void = {}
-    @LeafState<String> private var query = ""
-    @LeafState<String> private var tags = ""
-    @LeafState<[Revision]> private var history: [Revision] = []
+    @PebbleState<String> private var query = ""
+    @PebbleState<String> private var tags = ""
+    @PebbleState<[Revision]> private var history: [Revision] = []
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack { Text("Find, Tags & History").font(.title2.bold()); Spacer(); Button("Done") { store.update { $0.tags = tags.split(separator: ",").map(String.init) }; onDone() } }
             TextField("Find in this note", text: $query).textFieldStyle(.roundedBorder)
-            if !query.isEmpty { LeafScrollView { ForEach(store.current?.document.filter { ($0.text + " " + $0.caption + " " + $0.cells.flatMap { $0 }.joined(separator: " ")).localizedCaseInsensitiveContains(query) } ?? []) { b in Text(b.isText ? b.text : b.kind == "table" ? b.cells.map { $0.joined(separator: " | ") }.joined(separator: "\n") : b.caption).font(.system(size: 14)).textSelection(.enabled).padding(10).frame(maxWidth: .infinity, alignment: .leading).background(.quaternary, in: RoundedRectangle(cornerRadius: 10)) } }.frame(maxHeight: 130) }
+            if !query.isEmpty { PebbleScrollView { ForEach(store.current?.document.filter { ($0.text + " " + $0.caption + " " + $0.cells.flatMap { $0 }.joined(separator: " ")).localizedCaseInsensitiveContains(query) } ?? []) { b in Text(b.isText ? b.text : b.kind == "table" ? b.cells.map { $0.joined(separator: " | ") }.joined(separator: "\n") : b.caption).font(.system(size: 14)).textSelection(.enabled).padding(10).frame(maxWidth: .infinity, alignment: .leading).background(.quaternary, in: RoundedRectangle(cornerRadius: 10)) } }.frame(maxHeight: 130) }
             TextField("Tags, separated by commas", text: $tags).textFieldStyle(.roundedBorder)
             Text("Earlier versions").font(.headline)
-            LeafScrollView { LazyVStack(alignment: .leading, spacing: 12) { ForEach(history) { revision in VStack(alignment: .leading, spacing: 6) { HStack { Text(Date(timeIntervalSince1970: Double(revision.createdAt) / 1000), style: .date); Text(Date(timeIntervalSince1970: Double(revision.createdAt) / 1000), style: .time); Spacer(); Button("Restore") { store.resolve(revision); onDone() } }; Text(revision.note.text.prefix(200)).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(3) }.padding(12).background(.quaternary, in: RoundedRectangle(cornerRadius: 12)) } } }
+            PebbleScrollView { LazyVStack(alignment: .leading, spacing: 12) { ForEach(history) { revision in VStack(alignment: .leading, spacing: 6) { HStack { Text(Date(timeIntervalSince1970: Double(revision.createdAt) / 1000), style: .date); Text(Date(timeIntervalSince1970: Double(revision.createdAt) / 1000), style: .time); Spacer(); Button("Restore") { store.resolve(revision); onDone() } }; Text(revision.note.text.prefix(200)).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(3) }.padding(12).background(.quaternary, in: RoundedRectangle(cornerRadius: 12)) } } }
             Text(store.backupStatus).font(.system(size: 11)).foregroundStyle(.secondary)
             Button("Show Automatic Backups") { NSWorkspace.shared.open(store.root.appendingPathComponent("backups")) }
         }.padding(24).frame(width: 580, height: 540).onAppear { tags = store.current?.tags.joined(separator: ", ") ?? ""; store.flush(); history = ((try? store.revisions()) ?? []).filter { $0.noteId == store.selected }.sorted { $0.createdAt > $1.createdAt } }

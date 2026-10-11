@@ -42,7 +42,7 @@ struct NoteStyleButton: View {
 }
 struct NoteStyleHost: ViewModifier {
     @ObservedObject var store: NoteStore
-    @LeafState private var presented = false
+    @PebbleState private var presented = false
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduced
     @AppStorage("calmMotion") private var calm = false
@@ -76,7 +76,7 @@ struct NoteStyleHost: ViewModifier {
 private struct StyleSectionTitle:View { var text:String; var body:some View { Text(text.uppercased()).font(.system(size:11,weight:.semibold)).foregroundStyle(Color.primary.opacity(0.66)).tracking(0.6) } }
 
 struct NoteStylePicker:View {
-    @ObservedObject var store:NoteStore; var onClose:()->Void={}; @LeafState private var picker:String?=nil; @LeafState private var gradientMode=false; @LeafState private var imageMode=false
+    @ObservedObject var store:NoteStore; var onClose:()->Void={}; @PebbleState private var picker:String?=nil; @PebbleState private var gradientMode=false; @PebbleState private var imageMode=false
     var style:NoteStyle { store.current?.style ?? NoteStyle() }
     func value(_ key:String)->String? { key=="Document" ? style.document : key=="Backdrop" ? style.backdrop : style.text }
     func set(_ key:String,_ value:String?){store.update(undoKey:"noteStyle"){n in var s=n.style ?? NoteStyle();if key=="Document"{s.document=value}else if key=="Backdrop"{s.backdrop=value;s.backdropImage=nil;if value==nil{s.backdropEnd=nil}else{s=s.lightDocument(tone:value,defaultDark: !NoteStyle.isLight(NoteStyle.hex(Color(nsColor:.textBackgroundColor))))}}else{s.text=value};n.style=s.customised ? s:nil}}
@@ -99,9 +99,9 @@ struct NoteStylePicker:View {
     func mode(_ icon:String,_ selected:Bool,_ action:@escaping()->Void)->some View { Button(action:action){Image(systemName:icon).frame(maxWidth:.infinity).frame(height:36).contentShape(Rectangle()).background(selected ? Color(nsColor:.controlBackgroundColor):.clear,in:Capsule()).shadow(color:selected ? .black.opacity(0.08):.clear,radius:5,y:2)}.buttonStyle(.plain) }
     @ViewBuilder func swatchGrid(_ key:String)->some View { let solids=key=="Document" ? NoteStyle.documentPalette:key=="Text" ? NoteStyle.textPalette:NoteStyle.backdropPalette
         LazyVGrid(columns:Array(repeating:GridItem(.flexible(),spacing:8),count:6),spacing:10){if key != "Backdrop"{automatic(key)};if key=="Backdrop" && gradientMode{ForEach(Array(NoteStyle.backdropGradients.enumerated()),id:\.offset){_,p in gradient(p)}}else{ForEach(solids,id:\.self){solid(key,$0)}}} }
-    func automatic(_ key:String)->some View { Button{set(key,nil)}label:{Circle().fill(LinearGradient(colors:[.white,.black],startPoint:.bottomLeading,endPoint:.topTrailing)).frame(width:40,height:40).overlay(Circle().strokeBorder(value(key)==nil ? LeafPalette.accent:Color.primary.opacity(0.12),lineWidth:value(key)==nil ? 3:0.7))}.buttonStyle(.plain).help("Automatic") }
-    func solid(_ key:String,_ hex:String)->some View { Button{set(key,hex);if key=="Backdrop"{store.update{$0.style?.backdropEnd=nil};gradientMode=false}}label:{Circle().fill(NoteStyle.colour(hex)!).frame(width:40,height:40).overlay(Circle().strokeBorder(value(key)==hex ? LeafPalette.accent:Color.primary.opacity(0.12),lineWidth:value(key)==hex ? 3:0.7))}.buttonStyle(.plain).help(hex) }
-    func gradient(_ p:[String])->some View { Button{setGradient(p);gradientMode=true}label:{Circle().fill(LinearGradient(colors:p.compactMap(NoteStyle.colour),startPoint:.top,endPoint:.bottom)).frame(width:40,height:40).overlay(Circle().strokeBorder(style.backdrop==p[0] && style.backdropEnd==p[1] ? LeafPalette.accent:Color.primary.opacity(0.12),lineWidth:style.backdrop==p[0] && style.backdropEnd==p[1] ? 3:0.7))}.buttonStyle(.plain) }
+    func automatic(_ key:String)->some View { Button{set(key,nil)}label:{Circle().fill(LinearGradient(colors:[.white,.black],startPoint:.bottomLeading,endPoint:.topTrailing)).frame(width:40,height:40).overlay(Circle().strokeBorder(value(key)==nil ? PebblePalette.accent:Color.primary.opacity(0.12),lineWidth:value(key)==nil ? 3:0.7))}.buttonStyle(.plain).help("Automatic") }
+    func solid(_ key:String,_ hex:String)->some View { Button{set(key,hex);if key=="Backdrop"{store.update{$0.style?.backdropEnd=nil};gradientMode=false}}label:{Circle().fill(NoteStyle.colour(hex)!).frame(width:40,height:40).overlay(Circle().strokeBorder(value(key)==hex ? PebblePalette.accent:Color.primary.opacity(0.12),lineWidth:value(key)==hex ? 3:0.7))}.buttonStyle(.plain).help(hex) }
+    func gradient(_ p:[String])->some View { Button{setGradient(p);gradientMode=true}label:{Circle().fill(LinearGradient(colors:p.compactMap(NoteStyle.colour),startPoint:.top,endPoint:.bottom)).frame(width:40,height:40).overlay(Circle().strokeBorder(style.backdrop==p[0] && style.backdropEnd==p[1] ? PebblePalette.accent:Color.primary.opacity(0.12),lineWidth:style.backdrop==p[0] && style.backdropEnd==p[1] ? 3:0.7))}.buttonStyle(.plain) }
 }
 
 struct StyleMiniature:View { var style:NoteStyle;var body:some View{ZStack(alignment:.bottom){style.background();VStack(alignment:.leading,spacing:9){Text("Note").font(.system(size:18,weight:.semibold));RoundedRectangle(cornerRadius:2).fill(style.foreground.opacity(0.20)).frame(height:5);RoundedRectangle(cornerRadius:2).fill(style.foreground.opacity(0.13)).frame(width:90,height:5);Spacer()}.foregroundStyle(style.foreground).padding(16).frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.topLeading).background(style.paper,in:RoundedRectangle(cornerRadius:14)).padding(.horizontal,style.framed ? 12:0).padding(.top,style.framed ? 12:0).offset(y:style.framed ? 7:0)}.clipShape(RoundedRectangle(cornerRadius:18)).overlay(RoundedRectangle(cornerRadius:18).strokeBorder(Color.primary.opacity(0.08),lineWidth:0.7))} }

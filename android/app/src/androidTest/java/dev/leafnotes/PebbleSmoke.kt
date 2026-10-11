@@ -7,7 +7,7 @@ import java.io.File
 import java.util.Calendar
 
 /** Runs production storage and text adapters on Android; no simulated Android APIs. */
-class LeafSmoke : Instrumentation() {
+class PebbleSmoke : Instrumentation() {
     private var seedPerformance=false
     override fun onCreate(arguments: Bundle?) { seedPerformance=arguments?.getString("fixture")=="true";super.onCreate(arguments); start() }
     override fun onStart() {
@@ -21,6 +21,8 @@ class LeafSmoke : Instrumentation() {
                 check(preferredRefreshRate(listOf(60f,90f,120f),false)==60f)
                 check(preferredRefreshRate(listOf(60f),true)==60f)
                 check(preferredRefreshRate(emptyList(),true)==0f)
+                val input=PebbleEditText(isolated)
+                check(input.focusSearch(android.view.View.FOCUS_FORWARD)==null && input.focusSearch(android.view.View.FOCUS_BACKWARD)==null)
                 val a=Block(text="A");val b=Block(kind="toggle",text="B");val child=Block(parentId=b.id,text="Child");val d=Block(text="D")
                 val movement=Note(blocks=listOf(a,b,child,d)).movingBlock(b.id,1)
                 check(movement.document.map{it.id}==listOf(a.id,d.id,b.id,child.id))
@@ -32,6 +34,13 @@ class LeafSmoke : Instrumentation() {
                 check(reorderInsertionIndex(ids,"a",frames,370f)==3)
                 check(reorderInsertionIndex(ids,"a",frames,280f)==2)
                 check(reorderInsertionIndex(listOf("b","c","d","a"),"a",frames,0f)==0)
+                val group=ReorderGroup();group.frames.putAll(frames)
+                val original=listOf("a","b","c","d");group.begin("a",original,emptyMap())
+                group.move(400f);check(group.pendingOrder.last()=="a")
+                check(group.frames==frames && group.initialOrder==original)
+                group.move(-400f);check(group.pendingOrder==original)
+                group.move(400f);val dropped=group.finish();check(dropped.last()=="a" && group.offsets.isEmpty() && group.draggedId==null)
+                results.append("PASS: fixed drag geometry reverses without layout feedback, commits once and clears offsets\n")
                 val headingIdea=Block(kind="callout",text="Compact idea",textStyle="title",spans=listOf(Span(0,12,"title"),Span(0,7,"bold")))
                 check(headingIdea.mobileRendered.textStyle=="body" && headingIdea.mobileRendered.spans.map{it.kind}==listOf("bold"))
                 check(headingIdea.textStyle=="title")
@@ -115,6 +124,7 @@ class LeafSmoke : Instrumentation() {
                 store.create()
                 val note = Note(title = "Android restart", text = "Hello 👋 नमस्ते", spans = listOf(Span(6, 2, "bold"), Span(6, 2, "italic")))
                 store.update(note)
+                store.awaitDraftWrite()
                 check(File(store.root, "pending-draft.json").exists())
                 val recovered = Store(isolated)
                 check(recovered.editing == note.prepared())

@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.22.0",
+    "title": "Fresh Pebble icons and stable mobile editing",
+    "changes": [
+      "Updated Android and Mac app icons to the new Pebble Notes artwork.",
+      "Rebuilt mobile block dragging with fixed gesture measurements, responsive neighbour movement and a single commit on drop. Cancelled drags leave the document intact.",
+      "Text editors release focus and references when leaving a note; typing avoids repeated layout changes and draft disk writes run off the main thread.",
+      "More rounded mobile library clipping and navigation haptics when the selection crosses icons.",
+      "Mac light mode uses white sidebar icon tiles and selection surfaces, a brighter content pane and whiter default cards.",
+      "Source projects and components use Pebble naming while installed app identities, note libraries and backup compatibility are preserved."
+    ]
+  },
+  {
     "version": "0.21.1",
     "title": "Balanced mobile corners and fluid block moves",
     "changes": [

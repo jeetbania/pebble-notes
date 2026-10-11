@@ -30,9 +30,9 @@ struct TimeWheelColumn: View {
 }
 struct QuickTaskSchedule: View {
     var initial: TaskDetails; var save: (TaskDetails) -> Void; var cancel: () -> Void
-    @LeafState private var date = Date()
-    @LeafState private var dated = true
-    @LeafState private var hasTime = false
+    @PebbleState private var date = Date()
+    @PebbleState private var dated = true
+    @PebbleState private var hasTime = false
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack { Text("Schedule task").font(.title2.bold()); Spacer(); Button("Cancel", action: cancel) }

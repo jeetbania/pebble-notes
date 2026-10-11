@@ -50,6 +50,12 @@ For a new component, check the states in the catalog, light/dark, long/wrapped t
 
 Mac collection forms use adaptive primary ink for entered values, 55% primary ink for placeholders and 70% for icon choices and helpers. Native scroll geometry updates belong to a separate indicator view, so they never invalidate the card content. Image previews decode off the main thread and share a bounded cache; never decode a full wallpaper from a card body. Native Mac scrolling follows the active display refresh rate; do not add a fixed-rate rendering timer.
 
-Mobile library viewport corners use `mobileViewportRadius` (16 dp). Mobile Idea copy renders at body size without inherited heading spans. Dragging starts directly from the six-dot handle; a tap opens block options. A drag may cross multiple peers per pointer update and must work across gaps; cancel the previous neighbour spring before retargeting it.
+Mobile library viewport corners use `mobileViewportRadius` (28 dp). Mobile Idea copy renders at body size without inherited heading spans. Dragging starts directly from the six-dot handle; a tap opens block options. A drag may cross multiple peers per pointer update and must work across gaps; cancel the previous neighbour spring before retargeting it.
 
 The mobile dock returns in a 160 ms fade with a short 180 ms upward reveal. Selection follows the finger with 0.82 resistance, diminishing overshoot at either edge and an elastic spring release; reduced motion removes the reveal and stretch. Top circular controls use a light translucent tint over the sampled backdrop, with adaptive foreground contrast.
+
+Mobile reorder measures stationary block families at gesture start, moves only visual layers during the gesture, and changes document order once on drop. Native editor views and focus are released when the note leaves composition. Draft snapshots use one background writer; note switches and lifecycle flushes wait for durable completion.
+
+Editor glass samples only the wallpaper/background sibling. Never record native Android text fields inside a graphics layer that glass controls sample: this can create recursive render-node dependencies.
+
+Native Android text editors own block navigation. IME focus-neighbour probes must not traverse the covered lazy library: use `PebbleEditText` for every embedded editor. Glass capture records the background only, never the native text fields.

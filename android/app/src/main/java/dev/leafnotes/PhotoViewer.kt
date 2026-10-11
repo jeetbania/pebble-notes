@@ -27,7 +27,7 @@ import kotlin.math.min
 fun viewerPhotos(note:Note,noteId:String)=note.document.filter{it.kind=="image"}.mapNotNull{b->note.attachments.firstOrNull{it.id==b.mediaId&&it.mime.startsWith("image/")}?.let{ViewerPhoto(noteId,b.id,it,b.caption)}}
 @Composable fun PhotoPreview(store:Store,initial:Media,items:List<ViewerPhoto>,onClose:()->Unit) {
     val photos=remember{items}
-    val c=LocalLeafColors.current;val calm=LocalCalmMotion.current;val density=LocalDensity.current
+    val c=LocalPebbleColors.current;val calm=LocalCalmMotion.current;val density=LocalDensity.current
     var selection by remember{mutableIntStateOf(photos.indexOfFirst{it.attachment.id==initial.id}.coerceAtLeast(0))}
     var zoom by remember{mutableFloatStateOf(1f)};var animateZoom by remember{mutableStateOf(false)};val displayedZoom by animateFloatAsState(zoom,if(calm||!animateZoom)snap() else tween(200),label="Image zoom");var pan by remember{mutableStateOf(Offset.Zero)}
     var caption by remember{mutableStateOf(photos.getOrNull(selection)?.caption ?: "")};var menu by remember{mutableStateOf(false)}

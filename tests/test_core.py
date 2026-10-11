@@ -3,26 +3,26 @@ import ctypes, json, tempfile, pathlib, unittest, subprocess, uuid, random
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BUILD = ROOT.parents[1] / "work" / "tests"
 BUILD.mkdir(parents=True, exist_ok=True)
-subprocess.run(["clang", "-O2", "-shared", "-DSQLITE_OMIT_LOAD_EXTENSION", "-I" + str(ROOT / "core/vendor"), str(ROOT / "core/leaf.c"), str(ROOT / "core/vendor/sqlite3.c"), "-o", str(BUILD / "libleaf.dylib")], check=True)
-lib = ctypes.CDLL(str(BUILD / "libleaf.dylib"))
-lib.leaf_open.argtypes = [ctypes.c_char_p]; lib.leaf_open.restype = ctypes.c_void_p
-lib.leaf_close.argtypes = [ctypes.c_void_p]
-lib.leaf_put.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]; lib.leaf_put.restype = ctypes.c_int
-lib.leaf_list.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]; lib.leaf_list.restype = ctypes.c_void_p
-lib.leaf_error.argtypes = [ctypes.c_void_p]; lib.leaf_error.restype = ctypes.c_char_p
-lib.leaf_free.argtypes = [ctypes.c_void_p]
-lib.leaf_ack.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+subprocess.run(["clang", "-O2", "-shared", "-DSQLITE_OMIT_LOAD_EXTENSION", "-I" + str(ROOT / "core/vendor"), str(ROOT / "core/pebble.c"), str(ROOT / "core/vendor/sqlite3.c"), "-o", str(BUILD / "libpebble.dylib")], check=True)
+lib = ctypes.CDLL(str(BUILD / "libpebble.dylib"))
+lib.pebble_open.argtypes = [ctypes.c_char_p]; lib.pebble_open.restype = ctypes.c_void_p
+lib.pebble_close.argtypes = [ctypes.c_void_p]
+lib.pebble_put.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]; lib.pebble_put.restype = ctypes.c_int
+lib.pebble_list.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]; lib.pebble_list.restype = ctypes.c_void_p
+lib.pebble_error.argtypes = [ctypes.c_void_p]; lib.pebble_error.restype = ctypes.c_char_p
+lib.pebble_free.argtypes = [ctypes.c_void_p]
+lib.pebble_ack.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 def revision(id=None, parents=(), text="Hello", note_id="note-1", deleted=False):
     return dict(schema=1,id=id or str(uuid.uuid4()),noteId=note_id,deviceId="device",parents=list(parents),createdAt=1000,note=dict(title="Thoughts",text=text,spans=[],attachments=[],collection="Personal",pinned=False,archived=False,deleted=deleted))
 class Store:
-    def __init__(self,path=":memory:"): self.handle=lib.leaf_open(str(path).encode()); assert self.handle
-    def put(self,r,remote=False): return bool(lib.leaf_put(self.handle,json.dumps(r,ensure_ascii=False).encode(),remote))
+    def __init__(self,path=":memory:"): self.handle=lib.pebble_open(str(path).encode()); assert self.handle
+    def put(self,r,remote=False): return bool(lib.pebble_put(self.handle,json.dumps(r,ensure_ascii=False).encode(),remote))
     def list(self,pending=False,heads=False):
-        ptr=lib.leaf_list(self.handle,pending,heads)
-        assert ptr,lib.leaf_error(self.handle)
+        ptr=lib.pebble_list(self.handle,pending,heads)
+        assert ptr,lib.pebble_error(self.handle)
         try: return json.loads(ctypes.string_at(ptr))
-        finally: lib.leaf_free(ptr)
-    def close(self): lib.leaf_close(self.handle)
+        finally: lib.pebble_free(ptr)
+    def close(self): lib.pebble_close(self.handle)
 class CoreTests(unittest.TestCase):
     def setUp(self): self.s=Store()
     def tearDown(self): self.s.close()
@@ -85,7 +85,7 @@ class CoreTests(unittest.TestCase):
     def test_restart_and_pending_queue(self):
         with tempfile.TemporaryDirectory() as d:
             s=Store(pathlib.Path(d)/"notes.sqlite"); r=revision(); self.assertTrue(s.put(r)); s.close()
-            s=Store(pathlib.Path(d)/"notes.sqlite"); self.assertEqual(s.list(pending=True),[r]); lib.leaf_ack(s.handle,r['id'].encode()); s.close()
+            s=Store(pathlib.Path(d)/"notes.sqlite"); self.assertEqual(s.list(pending=True),[r]); lib.pebble_ack(s.handle,r['id'].encode()); s.close()
             s=Store(pathlib.Path(d)/"notes.sqlite"); self.assertEqual(s.list(pending=True),[]); self.assertEqual(s.list(),[r]); s.close()
     def test_both_offline_versions_survive_and_converge(self):
         phone=Store()
@@ -157,5 +157,5 @@ class CoreTests(unittest.TestCase):
         new['note'].update(blocks=[dict(id='body',kind='text',text='Hello',spans=[],checked=False,indent=0,mediaId='',caption='',presentation='large',cells=[])],tags=[],recordType='note',folderEmoji='',folderImage='')
         self.assertTrue(self.s.put(new));self.assertEqual({r['id'] for r in self.s.list()},{'old','new'});self.assertEqual(self.s.list(heads=True),[new]);self.assertIn(old,self.s.list())
     def test_malformed_json_does_not_damage_library(self):
-        r=revision(); self.s.put(r); self.assertEqual(lib.leaf_put(self.s.handle,b'{broken',0),0); self.assertEqual(self.s.list(),[r])
+        r=revision(); self.s.put(r); self.assertEqual(lib.pebble_put(self.s.handle,b'{broken',0),0); self.assertEqual(self.s.list(),[r])
 if __name__=='__main__': unittest.main(verbosity=2)

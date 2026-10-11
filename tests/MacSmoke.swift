@@ -117,7 +117,7 @@ import AppKit
         precondition(spansFrom(styled.attributed) == canonicalSpans(styled.spans), "Heading and links must survive a rich-text round trip")
         recovered.update { $0 = styled }; recovered.flush()
         precondition(recovered.error == nil && recovered.current?.spans == styled.spans)
-        let view = LeafTextView(); view.textStorage?.setAttributedString(styled.attributed); view.setSelectedRange(NSRange(location: 0, length: 7)); EditorActions.shared.view = view
+        let view = PebbleTextView(); view.textStorage?.setAttributedString(styled.attributed); view.setSelectedRange(NSRange(location: 0, length: 7)); EditorActions.shared.view = view
         EditorActions.shared.textStyle("subtitle")
         precondition(spansFrom(view.attributedString()).contains { $0.kind == "subtitle" && $0.length == 7 })
         view.setSelectedRange(NSRange(location: view.string.utf16.count, length: 0)); EditorActions.shared.textStyle("headline")
@@ -136,7 +136,7 @@ import AppKit
             precondition(spansFrom(text).contains { $0.kind == style })
         }
         recovered.update { $0 = styled }; recovered.flush()
-        let buffer = LeafTextView(); buffer.awaitingBlock = true
+        let buffer = PebbleTextView(); buffer.awaitingBlock = true
         buffer.insertText("next", replacementRange: NSRange(location: 0, length: 0)); buffer.insertNewline(nil)
         precondition(buffer.string.isEmpty && buffer.queuedInput == ["next", "\n"], "Typing during block mounting must be queued")
         print("PASS: empty headings persist, body spans stay valid, and fast block-transition typing is buffered")

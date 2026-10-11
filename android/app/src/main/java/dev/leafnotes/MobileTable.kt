@@ -16,7 +16,7 @@ fun Block.removeTableRow(index:Int)=if(cells.size>1 && index in cells.indices)co
 fun Block.removeTableColumn(index:Int)=if((cells.firstOrNull()?.size ?: 0) > 1 && index in cells[0].indices)copy(cells=cells.map{row->row.filterIndexed{i,_->i!=index}})else this
 
 @Composable fun MobileTable(store:Store,block:Block) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     var menu by remember(block.id){mutableStateOf<Pair<Boolean,Int>?>(null)}
     var focused by remember(block.id){mutableStateOf<Pair<Int,Int>?>(null)}
     val columnCount=block.cells.firstOrNull()?.size ?: return

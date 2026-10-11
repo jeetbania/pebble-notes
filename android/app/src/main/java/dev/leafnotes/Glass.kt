@@ -24,7 +24,7 @@ fun Modifier.backdropSource(): Modifier = composed {
     if(source==null)this else onGloballyPositioned {val location=IntArray(2);view.getLocationOnScreen(location);source.origin=it.positionInRoot()+Offset(location[0].toFloat(),location[1].toFloat())}.drawWithContent {source.layer.record {this@drawWithContent.drawContent()};drawLayer(source.layer)}
 }
 fun Modifier.frosted(shape:Shape,light:Boolean=false,surface:Color?=null):Modifier = composed {
-    val source=LocalBackdrop.current;val glass=rememberGraphicsLayer();var origin by remember{mutableStateOf(Offset.Zero)};val c=LocalLeafColors.current;val view=androidx.compose.ui.platform.LocalView.current
+    val source=LocalBackdrop.current;val glass=rememberGraphicsLayer();var origin by remember{mutableStateOf(Offset.Zero)};val c=LocalPebbleColors.current;val view=androidx.compose.ui.platform.LocalView.current
     val radius=with(androidx.compose.ui.platform.LocalDensity.current){(if(light)8.dp else 18.dp).toPx()}
     this.clip(shape).onGloballyPositioned{val location=IntArray(2);view.getLocationOnScreen(location);origin=it.positionInRoot()+Offset(location[0].toFloat(),location[1].toFloat())}.drawWithContent {
         if(source!=null && Build.VERSION.SDK_INT>=31) {glass.renderEffect=BlurEffect(radius,radius,TileMode.Clamp);glass.record {translate(source.origin.x-origin.x,source.origin.y-origin.y){drawLayer(source.layer)}};drawLayer(glass)}
@@ -35,7 +35,7 @@ fun Modifier.frosted(shape:Shape,light:Boolean=false,surface:Color?=null):Modifi
 
 // Background-only fade: labels and touch targets stay fully opaque.
 @Composable fun ScrollHeader(modifier:Modifier=Modifier,homeGlow:Boolean=false,surface:Color?=null,content:@Composable ColumnScope.()->Unit) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     Box(modifier.fillMaxWidth()) {
         Box(Modifier.matchParentSize().graphicsLayer{compositingStrategy=androidx.compose.ui.graphics.CompositingStrategy.Offscreen}.drawWithContent {
             drawContent()

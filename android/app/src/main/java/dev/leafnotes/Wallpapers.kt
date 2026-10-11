@@ -56,7 +56,7 @@ fun prominentWallpaperColour(bitmap:android.graphics.Bitmap):Color {
     return if(count==0)Color.Transparent else Color(android.graphics.Color.rgb(red[winner]/count,green[winner]/count,blue[winner]/count))
 }
 private val wallpaperTones=android.util.LruCache<String,Color>(24)
-@Composable fun noteEdgeColour(style:NoteStyle,c:LeafColors,top:Boolean=true,media:File?=LocalNoteMedia.current):Color {
+@Composable fun noteEdgeColour(style:NoteStyle,c:PebbleColors,top:Boolean=true,media:File?=LocalNoteMedia.current):Color {
     val context=LocalContext.current
     val tone=remember(style.backdropImage,media){style.backdropImage?.let{id->wallpaperTones.get(id)?:try{
         val file=media?.let{File(it,id)};val bytes=if(file?.exists()==true)file.readBytes()else context.assets.open("wallpapers/$id.webp").use{it.readBytes()}

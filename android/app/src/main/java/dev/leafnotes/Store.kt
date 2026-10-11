@@ -16,7 +16,7 @@ import java.security.MessageDigest
 import java.util.UUID
 
 object NativeStore {
-    init { System.loadLibrary("leaf") }
+    init { System.loadLibrary("pebble") }
     external fun open(path: ByteArray): Long
     external fun put(handle: Long, payload: ByteArray, remote: Boolean): Int
     external fun list(handle: Long, pending: Boolean, heads: Boolean): ByteArray?
@@ -96,6 +96,8 @@ class Store(val context: Context) {
     private val draftFile = AtomicFile(File(root, "pending-draft.json"))
     private val handler = Handler(Looper.getMainLooper())
     private val commit = Runnable { flush() }
+    private val draftWriter=java.util.concurrent.Executors.newSingleThreadExecutor { task->Thread(task,"Pebble draft writer").apply{isDaemon=true} }
+    private var draftWrite:java.util.concurrent.Future<*>?=null
     private var draft: JSONObject? = null
     var selected by mutableStateOf<String?>(null)
     var editing by mutableStateOf<Note?>(null)
@@ -166,10 +168,18 @@ class Store(val context: Context) {
     @Synchronized fun renameFolder(old:String,name:String){val previous=selected;val clean=name.trim('/',' ');if(clean.isEmpty())return;allHeads.filter{it.note.purgedAt==null && (it.note.collection==old||it.note.collection.startsWith(old+"/"))}.forEach{r->select(r.noteId);val next=clean+r.note.collection.removePrefix(old);update(r.note.copy(collection=next,title=if(r.note.recordType=="folder")next else r.note.title));flush()};select(previous)}
     @Synchronized fun splitList(id:String,position:Int):String? { val n=editing?:return null;val blocks=n.document.toMutableList();val i=blocks.indexOfFirst{it.id==id};if(i<0)return null;val b=blocks[i];if(b.text.isEmpty() && b.parentId!=null){val parent=n.document.firstOrNull{it.id==b.parentId}?:return null;blocks.removeAt(i);val out=b.copy(parentId=parent.parentId,kind="text",textStyle="body",indent=0);val family=n.descendants(parent.id);val end=blocks.indexOfLast{it.id in family};blocks.add(end+1,out);update(n.copy(blocks=blocks));activeBlock=id;return id};if(b.text.isEmpty() && b.kind in listOf("bullet","number","check")){changeBlock(id){it.copy(kind="text",textStyle="body")};return id};val p=position.coerceIn(0,b.text.length);val next=b.copy(id=uid(),kind=if(b.kind in listOf("quote","callout"))"text"else b.kind,text=b.text.substring(p),spans=clipSpans(b.spans,p,b.text.length-p).filter{it.kind !in listOf("title","subtitle","headline","bold")},textStyle="body",checked=false);blocks[i]=b.copy(text=b.text.substring(0,p),spans=clipSpans(b.spans,0,p));blocks.add(i+1,next);update(n.copy(blocks=blocks));activeBlock=next.id;return next.id }
     private fun saveDraft() {
-        var stream: java.io.FileOutputStream? = null
-        try { stream = draftFile.startWrite(); stream.write(draft.toString().toByteArray(Charsets.UTF_8)); draftFile.finishWrite(stream); status = "Saved on this phone" }
-        catch (e: Exception) { if (stream != null) draftFile.failWrite(stream); error = "Saving needs attention: ${e.message}"; status = "Save needs attention" }
+        val bytes=(draft ?: return).toString().toByteArray(Charsets.UTF_8)
+        val noteId=selected
+        // Cancel queued snapshots, never interrupt an atomic write already in progress.
+        draftWrite?.cancel(false)
+        draftWrite=draftWriter.submit {
+            var stream:java.io.FileOutputStream?=null
+            try {stream=draftFile.startWrite();stream.write(bytes);draftFile.finishWrite(stream)}
+            catch(e:Exception){if(stream!=null)draftFile.failWrite(stream);handler.post{if(selected==noteId){error="Saving needs attention: ${e.message}";status="Save needs attention"}}}
+        }
+        status="Saved on this phone"
     }
+    fun awaitDraftWrite() { draftWriter.submit {}.get() }
     @Synchronized fun flush() {
         handler.removeCallbacks(commit); val d = draft ?: return
         try {
@@ -177,7 +187,7 @@ class Store(val context: Context) {
             d.put("note", note.json())
             if(note.purgedAt!=null)d.put("parents",JSONArray())
             val r = JSONObject().put("schema", 2).put("id", uid()).put("noteId", d.getString("noteId")).put("deviceId", deviceId).put("parents", d.getJSONArray("parents")).put("createdAt", System.currentTimeMillis()).put("note", d.getJSONObject("note"))
-            ingest(r.toString(), false); draftFile.delete(); draft = null; if(note.purgedAt!=null){selected=null;editing=null}; reload(); scheduleLocalBackup(context)
+            ingest(r.toString(), false); draftWrite?.cancel(false);draftWriter.submit { draftFile.delete() }.get(); draft = null; if(note.purgedAt!=null){selected=null;editing=null}; reload(); scheduleLocalBackup(context)
             if(preferences.getBoolean("connected", false)) scheduleSync(context)
         } catch (e: Exception) { error = "Local saving failed: ${e.message}" }
     }

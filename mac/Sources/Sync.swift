@@ -15,8 +15,8 @@ enum TokenVault {
     static func save(_ tokens: GoogleTokens) throws {
         let data = try leafEncoder.encode(tokens)
         let result = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        if result == errSecItemNotFound { var q = query; q[kSecValueData as String] = data; q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly; guard SecItemAdd(q as CFDictionary, nil) == errSecSuccess else { throw LeafError.message("Could not save Google sign-in in Keychain") } }
-        else if result != errSecSuccess { throw LeafError.message("Could not update Google sign-in in Keychain") }
+        if result == errSecItemNotFound { var q = query; q[kSecValueData as String] = data; q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly; guard SecItemAdd(q as CFDictionary, nil) == errSecSuccess else { throw PebbleError.message("Could not save Google sign-in in Keychain") } }
+        else if result != errSecSuccess { throw PebbleError.message("Could not update Google sign-in in Keychain") }
     }
     static func remove() { SecItemDelete(query as CFDictionary) }
 }
@@ -28,7 +28,7 @@ func requestJSON(_ request: URLRequest) async throws -> [String: Any] {
     let (data, response) = try await URLSession.shared.data(for: request)
     guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-        throw LeafError.message(code == 401 ? "Google sign-in expired. Reconnect in Settings; your notes remain saved locally." : "Google request failed (\(code)). Your notes remain saved locally.")
+        throw PebbleError.message(code == 401 ? "Google sign-in expired. Reconnect in Settings; your notes remain saved locally." : "Google request failed (\(code)). Your notes remain saved locally.")
     }
     return try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
 }
@@ -59,10 +59,10 @@ final class OAuthCallback: @unchecked Sendable {
                     guard url.path == "/callback", values["state"] == self.state else { connection.cancel(); return }
                     let body = "You can return to Pebble Notes."
                     connection.send(content: Data("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n\(body)".utf8), completion: .contentProcessed { _ in connection.cancel() })
-                    if let code = values["code"] { self.finish(.success(code)) } else { self.finish(.failure(LeafError.message("Google sign-in was cancelled"))) }
+                    if let code = values["code"] { self.finish(.success(code)) } else { self.finish(.failure(PebbleError.message("Google sign-in was cancelled"))) }
                 }
             }
-            let timeout = DispatchWorkItem { self.finish(.failure(LeafError.message("Google sign-in timed out. Try again in Settings."))) }
+            let timeout = DispatchWorkItem { self.finish(.failure(PebbleError.message("Google sign-in timed out. Try again in Settings."))) }
             self.timeout = timeout; DispatchQueue.main.asyncAfter(deadline: .now() + 180, execute: timeout)
             self.listener.start(queue: .main)
         }
@@ -72,7 +72,7 @@ final class OAuthCallback: @unchecked Sendable {
 @MainActor enum GoogleAuth {
     static let scope = "https://www.googleapis.com/auth/drive.appdata openid email"
     static func connect(clientId: String, secret: String) async throws {
-        guard clientId.hasSuffix(".apps.googleusercontent.com") else { throw LeafError.message("Enter your Desktop OAuth client ID first. See the Google setup guide.") }
+        guard clientId.hasSuffix(".apps.googleusercontent.com") else { throw PebbleError.message("Enter your Desktop OAuth client ID first. See the Google setup guide.") }
         let verifier = (UUID().uuidString + UUID().uuidString).replacingOccurrences(of: "-", with: "")
         let challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
         let state = UUID().uuidString; let server = try OAuthCallback(state: state)
@@ -88,15 +88,15 @@ final class OAuthCallback: @unchecked Sendable {
         var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!); request.httpMethod = "POST"; request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = formData(["code": code, "client_id": clientId, "client_secret": secret, "redirect_uri": redirect, "grant_type": "authorization_code", "code_verifier": verifier])
         let response = try await requestJSON(request)
-        guard let refresh = response["refresh_token"] as? String else { throw LeafError.message("Google did not return ongoing access. Try reconnecting.") }
+        guard let refresh = response["refresh_token"] as? String else { throw PebbleError.message("Google did not return ongoing access. Try reconnecting.") }
         try TokenVault.save(GoogleTokens(refreshToken: refresh, clientId: clientId, clientSecret: secret))
     }
     static func accessToken(allowPrompt: Bool = false) async throws -> String {
-        guard let credentials = await Task.detached { TokenVault.load(allowPrompt: allowPrompt) }.value else { throw LeafError.message("Connect Google Drive in Settings to enable sync") }
+        guard let credentials = await Task.detached { TokenVault.load(allowPrompt: allowPrompt) }.value else { throw PebbleError.message("Connect Google Drive in Settings to enable sync") }
         var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!); request.httpMethod = "POST"; request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = formData(["refresh_token": credentials.refreshToken, "client_id": credentials.clientId, "client_secret": credentials.clientSecret, "grant_type": "refresh_token"])
         let response = try await requestJSON(request)
-        guard let access = response["access_token"] as? String else { throw LeafError.message("Reconnect Google Drive in Settings") }; return access
+        guard let access = response["access_token"] as? String else { throw PebbleError.message("Reconnect Google Drive in Settings") }; return access
     }
 }
 struct DriveFile { let id: String; let name: String }
@@ -116,9 +116,9 @@ struct DriveClient {
     }
     func download(_ id: String) async throws -> Data {
         let (data, response) = try await URLSession.shared.data(for: request(URL(string: "https://www.googleapis.com/drive/v3/files/\(id)?alt=media")!))
-        guard let response = response as? HTTPURLResponse, response.statusCode == 200 else { throw LeafError.message("Could not download from Google Drive; will retry") }; return data
+        guard let response = response as? HTTPURLResponse, response.statusCode == 200 else { throw PebbleError.message("Could not download from Google Drive; will retry") }; return data
     }
-    func remove(_ id: String) async throws { var r = request(URL(string: "https://www.googleapis.com/drive/v3/files/\(id)")!); r.httpMethod = "DELETE"; let (_, response) = try await URLSession.shared.data(for: r); guard let response = response as? HTTPURLResponse, [204, 404].contains(response.statusCode) else { throw LeafError.message("Cloud deletion will retry during the next sync") } }
+    func remove(_ id: String) async throws { var r = request(URL(string: "https://www.googleapis.com/drive/v3/files/\(id)")!); r.httpMethod = "DELETE"; let (_, response) = try await URLSession.shared.data(for: r); guard let response = response as? HTTPURLResponse, [204, 404].contains(response.statusCode) else { throw PebbleError.message("Cloud deletion will retry during the next sync") } }
     func upload(_ name: String, data: Data, mime: String) async throws {
         let boundary = "leaf-" + UUID().uuidString
         let metadata: [String: Any] = ["name": name, "parents": ["appDataFolder"], "appProperties": ["leafApp": "1"]]
@@ -137,9 +137,9 @@ extension NoteStore {
             status = "Syncing with Google Drive…"
             let token = try await GoogleAuth.accessToken(allowPrompt: !silent); let drive = DriveClient(token: token)
             let user = try await requestJSON(drive.request(URL(string: "https://www.googleapis.com/oauth2/v3/userinfo")!))
-            guard let subject = user["sub"] as? String else { throw LeafError.message("Could not identify Google account") }
+            guard let subject = user["sub"] as? String else { throw PebbleError.message("Could not identify Google account") }
             let bindingURL = root.appendingPathComponent("google-account.txt")
-            if let existing = try? String(contentsOf: bindingURL, encoding: .utf8), existing != subject { throw LeafError.message("This library belongs to a different Google account. Reconnect the original account to keep libraries separate.") }
+            if let existing = try? String(contentsOf: bindingURL, encoding: .utf8), existing != subject { throw PebbleError.message("This library belongs to a different Google account. Reconnect the original account to keep libraries separate.") }
             try Data(subject.utf8).write(to: bindingURL, options: .atomic)
             let remote = try await drive.files(); var names = Set(remote.map(\.name))
             let originals = try JSONSerialization.jsonObject(with: Data(rawRevisions().utf8)) as! [[String: Any]]
@@ -149,7 +149,7 @@ extension NoteStore {
                     let name = "leaf-b-" + a.id
                     if !names.contains(name) {
                         let data = try Data(contentsOf: media.appendingPathComponent(a.id))
-                        guard SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == a.id else { throw LeafError.message("An image is damaged. Restore a backup before syncing.") }
+                        guard SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == a.id else { throw PebbleError.message("An image is damaged. Restore a backup before syncing.") }
                         try await drive.upload(name, data: data, mime: "application/octet-stream"); names.insert(name)
                     }
                 }
@@ -161,19 +161,19 @@ extension NoteStore {
             for file in remote where file.name.hasPrefix("leaf-r-") && file.name.hasSuffix(".json") {
                 let claimedId = String(file.name.dropFirst(7).dropLast(5)); if known.contains(claimedId) { continue }
                 let data = try await drive.download(file.id); let revision = try JSONDecoder().decode(Revision.self, from: data)
-                guard revision.id == claimedId, [1, 2].contains(revision.schema) else { throw LeafError.message("Cloud note has an unsupported revision format") }
+                guard revision.id == claimedId, [1, 2].contains(revision.schema) else { throw PebbleError.message("Cloud note has an unsupported revision format") }
                 // Core validation must run before constructing any attachment path.
-                guard let validator = leaf_open(":memory:") else { throw LeafError.message("Could not validate cloud note") }
-                defer { leaf_close(validator) }
+                guard let validator = pebble_open(":memory:") else { throw PebbleError.message("Could not validate cloud note") }
+                defer { pebble_close(validator) }
                 let raw = String(data: data, encoding: .utf8)!
-                guard leaf_put(validator, raw, 1) != 0 else { throw LeafError.message(String(cString: leaf_error(validator))) }
+                guard pebble_put(validator, raw, 1) != 0 else { throw PebbleError.message(String(cString: pebble_error(validator))) }
                 if heads.contains(where: { $0.noteId == revision.noteId && $0.note.purgedAt != nil }) { continue }
                 for a in revision.note.attachments {
                     let path = media.appendingPathComponent(a.id)
                     if !FileManager.default.fileExists(atPath: path.path) {
-                        guard let blob = remote.first(where: { $0.name == "leaf-b-" + a.id }) else { throw LeafError.message("An image upload is still arriving. Sync will retry.") }
+                        guard let blob = remote.first(where: { $0.name == "leaf-b-" + a.id }) else { throw PebbleError.message("An image upload is still arriving. Sync will retry.") }
                         let bytes = try await drive.download(blob.id)
-                        guard SHA256.hash(data: bytes).map({ String(format: "%02x", $0) }).joined() == a.id else { throw LeafError.message("Downloaded image failed its integrity check") }
+                        guard SHA256.hash(data: bytes).map({ String(format: "%02x", $0) }).joined() == a.id else { throw PebbleError.message("Downloaded image failed its integrity check") }
                         try bytes.write(to: path, options: .atomic)
                     }
                 }
@@ -204,8 +204,8 @@ struct SyncSettings: View {
     @AppStorage("googleClientId") private var clientId = ""
     @AppStorage("googleClientSecret") private var secret = ""
     @AppStorage("appearance") private var appearance = "system"
-    @LeafState<Bool> private var connecting = false
-    @LeafState<String> private var message = ""
+    @PebbleState<Bool> private var connecting = false
+    @PebbleState<String> private var message = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Picker("Appearance", selection: $appearance) { Text("System").tag("system"); Text("Light").tag("light"); Text("Dark").tag("dark") }.pickerStyle(.segmented)

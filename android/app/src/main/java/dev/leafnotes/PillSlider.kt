@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 // Retain the platform's drag, keyboard and accessibility behavior, with Pebble geometry.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PillSlider(value:Float,onValueChange:(Float)->Unit,valueRange:ClosedFloatingPointRange<Float>,modifier:Modifier=Modifier,steps:Int=0,description:String="") {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     Slider(value=value,onValueChange=onValueChange,valueRange=valueRange,steps=steps,
         modifier=modifier.heightIn(min=48.dp).semantics {if(description.isNotEmpty())contentDescription=description},
         thumb={Box(Modifier.size(28.dp).shadow(3.dp,CircleShape).background(Color.White,CircleShape).border(.5.dp,Color.Black.copy(alpha=.08f),CircleShape))},

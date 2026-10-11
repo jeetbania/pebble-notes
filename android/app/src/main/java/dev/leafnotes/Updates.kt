@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit
 
 const val UPDATE_FEED="https://github.com/jeetbania/pebble-notes/releases/latest/download/updates.json"
 data class UpdateAsset(val url:String,val sha256:String,val size:Long,val build:Long)
-data class PebbleUpdate(val version:String,val releases:List<LeafRelease>,val asset:UpdateAsset)
+data class PebbleUpdate(val version:String,val releases:List<PebbleRelease>,val asset:UpdateAsset)
 fun updateHash(bytes:ByteArray)=MessageDigest.getInstance("SHA-256").digest(bytes).joinToString(""){"%02x".format(it)}
 fun parseUpdate(context:Context,bytes:ByteArray):PebbleUpdate {
     require(bytes.size<=1024*1024){"Update information is too large"}
@@ -37,7 +37,7 @@ fun parseUpdate(context:Context,bytes:ByteArray):PebbleUpdate {
     require(url.startsWith("https://github.com/jeetbania/pebble-notes/releases/download/")){"Unexpected update location"}
     val asset=UpdateAsset(url,a.getString("sha256"),a.getLong("size"),a.getLong("build"))
     require(asset.sha256.matches(Regex("[a-f0-9]{64}")) && asset.size in 1..200_000_000 && asset.build>0)
-    val history=data.getJSONArray("releases");val releases=(0 until history.length()).map{i->val r=history.getJSONObject(i);val c=r.getJSONArray("changes");LeafRelease(r.getString("version"),r.getString("title"),(0 until c.length()).map{c.getString(it)})}
+    val history=data.getJSONArray("releases");val releases=(0 until history.length()).map{i->val r=history.getJSONObject(i);val c=r.getJSONArray("changes");PebbleRelease(r.getString("version"),r.getString("title"),(0 until c.length()).map{c.getString(it)})}
     val version=data.getString("version");require(releases.firstOrNull()?.version==version)
     return PebbleUpdate(version,releases,asset)
 }
@@ -47,7 +47,7 @@ fun fetchUpdate(context:Context):PebbleUpdate {
     try { require(connection.responseCode==200){"Could not check for updates (${connection.responseCode})"};val bytes=connection.inputStream.use{input->val out=java.io.ByteArrayOutputStream();val buffer=ByteArray(8192);while(true){val count=input.read(buffer);if(count<0)break;require(out.size()+count<=1024*1024){"Update information is too large"};out.write(buffer,0,count)};out.toByteArray()};return parseUpdate(context,bytes) } finally {connection.disconnect()}
 }
 fun installedBuild(context:Context)=androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(context.packageManager.getPackageInfo(context.packageName,0))
-fun unseenReleases(update:PebbleUpdate,current:String):List<LeafRelease> {val index=update.releases.indexOfFirst{it.version==current};return if(index>=0)update.releases.take(index) else update.releases}
+fun unseenReleases(update:PebbleUpdate,current:String):List<PebbleRelease> {val index=update.releases.indexOfFirst{it.version==current};return if(index>=0)update.releases.take(index) else update.releases}
 class PebbleUpdater private constructor(val context:Context) {
     var available by mutableStateOf<PebbleUpdate?>(null);private set
     var visible by mutableStateOf(false)
@@ -104,7 +104,7 @@ class PebbleUpdater private constructor(val context:Context) {
     companion object { @Volatile private var shared:PebbleUpdater?=null;fun get(context:Context):PebbleUpdater=shared ?: synchronized(this){shared ?: PebbleUpdater(context.applicationContext).also{shared=it}} }
 }
 @Composable fun UpdateDialog(updater:PebbleUpdater) {
-    val update=updater.available ?: return;val scope=rememberCoroutineScope();val c=LocalLeafColors.current
+    val update=updater.available ?: return;val scope=rememberCoroutineScope();val c=LocalPebbleColors.current
     IosSheet("Pebble Notes ${update.version}",onDismiss={if(!updater.downloading)updater.later()},translucent=true) {
         Label("A new update is ready",17)
         unseenReleases(update,ReleaseNotes.version(updater.context)).forEach{r->Label(r.version+" · "+r.title,17,modifier=Modifier.padding(top=18.dp));r.changes.forEach{Label("• $it",14,color=c.secondary,modifier=Modifier.padding(vertical=5.dp))}}

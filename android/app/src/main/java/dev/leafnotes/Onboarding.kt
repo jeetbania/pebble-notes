@@ -14,7 +14,7 @@ import androidx.compose.ui.semantics.*
 import androidx.activity.compose.BackHandler
 
 @Composable fun PebbleOnboarding(store:Store,onFinish:()->Unit,onConnect:()->Unit) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     var page by rememberSaveable {mutableStateOf(0)}
     var name by rememberSaveable {mutableStateOf(store.preferences.getString("profileName","") ?: "")}
     val keyboard=androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -49,7 +49,7 @@ import androidx.activity.compose.BackHandler
     }
 }
 @Composable private fun OnboardingArtwork(page:Int,modifier:Modifier) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     Box(modifier.clearAndSetSemantics{}) {
         Column(Modifier.align(Alignment.Center).offset(x=(-32).dp,y=(-12).dp).rotate(-9f).width(210.dp).shadow(12.dp,RoundedCornerShape(24.dp)).background(c.paper,RoundedCornerShape(24.dp)).border(.5.dp,c.text.copy(alpha=.09f),RoundedCornerShape(24.dp)).padding(22.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Glyph(if(page==0)"compose" else "calendar",size=22,tint=Color(0xFF6B98F4));Label(if(page==0)"A little perspective" else "A lighter tomorrow",19,FontWeight.SemiBold)

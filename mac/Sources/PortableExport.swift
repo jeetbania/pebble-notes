@@ -28,6 +28,6 @@ enum PortableExport {
         try Data(markdown(note).utf8).write(to: folder.appendingPathComponent("note.md"))
         try leafEncoder.encode(note).write(to: folder.appendingPathComponent("note.leaf.json"))
         for a in note.attachments { try FileManager.default.copyItem(at: media.appendingPathComponent(a.id), to: folder.appendingPathComponent("assets").appendingPathComponent(a.id)) }
-        let process = Process(); process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto"); process.arguments = ["-c", "-k", folder.path, destination.path]; try process.run(); process.waitUntilExit(); guard process.terminationStatus == 0 else { throw LeafError.message("Could not create note export") }
+        let process = Process(); process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto"); process.arguments = ["-c", "-k", folder.path, destination.path]; try process.run(); process.waitUntilExit(); guard process.terminationStatus == 0 else { throw PebbleError.message("Could not create note export") }
     }
 }

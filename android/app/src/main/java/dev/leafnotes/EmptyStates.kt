@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 
 // Decorative previews, not loading skeletons: no shimmer or pretend interactive controls.
 @Composable fun GhostArtwork(kind:String,modifier:Modifier=Modifier) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     Box(modifier.widthIn(max=340.dp).fillMaxWidth().height(176.dp).clearAndSetSemantics{},contentAlignment=Alignment.Center) {
         listOf(Triple(-34,-22,-7f),Triple(40,19,8f),Triple(-12,12,-3f)).forEachIndexed { i,(x,y,angle) ->
             val shape=RoundedCornerShape(14.dp)
@@ -45,7 +45,7 @@ import androidx.compose.ui.unit.dp
 }
 
 @Composable fun GhostEmpty(kind:String,title:String,detail:String,actionLabel:String?=null,onAction:(()->Unit)?=null,modifier:Modifier=Modifier) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     Column(modifier.fillMaxWidth().padding(vertical=24.dp),horizontalAlignment=Alignment.CenterHorizontally) {
         GhostArtwork(kind)
         Label(title,21,FontWeight.SemiBold,modifier=Modifier.padding(top=12.dp))

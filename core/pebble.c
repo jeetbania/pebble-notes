@@ -1,33 +1,33 @@
-#include "leaf.h"
+#include "pebble.h"
 #include "sqlite3.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-struct leaf_store { sqlite3 *db; char error[512]; };
-static int fail(leaf_store *s, const char *message) { snprintf(s->error, sizeof(s->error), "%s", message); return 0; }
-static int run(leaf_store *s, const char *sql) {
+struct pebble_store { sqlite3 *db; char error[512]; };
+static int fail(pebble_store *s, const char *message) { snprintf(s->error, sizeof(s->error), "%s", message); return 0; }
+static int run(pebble_store *s, const char *sql) {
     char *error = NULL;
     int rc = sqlite3_exec(s->db, sql, NULL, NULL, &error);
     if (rc != SQLITE_OK) { fail(s, error ? error : sqlite3_errmsg(s->db)); sqlite3_free(error); return 0; }
     return 1;
 }
-leaf_store *leaf_open(const char *path) {
-    leaf_store *s = calloc(1, sizeof(*s));
-    if (sqlite3_open_v2(path, &s->db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, NULL) != SQLITE_OK) { leaf_close(s); return NULL; }
+pebble_store *pebble_open(const char *path) {
+    pebble_store *s = calloc(1, sizeof(*s));
+    if (sqlite3_open_v2(path, &s->db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, NULL) != SQLITE_OK) { pebble_close(s); return NULL; }
     sqlite3_busy_timeout(s->db, 5000);
     if (!run(s, "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON;"
         "CREATE TABLE IF NOT EXISTS revisions(id TEXT PRIMARY KEY,note_id TEXT NOT NULL,payload TEXT NOT NULL,uploaded INTEGER NOT NULL);"
         "CREATE TABLE IF NOT EXISTS edges(child TEXT NOT NULL,parent TEXT NOT NULL,PRIMARY KEY(child,parent),FOREIGN KEY(child) REFERENCES revisions(id));"
         "CREATE INDEX IF NOT EXISTS notes_index ON revisions(note_id);"
-        "CREATE INDEX IF NOT EXISTS parents_index ON edges(parent); PRAGMA user_version=1;")) { leaf_close(s); return NULL; }
+        "CREATE INDEX IF NOT EXISTS parents_index ON edges(parent); PRAGMA user_version=1;")) { pebble_close(s); return NULL; }
     return s;
 }
-void leaf_close(leaf_store *s) { if(s) { sqlite3_close(s->db); free(s); } }
-const char *leaf_error(leaf_store *s) { return s ? s->error : "Could not open local database"; }
-void leaf_free(char *s) { free(s); }
+void pebble_close(pebble_store *s) { if(s) { sqlite3_close(s->db); free(s); } }
+const char *pebble_error(pebble_store *s) { return s ? s->error : "Could not open local database"; }
+void pebble_free(char *s) { free(s); }
 
-int leaf_put(leaf_store *s, const char *payload, int remote) {
+int pebble_put(pebble_store *s, const char *payload, int remote) {
     if (!s || !payload) return 0;
     s->error[0] = 0;
     if (strlen(payload) > 16 * 1024 * 1024) return fail(s, "Note revision exceeds 16 MB");
@@ -139,7 +139,7 @@ int leaf_put(leaf_store *s, const char *payload, int remote) {
     if(!valid) { run(s,"ROLLBACK"); return fail(s,"Revision graph contains a cycle"); }
     return run(s,"COMMIT");
 }
-char *leaf_list(leaf_store *s,int pending,int heads) {
+char *pebble_list(pebble_store *s,int pending,int heads) {
     sqlite3_stmt *q=NULL;
     const char *sql = heads ?
         "SELECT coalesce(json_group_array(json(payload)),'[]') FROM (SELECT payload FROM revisions r WHERE NOT EXISTS(SELECT 1 FROM edges WHERE parent=r.id) ORDER BY json_extract(payload,'$.createdAt') DESC,id DESC)" :
@@ -150,7 +150,7 @@ char *leaf_list(leaf_store *s,int pending,int heads) {
     if(sqlite3_step(q)==SQLITE_ROW) result=strdup((const char*)sqlite3_column_text(q,0));
     sqlite3_finalize(q); return result;
 }
-int leaf_ack(leaf_store *s,const char *id) {
+int pebble_ack(pebble_store *s,const char *id) {
     sqlite3_stmt *q=NULL; sqlite3_prepare_v2(s->db,"UPDATE revisions SET uploaded=1 WHERE id=?1",-1,&q,NULL);
     sqlite3_bind_text(q,1,id,-1,SQLITE_TRANSIENT); int rc=sqlite3_step(q); sqlite3_finalize(q);
     return rc==SQLITE_DONE ? 1 : fail(s,sqlite3_errmsg(s->db));

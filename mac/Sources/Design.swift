@@ -10,7 +10,7 @@ import Observation
 }
 
 /// Semantic colours from the user's original Apple library exports, including alpha.
-enum LeafPalette {
+enum PebblePalette {
     static let themes: [String: [String: Any]] = Dictionary(uniqueKeysWithValues: ["Light", "Dark"].map { theme in
         let url = Bundle.main.url(forResource: theme + ".tokens", withExtension: "json")
         let data = url.flatMap { try? Data(contentsOf: $0) }
@@ -37,14 +37,14 @@ struct SoftButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View { HoverFeedback(configuration: configuration, radius: radius) }
     struct HoverFeedback: View {
         let configuration: ButtonStyleConfiguration; var radius: CGFloat
-        @LeafState<Bool> private var hovering = false
+        @PebbleState<Bool> private var hovering = false
         @Environment(\.accessibilityReduceMotion) var reduced
         @AppStorage("calmMotion") var calm = false
         var body: some View { configuration.label.frame(minWidth: 32, minHeight: 32).contentShape(Rectangle()).background(Color.primary.opacity(hovering ? 0.055 : 0), in: RoundedRectangle(cornerRadius: radius)).opacity(configuration.isPressed ? PebbleTokens.pressedOpacity : 1).scaleEffect(configuration.isPressed && !reduced && !calm ? PebbleTokens.pressScale : 1).onHover { hovering = $0 }.animation(reduced || calm ? nil : .easeInOut(duration: 0.14), value: hovering).animation(reduced || calm ? nil : .easeOut(duration: 0.12), value: configuration.isPressed) }
     }
 }
 extension View {
-    @ViewBuilder func leafGlass<S: Shape>(in shape: S) -> some View {
+    @ViewBuilder func pebbleGlass<S: Shape>(in shape: S) -> some View {
         if #available(macOS 26, *) { self.glassEffect(.regular, in: shape) }
         else { self.background(.ultraThinMaterial, in: shape) }
     }
@@ -85,7 +85,7 @@ struct CardMaterial: View {
     @Environment(\.accessibilityReduceTransparency) var reduced
     var body: some View {
         RoundedRectangle(cornerRadius: 22).fill(reduced ? AnyShapeStyle(Color(nsColor: .controlBackgroundColor)) : AnyShapeStyle(.ultraThinMaterial))
-            .overlay(RoundedRectangle(cornerRadius: 22).fill(scheme == .dark ? Color.white.opacity(0.07) : Color.white.opacity(0.12)))
+            .overlay(RoundedRectangle(cornerRadius: 22).fill(scheme == .dark ? Color.white.opacity(0.07) : Color.white.opacity(0.80)))
             .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(Color.white.opacity(scheme == .dark ? 0.10 : 0.35), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.10), radius: 5, y: 3)
     }
@@ -96,7 +96,7 @@ struct SidebarButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View { Feedback(configuration: configuration) }
     struct Feedback: View {
         let configuration: ButtonStyleConfiguration
-        @LeafState<Bool> private var hovering = false
+        @PebbleState<Bool> private var hovering = false
         var body: some View {
             configuration.label.frame(minWidth: 32, minHeight: 32).contentShape(Rectangle()).foregroundStyle(hovering ? Color.primary : Color.secondary)
                 .opacity(configuration.isPressed ? PebbleTokens.pressedOpacity : 1).onHover { hovering = $0 }
@@ -112,7 +112,7 @@ struct PanePresentation<Panel: View>: ViewModifier {
             if presented {
                 ZStack {
                     Rectangle().fill(reduced ? AnyShapeStyle(Color(nsColor: .windowBackgroundColor)) : AnyShapeStyle(.ultraThinMaterial)).overlay(Color.black.opacity(0.10))
-                    LeafScrollView { panel().frame(maxWidth: .infinity).padding(.top, 72).padding(.bottom, 24) }
+                    PebbleScrollView { panel().frame(maxWidth: .infinity).padding(.top, 72).padding(.bottom, 24) }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).transition(.opacity)
             }
         }
@@ -130,7 +130,7 @@ struct CardReorder: DropDelegate {
 }
 
 struct HoverSurface: ViewModifier {
-    @LeafState<Bool> private var hovering = false
+    @PebbleState<Bool> private var hovering = false
     @Environment(\.accessibilityReduceMotion) var reduced
     func body(content: Content) -> some View { content.background(Color.primary.opacity(hovering ? 0.07 : 0), in: Capsule()).onHover { hovering = $0 }.animation(reduced ? nil : .easeInOut(duration: 0.14), value: hovering) }
 }
@@ -163,7 +163,7 @@ struct IconDepth: ViewModifier {
 }
 struct SyncIndicator: View {
     @ObservedObject var store: NoteStore
-    @LeafState<Bool> private var visible = false
+    @PebbleState<Bool> private var visible = false
     var failed: Bool { store.status.localizedCaseInsensitiveContains("pending") || store.status.localizedCaseInsensitiveContains("attention") }
     var body: some View { Image(systemName: store.busy ? "icloud.and.arrow.up" : failed ? "icloud.slash" : "checkmark.icloud").font(.system(size: 13)).foregroundStyle(store.busy ? Color.yellow : failed ? .red : .green).opacity(visible || store.busy || failed ? 1 : 0).frame(width: 22).help(store.status).accessibilityLabel(store.status).animation(.easeOut(duration: 0.3), value: visible).onChange(of: store.status) { _, value in if value.hasPrefix("Synced") { visible = true; Task { try? await Task.sleep(for: .seconds(3)); if !store.busy { visible = false } } } }.onChange(of: store.busy) { _, busy in if busy { visible = true } } }
 }

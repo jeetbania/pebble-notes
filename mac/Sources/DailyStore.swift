@@ -73,7 +73,7 @@ actor DailyBackups {
         let format = DateFormatter(); format.dateFormat = "yyyy-MM-dd"; let file = directory.appendingPathComponent(format.string(from: Date()) + ".leafbackup")
         if !force, let values = try? file.resourceValues(forKeys: [.contentModificationDateKey]), let date = values.contentModificationDate, Date().timeIntervalSince(date) < 3600 { return "Local backup saved today" }
         let records = try JSONDecoder().decode([Revision].self, from: Data(raw.utf8)); var files: [String: String] = [:]
-        for hash in Set(records.flatMap { $0.note.attachments.map(\.id) }) { let data = try Data(contentsOf: root.appendingPathComponent("media").appendingPathComponent(hash)); guard SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == hash else { throw LeafError.message("An attachment failed its integrity check") }; files[hash] = data.base64EncodedString() }
+        for hash in Set(records.flatMap { $0.note.attachments.map(\.id) }) { let data = try Data(contentsOf: root.appendingPathComponent("media").appendingPathComponent(hash)); guard SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == hash else { throw PebbleError.message("An attachment failed its integrity check") }; files[hash] = data.base64EncodedString() }
         let object: [String: Any] = ["format": "leaf-backup-1", "revisions": try JSONSerialization.jsonObject(with: Data(raw.utf8)), "media": files]
         try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]).write(to: file, options: .atomic)
         let backups = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil).filter { $0.pathExtension == "leafbackup" }.sorted { $0.lastPathComponent > $1.lastPathComponent }

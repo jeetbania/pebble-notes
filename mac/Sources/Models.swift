@@ -1,5 +1,5 @@
 import SwiftUI
-typealias LeafState<Value> = SwiftUI.State<Value>
+typealias PebbleState<Value> = SwiftUI.State<Value>
 import Foundation
 import AppKit
 
@@ -147,7 +147,7 @@ struct Revision: Codable, Identifiable {
 struct Draft: Codable { var noteId: String; var parents: [String]; var note: Note }
 let leafEncoder: JSONEncoder = { let e = JSONEncoder(); e.outputFormatting = [.sortedKeys]; return e }()
 func encode<T: Encodable>(_ value: T) throws -> String { String(data: try leafEncoder.encode(value), encoding: .utf8)! }
-enum LeafError: LocalizedError {
+enum PebbleError: LocalizedError {
     case message(String)
     var errorDescription: String? { if case .message(let s) = self { return s }; return nil }
 }

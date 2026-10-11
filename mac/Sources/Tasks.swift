@@ -6,18 +6,18 @@ struct TasksHome: View {
     var dismissSearch: () -> Void = {}
     var clearSearch: () -> Void = {}
     @EnvironmentObject var store: NoteStore
-    @LeafState<String> private var filter = "All"
+    @PebbleState<String> private var filter = "All"
     @AppStorage("taskView") private var layout = "List"
-    @LeafState<String> private var stage = "all"
-    @LeafState<String?> private var draggedTask = nil
-    @LeafState<CGSize> private var taskOffset = .zero
-    @LeafState<[String: CGRect]> private var columnFrames = [:]
-    @LeafState<String> private var list = "All lists"
-    @LeafState<Bool> private var adding = false
-    @LeafState<String> private var addingStage = "todo"
+    @PebbleState<String> private var stage = "all"
+    @PebbleState<String?> private var draggedTask = nil
+    @PebbleState<CGSize> private var taskOffset = .zero
+    @PebbleState<[String: CGRect]> private var columnFrames = [:]
+    @PebbleState<String> private var list = "All lists"
+    @PebbleState<Bool> private var adding = false
+    @PebbleState<String> private var addingStage = "todo"
     var newTask: Note { var n = Note(); n.task = TaskDetails(completed: addingStage == "done", status: addingStage); return n }
-    @LeafState<Revision?> private var scheduling = nil
-    @LeafState<Revision?> private var editing = nil
+    @PebbleState<Revision?> private var scheduling = nil
+    @PebbleState<Revision?> private var editing = nil
     var tasks: [Revision] { store.uniqueHeads.filter { !$0.note.deleted && !$0.note.archived && $0.note.task != nil } }
     var lists: [String] { ["All lists"] + Array(Set(tasks.compactMap { $0.note.task?.list })).sorted() }
     var visible: [Revision] {
@@ -45,7 +45,7 @@ struct TasksHome: View {
                 VStack(alignment: .leading, spacing: 4) { Text("My Tasks").font(.system(size: 28, weight: .bold)); Text(Date().formatted(date: .abbreviated, time: .omitted)).font(.system(size: 12)).foregroundStyle(.secondary) }.layoutPriority(1)
                 Spacer(minLength: 0)
                 TaskPills(values: [("List", "list.bullet"), ("Board", "rectangle.split.3x1")], selected: $layout, iconsOnly: true)
-                GlassIcon(icon: "plus", label: "New task") { addingStage = "todo"; adding = true }.leafGlass(in: Circle())
+                GlassIcon(icon: "plus", label: "New task") { addingStage = "todo"; adding = true }.pebbleGlass(in: Circle())
             }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 10) { stagePills; Spacer(minLength: 20); dateAndList }
@@ -54,12 +54,12 @@ struct TasksHome: View {
             if visible.isEmpty {
                 GhostEmpty(kind: "tasks", title: tasks.isEmpty ? "A little room for what’s next" : "No tasks in this view", detail: tasks.isEmpty ? "Give your next step a place." : "Try another list or status.", actionLabel: tasks.isEmpty ? "Create a task" : "Show all tasks", action: { if tasks.isEmpty { addingStage = "todo"; adding = true } else { filter = "All"; list = "All lists"; stage = "all"; clearSearch() } })
             } else if layout == "Board" {
-                LeafScrollView(.horizontal) {
+                PebbleScrollView(.horizontal) {
                     HStack(alignment: .top, spacing: 14) {
                         ForEach(["todo", "progress", "review", "done"], id: \.self) { state in
                             VStack(alignment: .leading, spacing: 14) {
                                 HStack { Circle().fill(stageColour(state)).frame(width: 6, height: 6); Text(stageName(state)).font(.system(size: 13, weight: .semibold)); Spacer(); Text("\(visible.filter { $0.note.task!.stage == state }.count)").foregroundStyle(.tertiary) }
-                                LeafScrollView { VStack(spacing: 10) { ForEach(visible.filter { $0.note.task!.stage == state }) { r in kanbanCard(r).scaleEffect(draggedTask == r.noteId ? 0.96 : 1).offset(draggedTask == r.noteId ? taskOffset : .zero).zIndex(draggedTask == r.noteId ? 10 : 0).highPriorityGesture(DragGesture(minimumDistance: 8, coordinateSpace: .named("taskBoard")).onChanged { value in draggedTask = r.noteId; taskOffset = value.translation }.onEnded { value in if let state = columnFrames.first(where: { $0.value.contains(value.location) })?.key { withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) { store.mutate(r.noteId) { $0.task?.move(to: state) } } }; draggedTask = nil; taskOffset = .zero }) }; Button { addingStage = state; adding = true } label: { Label("Add task", systemImage: "plus").frame(maxWidth: .infinity).padding(10) }.buttonStyle(SoftButtonStyle()) } }.scrollClipDisabled()
+                                PebbleScrollView { VStack(spacing: 10) { ForEach(visible.filter { $0.note.task!.stage == state }) { r in kanbanCard(r).scaleEffect(draggedTask == r.noteId ? 0.96 : 1).offset(draggedTask == r.noteId ? taskOffset : .zero).zIndex(draggedTask == r.noteId ? 10 : 0).highPriorityGesture(DragGesture(minimumDistance: 8, coordinateSpace: .named("taskBoard")).onChanged { value in draggedTask = r.noteId; taskOffset = value.translation }.onEnded { value in if let state = columnFrames.first(where: { $0.value.contains(value.location) })?.key { withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) { store.mutate(r.noteId) { $0.task?.move(to: state) } } }; draggedTask = nil; taskOffset = .zero }) }; Button { addingStage = state; adding = true } label: { Label("Add task", systemImage: "plus").frame(maxWidth: .infinity).padding(10) }.buttonStyle(SoftButtonStyle()) } }.scrollClipDisabled()
                             }.padding(14).frame(width: 246).frame(maxHeight: .infinity).background(Color.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 18))
                                 .zIndex(tasks.first(where: { $0.noteId == draggedTask })?.note.task?.stage == state ? 10 : 0)
                                 .background(GeometryReader { proxy in Color.clear.preference(key: TaskColumnFrames.self, value: [state: proxy.frame(in: .named("taskBoard"))]) })
@@ -68,7 +68,7 @@ struct TasksHome: View {
                     }
                 }
             } else {
-                LeafScrollView { VStack(alignment: .leading, spacing: 12) {
+                PebbleScrollView { VStack(alignment: .leading, spacing: 12) {
                     if visible.isEmpty { Text("A little room for what’s next.").foregroundStyle(.secondary).padding(.vertical, 36) }
                     ForEach(groups, id: \.self) { name in Text(name).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary).padding(.top, 12); ForEach(visible.filter { group($0.note.task!) == name }) { r in taskRow(r) } }
                     Button { addingStage = "todo"; adding = true } label: { Label("Add a new task…", systemImage: "plus").frame(maxWidth: .infinity, alignment: .leading).padding(18) }.buttonStyle(SoftButtonStyle())
@@ -86,7 +86,7 @@ struct TasksHome: View {
     func taskRow(_ r: Revision) -> some View {
         let t = r.note.task!
         return HStack(alignment: .top, spacing: 10) {
-            Button { store.mutate(r.noteId) { $0.task?.complete() } } label: { Image(systemName: t.completed ? "checkmark.circle.fill" : "circle").font(.system(size: 23, weight: .light)).foregroundStyle(t.completed ? LeafPalette.accent : Color.secondary) }.buttonStyle(SoftButtonStyle()).help(t.repeatRule == "none" ? "Complete task" : "Complete and schedule next occurrence")
+            Button { store.mutate(r.noteId) { $0.task?.complete() } } label: { Image(systemName: t.completed ? "checkmark.circle.fill" : "circle").font(.system(size: 23, weight: .light)).foregroundStyle(t.completed ? PebblePalette.accent : Color.secondary) }.buttonStyle(SoftButtonStyle()).help(t.repeatRule == "none" ? "Complete task" : "Complete and schedule next occurrence")
             Button { editing = r } label: {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(r.note.displayTitle).font(.system(size: 16, weight: .medium)).fixedSize(horizontal: false, vertical: true).strikethrough(t.completed).opacity(t.completed ? 0.5 : 1)
@@ -146,16 +146,16 @@ struct TasksHome: View {
 struct TaskComposer: View {
     @EnvironmentObject var store: NoteStore
     var initial: Note; var save: (Note) -> Void; var cancel: () -> Void
-    @LeafState<Note> private var note: Note
-    @LeafState<Bool> private var dated: Bool
-    @LeafState<Date> private var date: Date
-    @LeafState<String> private var newSubtask = ""
-    @LeafState<String> private var alertStatus = ""
-    @LeafState<Bool> private var calendarVisible = false
+    @PebbleState<Note> private var note: Note
+    @PebbleState<Bool> private var dated: Bool
+    @PebbleState<Date> private var date: Date
+    @PebbleState<String> private var newSubtask = ""
+    @PebbleState<String> private var alertStatus = ""
+    @PebbleState<Bool> private var calendarVisible = false
     init(initial: Note, save: @escaping (Note) -> Void, cancel: @escaping () -> Void) {
         self.initial = initial; self.save = save; self.cancel = cancel
         var n = initial; if n.task == nil { n.task = TaskDetails() }; n.prepare()
-        _note = LeafState(initialValue: n); _dated = LeafState(initialValue: n.task!.dueAt > 0); _date = LeafState(initialValue: n.task!.dueAt > 0 ? n.task!.date : Date())
+        _note = PebbleState(initialValue: n); _dated = PebbleState(initialValue: n.task!.dueAt > 0); _date = PebbleState(initialValue: n.task!.dueAt > 0 ? n.task!.date : Date())
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -169,7 +169,7 @@ struct TaskComposer: View {
             SubtleDivider()
             VStack(alignment: .leading, spacing: 12) {
                 property("Date", "calendar") {
-                    HStack { Button { calendarVisible.toggle() } label: { Label(dated ? date.formatted(date: .abbreviated, time: .omitted) : "Set date", systemImage: "calendar").padding(.horizontal, 10).frame(height: 36) }.buttonStyle(SoftButtonStyle(radius: 18)).leafGlass(in: Capsule()).popover(isPresented: $calendarVisible) { TaskCalendar(date: $date, dated: $dated).padding(16).frame(width: 300).presentationBackground(.ultraThinMaterial) }; if dated { Toggle("Time", isOn: Binding(get: { note.task!.hasTime }, set: { note.task!.hasTime = $0 })).toggleStyle(.switch); if note.task!.hasTime { RollingTimePicker(date: $date) } } }
+                    HStack { Button { calendarVisible.toggle() } label: { Label(dated ? date.formatted(date: .abbreviated, time: .omitted) : "Set date", systemImage: "calendar").padding(.horizontal, 10).frame(height: 36) }.buttonStyle(SoftButtonStyle(radius: 18)).pebbleGlass(in: Capsule()).popover(isPresented: $calendarVisible) { TaskCalendar(date: $date, dated: $dated).padding(16).frame(width: 300).presentationBackground(.ultraThinMaterial) }; if dated { Toggle("Time", isOn: Binding(get: { note.task!.hasTime }, set: { note.task!.hasTime = $0 })).toggleStyle(.switch); if note.task!.hasTime { RollingTimePicker(date: $date) } } }
                 }
                 property("Priority", "flag") { HStack(spacing: 8) { ForEach(0...3, id: \.self) { priority in Button { note.task!.priority = priority } label: { Image(systemName: priority == 0 ? "flag" : "flag.fill").foregroundStyle(priority == 3 ? Color.red : priority == 2 ? .orange : priority == 1 ? .blue : .secondary).frame(width: 36, height: 36).background(Color.primary.opacity(note.task!.priority == priority ? 0.10 : 0), in: Circle()) }.buttonStyle(SoftButtonStyle(radius: 18)).help(["None", "Low", "Medium", "High"][priority]) }; Spacer(); Menu { ForEach(["none", "daily", "weekly", "monthly", "yearly"], id: \.self) { value in Button(value == "none" ? "Never" : ["daily": "Every day", "weekly": "Every week", "monthly": "Every month", "yearly": "Every year"][value]!, systemImage: "repeat") { note.task!.repeatRule = value; if value != "none" { dated = true } }.labelStyle(.titleAndIcon) } } label: { Label(note.task!.repeatRule == "none" ? "Repeat" : note.task!.repeatRule.capitalized, systemImage: "repeat").padding(8) }.menuStyle(.button).buttonStyle(SoftButtonStyle()) } }
                 if dated { property("Reminder", "bell") { Toggle("Notify at the due time", isOn: Binding(get: { note.task!.remind }, set: { enabled in if enabled { Task { let granted = await TaskAlerts.authorize(); note.task!.remind = granted; alertStatus = granted ? "" : "Allow notifications for Pebble Notes in System Settings." } } else { note.task!.remind = false } })).toggleStyle(.switch) }; Text(note.task!.hasTime ? "Repeating tasks advance when completed." : "All-day reminders arrive at 9 AM. Repeats advance when completed.").font(.caption).foregroundStyle(.secondary); if !alertStatus.isEmpty { Text(alertStatus).font(.caption).foregroundStyle(.secondary) } }
@@ -218,7 +218,7 @@ struct TaskColumnFrames: PreferenceKey {
 }
 
 struct TaskHover: ViewModifier {
-    @LeafState<Bool> private var hovering = false
+    @PebbleState<Bool> private var hovering = false
     func body(content: Content) -> some View { content.background(Color.primary.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 16)).onHover { hovering = $0 }.animation(.easeInOut(duration: 0.14), value: hovering) }
 }
 struct TaskPills: View {
@@ -227,7 +227,7 @@ struct TaskPills: View {
 }
 struct TaskCalendar: View {
     @Binding var date: Date; @Binding var dated: Bool
-    @LeafState<Date> private var month = Date()
+    @PebbleState<Date> private var month = Date()
     var calendar: Calendar { Calendar.current }
     var start: Date { calendar.date(from: calendar.dateComponents([.year, .month], from: month))! }
     var offset: Int { (calendar.component(.weekday, from: start) - calendar.firstWeekday + 7) % 7 }
@@ -239,7 +239,7 @@ struct TaskCalendar: View {
         SubtleDivider(); HStack { Text(month.formatted(.dateTime.month(.wide).year())).font(.headline); Spacer(); GlassIcon(icon: "chevron.left", label: "Previous month") { month = calendar.date(byAdding: .month, value: -1, to: month)! }; GlassIcon(icon: "chevron.right", label: "Next month") { month = calendar.date(byAdding: .month, value: 1, to: month)! } }
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 7), spacing: 4) {
             ForEach(0..<7, id: \.self) { i in Text(calendar.veryShortWeekdaySymbols[(calendar.firstWeekday - 1 + i) % 7]).font(.caption).foregroundStyle(.secondary) }
-            ForEach(0..<(offset + count), id: \.self) { index in if index < offset { Color.clear.frame(height: 32) } else { let day = index - offset + 1; let value = calendar.date(byAdding: .day, value: day - 1, to: start)!; Button { let time = calendar.dateComponents([.hour, .minute], from: date); date = calendar.date(bySettingHour: time.hour ?? 9, minute: time.minute ?? 0, second: 0, of: value)!; dated = true } label: { Text("\(day)").frame(maxWidth: .infinity).frame(height: 32).background(LeafPalette.accent.opacity(dated && calendar.isDate(value, inSameDayAs: date) ? 0.28 : 0), in: Circle()) }.buttonStyle(SoftButtonStyle(radius: 16)) } }
+            ForEach(0..<(offset + count), id: \.self) { index in if index < offset { Color.clear.frame(height: 32) } else { let day = index - offset + 1; let value = calendar.date(byAdding: .day, value: day - 1, to: start)!; Button { let time = calendar.dateComponents([.hour, .minute], from: date); date = calendar.date(bySettingHour: time.hour ?? 9, minute: time.minute ?? 0, second: 0, of: value)!; dated = true } label: { Text("\(day)").frame(maxWidth: .infinity).frame(height: 32).background(PebblePalette.accent.opacity(dated && calendar.isDate(value, inSameDayAs: date) ? 0.28 : 0), in: Circle()) }.buttonStyle(SoftButtonStyle(radius: 16)) } }
         }
     }.onAppear { month = date } }
 }

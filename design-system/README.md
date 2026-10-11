@@ -35,7 +35,7 @@ Generated files are [PebbleTokens.swift](../mac/Sources/PebbleTokens.swift) and 
 
 Foundation tokens are already used by desktop material buttons/dividers/icon controls and phone press feedback/action rows/chrome defaults. Other existing screens still contain local values. Adopt matching tokens when touching those screens; do not make a broad visual rewrite merely to remove literals. A reference token describes the intended default, not proof that every legacy screen is migrated.
 
-Colours retain their existing platform adapters: desktop exported semantic JSON and `LeafPalette`, phone `LeafColors`, and per-note `NoteStyle`. Their alpha and platform differences are intentional. Do not flatten them into one fixed hex palette. The manifest lists these source files rather than creating a second colour authority.
+Colours retain their existing platform adapters: desktop exported semantic JSON and `PebblePalette`, phone `PebbleColors`, and per-note `NoteStyle`. Their alpha and platform differences are intentional. Do not flatten them into one fixed hex palette. The manifest lists these source files rather than creating a second colour authority.
 
 ## Changes and exceptions
 

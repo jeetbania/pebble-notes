@@ -8,8 +8,8 @@ Use these implementations before adding a new control. The platforms share roles
 
 | Component role | macOS implementation | Android implementation | Rules |
 | --- | --- | --- | --- |
-| Icon chrome | `GlassIcon`, grouped with `leafGlass` | `ChromeButton` | Accessible label, whole visible target, subdued disabled state |
-| Grouped chrome | `leafGlass(in: Capsule())` | `ChromePill` | One material; no redundant hover capsules |
+| Icon chrome | `GlassIcon`, grouped with `pebbleGlass` | `ChromeButton` | Accessible label, whole visible target, subdued disabled state |
+| Grouped chrome | `pebbleGlass(in: Capsule())` | `ChromePill` | One material; no redundant hover capsules |
 | Standard material action | `MaterialActionStyle` | `GhostAction` for labelled neutral actions | Visible fill, border and balanced padding |
 | Reset / upload | `GhostButtonStyle` | `GhostAction` | A real button, not a plain underlined/text settings row |
 | Low-emphasis action | `SoftButtonStyle` | `Pressable` inside a suitable surface | Caller supplies geometry and semantic role; do not use a bare tiny label |
@@ -17,7 +17,7 @@ Use these implementations before adding a new control. The platforms share roles
 | Option action | Native context menu / menu buttons | `SheetRow` inside `IosSheet` | Icon, readable label, subtle divider, destructive semantic tint |
 | Compact secondary action | Standard native control | `SheetRowCompact` | Do not use for a primary or destructive action |
 
-Desktop shared controls live in [Design.swift](../mac/Sources/Design.swift); ghost/upload actions in [Wallpapers.swift](../mac/Sources/Wallpapers.swift). Phone controls live in [LeafUI.kt](../android/app/src/main/java/dev/leafnotes/LeafUI.kt). `Pressable` supplies feedback and click semantics, not a complete visual button or minimum size. Some legacy desktop low-emphasis styles have smaller intrinsic bounds: new callers must supply the 36-point target.
+Desktop shared controls live in [Design.swift](../mac/Sources/Design.swift); ghost/upload actions in [Wallpapers.swift](../mac/Sources/Wallpapers.swift). Phone controls live in [PebbleUI.kt](../android/app/src/main/java/dev/leafnotes/PebbleUI.kt). `Pressable` supplies feedback and click semantics, not a complete visual button or minimum size. Some legacy desktop low-emphasis styles have smaller intrinsic bounds: new callers must supply the 36-point target.
 
 **State contract**
 
@@ -37,7 +37,7 @@ Desktop shared controls live in [Design.swift](../mac/Sources/Design.swift); gho
 - Android: reuse `MobileField`, `IosSegments`, `PillSlider`, `TypographySettings` and `NoteSizeControl`. A field needs a visible fill/stroke, primary input, secondary placeholder, accent cursor, and explicit multiline/single-line intent. Put multiline content at the top.
 - macOS: use native text input with the rounded neutral treatment in Settings/Style, and `AdaptiveSlider` for preference sliders. Do not insert the opaque black rounded text-field default into glass.
 - Segments represent mutually exclusive choices. Animate one selection surface; allow gestures where already supported and commit the final choice. Keep the current value intelligible without colour alone.
-- Native editors (`LeafTextView` / phone `EditText` adapters) own rich text selection and keyboard actions. Do not substitute a generic field for the document editor.
+- Native editors (`PebbleTextView` / phone `EditText` adapters) own rich text selection and keyboard actions. Do not substitute a generic field for the document editor.
 
 ## Menus and sheets
 
@@ -48,7 +48,7 @@ macOS `PanePresentation` / `GlassDialog` handle contained overlays, `NoteStyleBu
 ## Cards, lists and empty states
 
 - Desktop `CardMaterial` is the adaptive material foundation. Note cards render `NoteStyle` and original media; task cards retain their own title/chips/footer hierarchy.
-- Phone `GalleryCard` and library row implementations in LeafUI render the same note records. Use bounded Masonry or equal Grid from preferences, not arbitrary height per wallpaper. List swipe actions return to rest when scrolling begins.
+- Phone `GalleryCard` and library row implementations in PebbleUI render the same note records. Use bounded Masonry or equal Grid from preferences, not arbitrary height per wallpaper. List swipe actions return to rest when scrolling begins.
 - `MediaImage` and wallpaper helpers own loading/cache/clip behaviour. Thumbnails must not decode original-size media on the main thread.
 - Empty states use existing static ghost artwork with opaque adaptive stacked surfaces and a relevant action. They are not loading skeletons.
 
@@ -63,7 +63,7 @@ macOS `PanePresentation` / `GlassDialog` handle contained overlays, `NoteStyleBu
 ## Example composition
 
 ```kotlin
-val colours = LocalLeafColors.current
+val colours = LocalPebbleColors.current
 GhostAction("Reset text sizes", "undo") { resetSizes() }
 IosSheet("Options", onDismiss) {
     SheetRow("Duplicate", "copy") { duplicate() }

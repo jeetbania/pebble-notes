@@ -3,12 +3,12 @@ import AppKit
 import ImageIO
 import UniformTypeIdentifiers
 
-#if !LEAF_TEST
+#if !PEBBLE_TEST
 @main
 #endif
-struct LeafNotesApp: App {
+struct PebbleNotesApp: App {
     @StateObject private var store = NoteStore()
-    init() { TaskAlerts.configure(); if let url = Bundle.main.url(forResource: "Leaf", withExtension: "icns"), let image = NSImage(contentsOf: url) { NSApplication.shared.applicationIconImage = image } }
+    init() { TaskAlerts.configure(); if let url = Bundle.main.url(forResource: "Pebble", withExtension: "icns"), let image = NSImage(contentsOf: url) { NSApplication.shared.applicationIconImage = image } }
     @AppStorage("appearance") private var appearance = "system"
     var body: some Scene {
         WindowGroup("Pebble Notes") {
@@ -42,58 +42,58 @@ struct LibraryView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reducedMotion
     @Environment(\.accessibilityReduceTransparency) private var reducedTransparency
-    @LeafState private var navigation = NavigationTrail()
-    @LeafState<[String: CGRect]> private var collectionDropFrames = [:]
-    @LeafState<String?> private var folderDropTarget = nil
-    @LeafState<Bool> private var dropSettling = false
-    @LeafState<String> private var section = "Everything"
-    @LeafState<String> private var search = ""
-    @LeafState<String> private var collection = ""
-    @LeafState<Bool> private var sidebarVisible = true
-    @LeafState<Bool> private var searchVisible = false
-    @LeafState<Attachment?> private var preview: Attachment?
-    @LeafState<Bool> private var showConflicts = false
-    @LeafState<Bool> private var newCollection = false
-    @LeafState<[String]> private var erasing = []
-    @LeafState<String> private var collectionName = ""
-    @LeafState<Bool> private var moveCollection = false
-    @LeafState<String> private var moveTarget = ""
-    @LeafState<Bool> private var formattingVisible = true
-    @LeafState<Bool> private var selecting = false
-    @LeafState<Set<String>> private var selectedItems = []
-    @LeafState<String> private var sortOrder = UserDefaults.standard.string(forKey: "librarySort") ?? "edited"
-    @LeafState<[String]> private var manualOrder = UserDefaults.standard.stringArray(forKey: "manualOrder") ?? []
-    @LeafState<[String]> private var extraCollections = UserDefaults.standard.stringArray(forKey: "extraCollections") ?? []
-    @LeafState<String> private var editingCollection = ""
-    @LeafState<String> private var collectionEmoji = ""
-    @LeafState<String> private var collectionImage = ""
-    @LeafState<Int> private var iconMode = 0
-    @LeafState<Int> private var iconVersion = 0
-    @LeafState<Bool> private var dailyTools = false
-    @LeafState<Bool> private var showSettings = false
-    @LeafState<Bool> private var showOnboarding = !UserDefaults.standard.bool(forKey: "onboardingComplete")
-    @LeafState private var settingsPage = "Appearance"
-    @LeafState<Bool> private var showWhatsNew = false
-    @LeafState<Bool> private var releaseHistory = false
-    @LeafState<String?> private var dragging = nil
-    @LeafState<[String: CGRect]> private var cardFrames = [:]
-    @LeafState<CGRect> private var grabbedFrame = .zero
-    @LeafState<CGSize> private var dragTranslation = .zero
-    @LeafState<Revision?> private var grabbedRevision = nil
-    @LeafState<Attachment?> private var grabbedImage = nil
+    @PebbleState private var navigation = NavigationTrail()
+    @PebbleState<[String: CGRect]> private var collectionDropFrames = [:]
+    @PebbleState<String?> private var folderDropTarget = nil
+    @PebbleState<Bool> private var dropSettling = false
+    @PebbleState<String> private var section = "Everything"
+    @PebbleState<String> private var search = ""
+    @PebbleState<String> private var collection = ""
+    @PebbleState<Bool> private var sidebarVisible = true
+    @PebbleState<Bool> private var searchVisible = false
+    @PebbleState<Attachment?> private var preview: Attachment?
+    @PebbleState<Bool> private var showConflicts = false
+    @PebbleState<Bool> private var newCollection = false
+    @PebbleState<[String]> private var erasing = []
+    @PebbleState<String> private var collectionName = ""
+    @PebbleState<Bool> private var moveCollection = false
+    @PebbleState<String> private var moveTarget = ""
+    @PebbleState<Bool> private var formattingVisible = true
+    @PebbleState<Bool> private var selecting = false
+    @PebbleState<Set<String>> private var selectedItems = []
+    @PebbleState<String> private var sortOrder = UserDefaults.standard.string(forKey: "librarySort") ?? "edited"
+    @PebbleState<[String]> private var manualOrder = UserDefaults.standard.stringArray(forKey: "manualOrder") ?? []
+    @PebbleState<[String]> private var extraCollections = UserDefaults.standard.stringArray(forKey: "extraCollections") ?? []
+    @PebbleState<String> private var editingCollection = ""
+    @PebbleState<String> private var collectionEmoji = ""
+    @PebbleState<String> private var collectionImage = ""
+    @PebbleState<Int> private var iconMode = 0
+    @PebbleState<Int> private var iconVersion = 0
+    @PebbleState<Bool> private var dailyTools = false
+    @PebbleState<Bool> private var showSettings = false
+    @PebbleState<Bool> private var showOnboarding = !UserDefaults.standard.bool(forKey: "onboardingComplete")
+    @PebbleState private var settingsPage = "Appearance"
+    @PebbleState<Bool> private var showWhatsNew = false
+    @PebbleState<Bool> private var releaseHistory = false
+    @PebbleState<String?> private var dragging = nil
+    @PebbleState<[String: CGRect]> private var cardFrames = [:]
+    @PebbleState<CGRect> private var grabbedFrame = .zero
+    @PebbleState<CGSize> private var dragTranslation = .zero
+    @PebbleState<Revision?> private var grabbedRevision = nil
+    @PebbleState<Attachment?> private var grabbedImage = nil
     @AppStorage("calmMotion") private var calmMotion = false
     @FocusState private var searchFocused: Bool
     @FocusState private var emojiFocused: Bool
-    @LeafState<[String]> private var folderOrder = UserDefaults.standard.stringArray(forKey: "folderOrder") ?? []
-    @LeafState<String?> private var draggedFolder = nil
-    @LeafState<[String: CGRect]> private var folderFrames = [:]
-    @LeafState<CGRect> private var folderOrigin = .zero
-    @LeafState<CGSize> private var folderTranslation = .zero
-    @LeafState<String?> private var deletingFolder = nil
+    @PebbleState<[String]> private var folderOrder = UserDefaults.standard.stringArray(forKey: "folderOrder") ?? []
+    @PebbleState<String?> private var draggedFolder = nil
+    @PebbleState<[String: CGRect]> private var folderFrames = [:]
+    @PebbleState<CGRect> private var folderOrigin = .zero
+    @PebbleState<CGSize> private var folderTranslation = .zero
+    @PebbleState<String?> private var deletingFolder = nil
     @AppStorage("sidebarWidth") private var sidebarWidth = 240.0
-    @LeafState<Double?> private var resizeStart = nil
-    @LeafState<CGRect?> private var selectionRect = nil
-    @LeafState<Set<String>> private var selectionBefore = []
+    @PebbleState<Double?> private var resizeStart = nil
+    @PebbleState<CGRect?> private var selectionRect = nil
+    @PebbleState<Set<String>> private var selectionBefore = []
     var allCollections: [String] { Array(Set(store.collections + extraCollections)).sorted { a, b in let x = folderOrder.firstIndex(of: a) ?? 99999, y = folderOrder.firstIndex(of: b) ?? 99999; return x == y ? a < b : x < y } }
     var title: String { section == "Collection" ? collection : section }
     var motion: Animation? { reducedMotion || calmMotion ? nil : .spring(response: 0.34, dampingFraction: 0.92) }
@@ -147,7 +147,7 @@ struct LibraryView: View {
             .overlay {
                 if let attachment = preview { PhotoViewer(initial: attachment, items: photoItems, store: store, leadingInset: sidebarVisible ? 10 : 150, done: { navigate(-1) }, openNote: { id in preview = nil; store.select(id) }).background(.ultraThinMaterial).transition(.opacity) }
             }
-            .background(scheme == .dark ? Color.black.opacity(0.13) : Color.white.opacity(0.26))
+            .background(scheme == .dark ? Color.black.opacity(0.13) : Color.white.opacity(0.58))
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .padding(.vertical, 8).padding(.trailing, 8).padding(.leading, sidebarVisible ? 0 : 8)
 
@@ -172,9 +172,9 @@ struct LibraryView: View {
         .background(ClipboardWindowRegistration(store: store).frame(width: 0, height: 0))
         .background(WindowChrome()).background(EditorFocusDismissal().frame(width: 0, height: 0))
         .ignoresSafeArea(.container, edges: .top)
-        .tint(LeafPalette.accent)
+        .tint(PebblePalette.accent)
         .onChange(of: searchFocused) { _, focused in if !focused { withAnimation(motion) { searchVisible = false; search = "" } } }
-        .onAppear { updater.start(); if ReleaseNotes.claimAutomatic() { showWhatsNew = true }; clipboard.start(store); if let url = Bundle.main.url(forResource: "Leaf", withExtension: "icns"), let image = NSImage(contentsOf: url) { NSApp.applicationIconImage = image } }
+        .onAppear { updater.start(); if ReleaseNotes.claimAutomatic() { showWhatsNew = true }; clipboard.start(store); if let url = Bundle.main.url(forResource: "Pebble", withExtension: "icns"), let image = NSImage(contentsOf: url) { NSApp.applicationIconImage = image } }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("pebbleOnboarding"))) { _ in showSettings = false; showOnboarding = true }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in store.reload() }
         .disabled(showSettings || deletingFolder != nil || newCollection || !erasing.isEmpty).accessibilityHidden(showSettings || deletingFolder != nil || newCollection || !erasing.isEmpty)
@@ -222,8 +222,8 @@ struct LibraryView: View {
     }
     var sidebar: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack { Spacer(); GlassIcon(icon: "sidebar.left", label: "Hide sidebar") { sidebarVisible = false }.leafGlass(in: Circle()) }.padding(.trailing, -8).frame(height: 52).padding(.bottom, 4)
-            LeafScrollView { VStack(alignment: .leading, spacing: 4) {
+            HStack { Spacer(); GlassIcon(icon: "sidebar.left", label: "Hide sidebar") { sidebarVisible = false }.pebbleGlass(in: Circle()) }.padding(.trailing, -8).frame(height: 52).padding(.bottom, 4)
+            PebbleScrollView { VStack(alignment: .leading, spacing: 4) {
             nav("Everything", "infinity")
             nav("Notes", "note.text")
             nav("Images", "photo")
@@ -237,7 +237,7 @@ struct LibraryView: View {
             ForEach(allCollections, id: \.self) { name in
                 Button { preview = nil; store.select(nil); section = "Collection"; collection = name } label: {
                     HStack(spacing: 10) { collectionIcon(name).frame(width: 28, height: 28); Text(name.split(separator: "/").last.map(String.init) ?? name).font(.system(size: 13, weight: .medium)); Spacer(); if showSidebarCounts { sidebarCountLabel(store.sidebarCount(name, collection: true)) } }.padding(.horizontal, 7).frame(height: 34).modifier(SidebarSelectionSurface(selected: section == "Collection" && collection == name, motion: motion))
-                }.overlay(RoundedRectangle(cornerRadius: 8).fill(LeafPalette.accent.opacity(folderDropTarget == name ? 0.14 : 0)).allowsHitTesting(false)).overlay(RoundedRectangle(cornerRadius: 8).stroke(LeafPalette.accent.opacity(folderDropTarget == name ? 0.5 : 0), lineWidth: 1).allowsHitTesting(false)).background(GeometryReader { proxy in Color.clear.preference(key: CollectionDropFrames.self, value: [name: proxy.frame(in: .named("libraryDrag"))]) }).opacity(draggedFolder == name ? 0 : 1).background(GeometryReader { proxy in Color.clear.preference(key: GalleryFrames.self, value: [name: proxy.frame(in: .named("folders"))]) }).highPriorityGesture(folderGrab(name)).padding(.leading, CGFloat(name.split(separator: "/").count - 1) * 12).buttonStyle(SidebarButtonStyle()).contextMenu { Button("Edit collection…", systemImage: "pencil") { editCollection(name) }.labelStyle(.titleAndIcon); if name != "Personal" { Button("Delete Collection", systemImage: "trash") { deletingFolder = name }.labelStyle(.titleAndIcon) } }
+                }.overlay(RoundedRectangle(cornerRadius: 8).fill(PebblePalette.accent.opacity(folderDropTarget == name ? 0.14 : 0)).allowsHitTesting(false)).overlay(RoundedRectangle(cornerRadius: 8).stroke(PebblePalette.accent.opacity(folderDropTarget == name ? 0.5 : 0), lineWidth: 1).allowsHitTesting(false)).background(GeometryReader { proxy in Color.clear.preference(key: CollectionDropFrames.self, value: [name: proxy.frame(in: .named("libraryDrag"))]) }).opacity(draggedFolder == name ? 0 : 1).background(GeometryReader { proxy in Color.clear.preference(key: GalleryFrames.self, value: [name: proxy.frame(in: .named("folders"))]) }).highPriorityGesture(folderGrab(name)).padding(.leading, CGFloat(name.split(separator: "/").count - 1) * 12).buttonStyle(SidebarButtonStyle()).contextMenu { Button("Edit collection…", systemImage: "pencil") { editCollection(name) }.labelStyle(.titleAndIcon); if name != "Personal" { Button("Delete Collection", systemImage: "trash") { deletingFolder = name }.labelStyle(.titleAndIcon) } }
             }
             if !Set(store.uniqueHeads.flatMap { $0.note.tags }).isEmpty { Text("Tags").font(.system(size: 12, weight: .medium)).foregroundStyle(.tertiary).padding(.horizontal, 8).padding(.top, 16); ForEach(Array(Set(store.uniqueHeads.filter { !$0.note.deleted }.flatMap { $0.note.tags })).sorted(), id: \.self) { tag in nav("#" + tag, "number") } }
             } }.scrollIndicators(.never)
@@ -270,13 +270,13 @@ struct LibraryView: View {
     var topBar: some View {
         ZStack {
             HStack(spacing: 8) {
-                if !sidebarVisible { Color.clear.frame(width: 74); GlassIcon(icon: "sidebar.left", label: "Show sidebar") { sidebarVisible = true }.leafGlass(in: Circle()) }
+                if !sidebarVisible { Color.clear.frame(width: 74); GlassIcon(icon: "sidebar.left", label: "Show sidebar") { sidebarVisible = true }.pebbleGlass(in: Circle()) }
                 HStack(spacing: 0) {
                     GlassIcon(icon: "chevron.left", label: "Go back") { navigate(-1) }.disabled(!navigation.canBack)
                     GlassIcon(icon: "chevron.right", label: "Go forward") { navigate(1) }.disabled(!navigation.canForward)
-                }.leafGlass(in: Capsule())
+                }.pebbleGlass(in: Capsule())
                 Spacer()
-                if section == "Trash", store.selected == nil { GlassIcon(icon: "trash", label: "Empty Trash") { erasing = store.uniqueHeads.filter { $0.note.deleted }.map(\.noteId) }.leafGlass(in: Circle()).disabled(!store.uniqueHeads.contains { $0.note.deleted }) }
+                if section == "Trash", store.selected == nil { GlassIcon(icon: "trash", label: "Empty Trash") { erasing = store.uniqueHeads.filter { $0.note.deleted }.map(\.noteId) }.pebbleGlass(in: Circle()).disabled(!store.uniqueHeads.contains { $0.note.deleted }) }
                 HStack(spacing: 0) {
                     if store.current != nil { NoteStyleButton(store: store, interfaceScheme: scheme) }
                     if store.selected == nil {
@@ -288,7 +288,7 @@ struct LibraryView: View {
                         }
                     }
                     Menu { contextualMenu } label: { Image(systemName: "ellipsis").font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary).frame(width: 36, height: 36) }.menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).menuIndicator(.hidden).fixedSize().tint(.primary).help("More")
-                }.padding(.horizontal, 7).frame(minWidth: 44).frame(height: 38).leafGlass(in: Capsule())
+                }.padding(.horizontal, 7).frame(minWidth: 44).frame(height: 38).pebbleGlass(in: Capsule())
             }
             if store.selected == nil { Text(selecting ? "\(selectedItems.count) selected" : title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary).allowsHitTesting(false).opacity(searchVisible ? 0 : 1) }
             else if formattingVisible { formatting.transition(.opacity.combined(with: .scale(scale: 0.96))) }
@@ -348,7 +348,7 @@ struct LibraryView: View {
             let count = max(3, Int((geometry.size.width - 48 + 18) / 218))
             let width: CGFloat = min(200, (geometry.size.width - 48 - CGFloat(count - 1) * 18) / CGFloat(count))
             ZStack(alignment: .bottom) {
-                LeafScrollView {
+                PebbleScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         if filtered.isEmpty { emptyState.frame(width: max(0, geometry.size.width - 80)).padding(.top, 100) }
                         LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 18), count: count), alignment: .leading, spacing: 18) {
@@ -378,11 +378,11 @@ struct LibraryView: View {
                         selectionRect = rect; selectedItems = selectionBefore.union(cardFrames.filter { $0.value.intersects(rect) }.map(\.key))
                     }.onEnded { _ in selectionRect = nil })
                     .simultaneousGesture(SpatialTapGesture(coordinateSpace: .named("libraryDrag")).onEnded { value in if !cardFrames.values.contains(where: { $0.contains(value.location) }) { selectedItems.removeAll(); selecting = false; searchFocused = false } })
-                if let rect = selectionRect { RoundedRectangle(cornerRadius: 4).fill(LeafPalette.accent.opacity(0.12)).overlay(RoundedRectangle(cornerRadius: 4).stroke(LeafPalette.accent.opacity(0.7), lineWidth: 1)).frame(width: rect.width, height: rect.height).position(x: rect.midX - geometry.frame(in: .named("libraryDrag")).minX, y: rect.midY - geometry.frame(in: .named("libraryDrag")).minY).allowsHitTesting(false) }
+                if let rect = selectionRect { RoundedRectangle(cornerRadius: 4).fill(PebblePalette.accent.opacity(0.12)).overlay(RoundedRectangle(cornerRadius: 4).stroke(PebblePalette.accent.opacity(0.7), lineWidth: 1)).frame(width: rect.width, height: rect.height).position(x: rect.midX - geometry.frame(in: .named("libraryDrag")).minX, y: rect.midY - geometry.frame(in: .named("libraryDrag")).minY).allowsHitTesting(false) }
                 HStack(spacing: 2) {
                     GlassIcon(icon: "square.and.pencil", label: "New note") { createNote() }
                     GlassIcon(icon: "photo.on.rectangle", label: "Add images") { createNote(); store.addImages() }
-                }.padding(.horizontal, 10).padding(.vertical, 3).leafGlass(in: Capsule()).padding(.bottom, 18)
+                }.padding(.horizontal, 10).padding(.vertical, 3).pebbleGlass(in: Capsule()).padding(.bottom, 18)
             }.onPreferenceChange(GalleryFrames.self) { cardFrames = $0 }
         }
     }
@@ -458,7 +458,7 @@ struct LibraryView: View {
             HStack(spacing: 16) {
                 Text("Icon").font(.system(size: 14, weight: .semibold)).frame(width: 72, alignment: .leading)
                 ForEach(0..<3) { mode in Button { iconMode = mode; if mode == 2 { chooseCollectionImage() } } label: {
-                    ZStack { Circle().fill(Color.primary.opacity(0.06)); Image(systemName: mode == 0 ? "nosign" : mode == 1 ? "face.smiling" : "photo").font(.system(size: 22)).foregroundStyle(Color.primary.opacity(0.70)) }.frame(width: 48, height: 48).overlay(Circle().strokeBorder(iconMode == mode ? LeafPalette.accent : .clear, lineWidth: 2))
+                    ZStack { Circle().fill(Color.primary.opacity(0.06)); Image(systemName: mode == 0 ? "nosign" : mode == 1 ? "face.smiling" : "photo").font(.system(size: 22)).foregroundStyle(Color.primary.opacity(0.70)) }.frame(width: 48, height: 48).overlay(Circle().strokeBorder(iconMode == mode ? PebblePalette.accent : .clear, lineWidth: 2))
                 }.buttonStyle(SoftButtonStyle()) }; Spacer()
             }
             if iconMode == 1 { HStack { TextField(text: $collectionEmoji, prompt: Text("Emoji").foregroundStyle(Color.primary.opacity(0.55))) { Text("Emoji") }.textFieldStyle(.plain).foregroundStyle(Color.primary).padding(10).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8)).focused($emojiFocused).frame(width: 64); Button("Choose Emoji…") { emojiFocused = true; DispatchQueue.main.async { NSApp.orderFrontCharacterPalette(nil) } }; Text("Pick an emoji for the sidebar").font(.system(size: 12)).foregroundStyle(Color.primary.opacity(0.70)) } }
@@ -489,7 +489,7 @@ struct LibraryView: View {
     var conflicts: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Both versions are safe").font(.title2.bold()); Text("Choose a version to continue with. Earlier versions remain in your backup and revision history.").foregroundStyle(.secondary)
-            LeafScrollView { ForEach(store.heads.filter { $0.noteId == store.selected }) { r in VStack(alignment: .leading, spacing: 8) { Text(r.note.displayTitle).font(.headline); Text(r.note.deleted ? "Deleted on another device" : String(r.note.text.prefix(500))); Button("Continue with this version") { store.resolve(r); showConflicts = false } }.padding().frame(maxWidth: .infinity, alignment: .leading).background(.quaternary, in: RoundedRectangle(cornerRadius: 14)) } }
+            PebbleScrollView { ForEach(store.heads.filter { $0.noteId == store.selected }) { r in VStack(alignment: .leading, spacing: 8) { Text(r.note.displayTitle).font(.headline); Text(r.note.deleted ? "Deleted on another device" : String(r.note.text.prefix(500))); Button("Continue with this version") { store.resolve(r); showConflicts = false } }.padding().frame(maxWidth: .infinity, alignment: .leading).background(.quaternary, in: RoundedRectangle(cornerRadius: 14)) } }
             Button("Keep both for now") { showConflicts = false }
         }.padding(28).frame(width: 560, height: 520)
     }
@@ -504,14 +504,14 @@ struct CardInteraction<Content: View, Actions: View>: View {
     var selected: Bool; var action: () -> Void
     @ViewBuilder var content: () -> Content
     @ViewBuilder var menu: () -> Actions
-    @LeafState<Bool> private var hovering = false
+    @PebbleState<Bool> private var hovering = false
     @Environment(\.accessibilityReduceMotion) var reduced
     var body: some View {
         Button(action: action) { content() }.buttonStyle(SoftButtonStyle(radius: 22))
             .overlay(alignment: .topTrailing) {
                 Menu { menu() } label: { Image(systemName: "ellipsis").font(.system(size: 13, weight: .semibold)).foregroundStyle(.primary).frame(width: 28, height: 28).background(.ultraThinMaterial, in: Circle()) }.menuStyle(.button).buttonStyle(SoftButtonStyle(radius: 18)).menuIndicator(.hidden).fixedSize().padding(12).opacity(hovering || selected ? 1 : 0).allowsHitTesting(hovering || selected).help("Card options")
             }
-            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(selected ? LeafPalette.accent : .clear, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(selected ? PebblePalette.accent : .clear, lineWidth: 2))
             .overlay(RoundedRectangle(cornerRadius: 22).fill(Color.primary.opacity(hovering ? 0.025 : 0)).allowsHitTesting(false))
             .onHover { hovering = $0 }
             .animation(reduced ? nil : .easeInOut(duration: 0.16), value: hovering)
@@ -554,7 +554,7 @@ struct InlinePhoto: View {
 }
 struct Thumbnail: View {
     var url: URL; var fit = false; var pixels: Int? = nil
-    @LeafState<NSImage?> private var image: NSImage?
+    @PebbleState<NSImage?> private var image: NSImage?
     var body: some View {
         GeometryReader { geometry in
             ZStack { Color.primary.opacity(0.025); if let image { Image(nsImage: image).resizable().aspectRatio(contentMode: fit ? .fit : .fill).frame(width: geometry.size.width, height: geometry.size.height).clipped() } else { Image(systemName: "photo").foregroundStyle(.tertiary) } }
@@ -575,7 +575,7 @@ struct Thumbnail: View {
             if let window = NSApp?.keyWindow {
                 if lastView?.window === window { return lastView }
                 func findEditor(_ container: NSView) -> NSTextView? {
-                    if let editor = container as? LeafTextView { return editor }
+                    if let editor = container as? PebbleTextView { return editor }
                     for child in container.subviews { if let editor = findEditor(child) { return editor } }
                     return nil
                 }
@@ -594,7 +594,7 @@ struct Thumbnail: View {
     }
     func textStyle(_ style: String) {
         styleLabel = style.capitalized
-        (view as? LeafTextView)?.styleChanged?(style)
+        (view as? PebbleTextView)?.styleChanged?(style)
         guard let view, let storage = view.textStorage else { return }
         let selection = view.selectedRange()
         let range = selection.length > 0 ? selection : (view.string as NSString).paragraphRange(for: selection)
@@ -662,7 +662,7 @@ struct Thumbnail: View {
         view.didChangeText(); view.undoManager?.endUndoGrouping()
     }
 }
-class LeafTextView: NSTextView {
+class PebbleTextView: NSTextView {
     var images: (([URL]) -> Void)?
     var focused: (() -> Void)?
     var enter: (() -> Bool)?
@@ -705,16 +705,16 @@ class LeafTextView: NSTextView {
     }
     override func becomeFirstResponder() -> Bool { EditorActions.shared.view = self; focused?(); return super.becomeFirstResponder() }
 }
-class LeafEditorScrollView: NSScrollView {
+class PebbleEditorScrollView: NSScrollView {
     override func layout() {
         super.layout()
-        guard let text = documentView as? LeafTextView else { return }
+        guard let text = documentView as? PebbleTextView else { return }
         if let font = text.font { let line = font.ascender - font.descender + font.leading; text.textContainerInset.height = contentSize.height <= line * 1.8 ? max(1, (contentSize.height - line) / 2) : 1 }
         text.minSize = NSSize(width: contentSize.width, height: max(32, contentSize.height))
         let size = NSSize(width: contentSize.width, height: max(text.frame.height, max(32, contentSize.height)))
         if text.frame.size != size { text.setFrameSize(size) }
     }
-    override func mouseDown(with event: NSEvent) { if let text = documentView as? LeafTextView { window?.makeFirstResponder(text) }; super.mouseDown(with: event) }
+    override func mouseDown(with event: NSEvent) { if let text = documentView as? PebbleTextView { window?.makeFirstResponder(text) }; super.mouseDown(with: event) }
 }
 struct RichEditor: NSViewRepresentable {
     var note: Note; var onEdit: (String, [TextSpan]) -> Void; var onImages: ([URL]) -> Void
@@ -729,14 +729,14 @@ struct RichEditor: NSViewRepresentable {
     var displayed: NSAttributedString { let value = NSMutableAttributedString(attributedString: note.attributed); if completed && value.length > 0 { value.enumerateAttribute(.strikethroughStyle, in: NSRange(location: 0, length: value.length)) { existing, range, _ in if existing == nil { value.addAttributes([.strikethroughStyle: NSUnderlineStyle.single.rawValue, NSAttributedString.Key("leafCompletionStrike"): true], range: range) } } }; return value }
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
-        let scroll = LeafEditorScrollView(); scroll.hasVerticalScroller = false; scroll.drawsBackground = false
-        let view = LeafTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 32)); view.isRichText = true; view.importsGraphics = false; view.isAutomaticTextReplacementEnabled = true; view.isContinuousSpellCheckingEnabled = true; view.drawsBackground = false; view.textContainerInset = NSSize(width: 0, height: 1); view.textContainer?.lineFragmentPadding = 0; view.font = .systemFont(ofSize: 17); view.isVerticallyResizable = true; view.isHorizontallyResizable = false; view.autoresizingMask = [.width]; view.textContainer?.widthTracksTextView = true; view.textContainer?.containerSize = NSSize(width: 600, height: CGFloat.greatestFiniteMagnitude); view.minSize = NSSize(width: 0, height: 32); view.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude); view.allowsUndo = true
+        let scroll = PebbleEditorScrollView(); scroll.hasVerticalScroller = false; scroll.drawsBackground = false
+        let view = PebbleTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 32)); view.isRichText = true; view.importsGraphics = false; view.isAutomaticTextReplacementEnabled = true; view.isContinuousSpellCheckingEnabled = true; view.drawsBackground = false; view.textContainerInset = NSSize(width: 0, height: 1); view.textContainer?.lineFragmentPadding = 0; view.font = .systemFont(ofSize: 17); view.isVerticallyResizable = true; view.isHorizontallyResizable = false; view.autoresizingMask = [.width]; view.textContainer?.widthTracksTextView = true; view.textContainer?.containerSize = NSSize(width: 600, height: CGFloat.greatestFiniteMagnitude); view.minSize = NSSize(width: 0, height: 32); view.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude); view.allowsUndo = true
         view.textStorage?.setAttributedString(displayed); if note.text.isEmpty { view.typingAttributes = [.font: NSFont.systemFont(ofSize: Typography.size(blockStyle) * note.textScale, weight: blockStyle == "body" ? .regular : .semibold), NSAttributedString.Key("leafTextStyle"): blockStyle, .foregroundColor: (note.style ?? NoteStyle()).ink, NSAttributedString.Key("leafTextScale"): note.textScale] }; view.delegate = context.coordinator; view.images = onImages; view.focused = onFocus; view.enter = onEnter; view.backspace = onBackspace; view.styleChanged = onStyle; view.identifier = blockId.map { NSUserInterfaceItemIdentifier(rawValue: $0) }; view.slash.apply = onCommand; scroll.documentView = view
         return scroll
     }
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.owner = self
-        guard let view = scroll.documentView as? LeafTextView else { return }; view.images = onImages; view.focused = onFocus; view.enter = onEnter; view.backspace = onBackspace; view.styleChanged = onStyle; view.identifier = blockId.map { NSUserInterfaceItemIdentifier(rawValue: $0) }; view.slash.apply = onCommand
+        guard let view = scroll.documentView as? PebbleTextView else { return }; view.images = onImages; view.focused = onFocus; view.enter = onEnter; view.backspace = onBackspace; view.styleChanged = onStyle; view.identifier = blockId.map { NSUserInterfaceItemIdentifier(rawValue: $0) }; view.slash.apply = onCommand
         var inkAttributes = view.typingAttributes; inkAttributes[.foregroundColor] = (note.style ?? NoteStyle()).ink; view.typingAttributes = inkAttributes
         if note.text.isEmpty { var attributes = view.typingAttributes; let style = attributes[NSAttributedString.Key("leafTextStyle")] as? String ?? blockStyle; let font = attributes[.font] as? NSFont ?? .systemFont(ofSize: 18); attributes[.font] = NSFontManager.shared.convert(font, toSize: Typography.size(style) * note.textScale); attributes[NSAttributedString.Key("leafTextScale")] = note.textScale; view.typingAttributes = attributes }
         if !view.attributedString().isEqual(to: displayed) {
@@ -748,12 +748,12 @@ struct RichEditor: NSViewRepresentable {
         init(_ owner: RichEditor) { self.owner = owner }
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let view = notification.object as? NSTextView else { return }
-            EditorActions.shared.view = view; owner.onFocus?(); DispatchQueue.main.async { (view as? LeafTextView)?.slash.inspect() }
+            EditorActions.shared.view = view; owner.onFocus?(); DispatchQueue.main.async { (view as? PebbleTextView)?.slash.inspect() }
             let index = view.selectedRange().location
             let style = index < view.attributedString().length ? view.attributedString().attribute(NSAttributedString.Key("leafTextStyle"), at: index, effectiveRange: nil) as? String : view.typingAttributes[NSAttributedString.Key("leafTextStyle")] as? String
             let label = (style ?? "body").capitalized
             if EditorActions.shared.styleLabel != label { EditorActions.shared.styleLabel = label }
         }
-        func textDidChange(_ notification: Notification) { guard !updating, let view = notification.object as? NSTextView else { return }; owner.onEdit(view.string, spansFrom(view.attributedString())); (view as? LeafTextView)?.slash.inspect() }
+        func textDidChange(_ notification: Notification) { guard !updating, let view = notification.object as? NSTextView else { return }; owner.onEdit(view.string, spansFrom(view.attributedString())); (view as? PebbleTextView)?.slash.inspect() }
     }
 }

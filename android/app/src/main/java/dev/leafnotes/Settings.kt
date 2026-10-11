@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.Color
 import java.io.File
 
 @Composable fun MobileSettings(store:Store,onTour:()->Unit,onBack:()->Unit,onWriting:()->Unit,onWhatsNew:()->Unit,onConnect:()->Unit,onExport:()->Unit,onImport:()->Unit) {
-    val c=LocalLeafColors.current; val version=LocalPreferencesVersion.current
+    val c=LocalPebbleColors.current; val version=LocalPreferencesVersion.current
     var page by remember { mutableStateOf("Settings") }
     val updater=remember { PebbleUpdater.get(store.context) };val scope=rememberCoroutineScope()
     val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -102,7 +102,7 @@ import java.io.File
                         SubtleDivider();SettingsRow("Update notifications","bell"){if(android.os.Build.VERSION.SDK_INT>=33)notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)}
                     }
                     "About" -> SettingsGroup("Pebble Notes") {
-                        Image(androidx.compose.ui.res.painterResource(R.drawable.leaf_logo),"Pebble Notes",Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)))
+                        Image(androidx.compose.ui.res.painterResource(R.drawable.pebble_logo),"Pebble Notes",Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)))
                         Label("Pebble Notes",28,FontWeight.Bold)
                         listOf("On this device, with optional Drive sync" to "sync","Notes, images and tasks" to "note","History, Trash and backups" to "clock").forEach{(title,icon)->Row(Modifier.fillMaxWidth().padding(vertical=6.dp),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically){Glyph(icon,size=21,tint=c.secondary);Label(title,16,color=c.secondary)}}
                         Label("Version "+ReleaseNotes.version(store.context),13,color=c.secondary)
@@ -115,10 +115,10 @@ import java.io.File
     }
 }
 @Composable private fun SettingsGroup(title:String,content:@Composable ColumnScope.()->Unit) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Label(title,12,FontWeight.Medium,c.secondary,modifier=Modifier.padding(start=8.dp));Column(Modifier.fillMaxWidth().background(c.paper,RoundedCornerShape(20.dp)).padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(4.dp),content=content)}
 }
 @Composable private fun SettingsRow(title:String,icon:String,onClick:()->Unit) {
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     Pressable(Modifier.fillMaxWidth().heightIn(min=54.dp),title,onClick=onClick){Row(Modifier.fillMaxWidth().padding(vertical=13.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)){Glyph(icon,size=21,tint=c.accent);Label(title,16,modifier=Modifier.weight(1f));Glyph("next",size=17,tint=c.secondary)}}
 }

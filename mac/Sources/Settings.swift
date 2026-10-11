@@ -21,20 +21,20 @@ struct SettingsHome: View {
     @AppStorage("editorWidth") private var editorWidth = 700.0
     @AppStorage("googleClientId") private var clientId = ""
     @AppStorage("googleClientSecret") private var secret = ""
-    @LeafState<String> private var page = "Appearance"
-    @LeafState<Bool> private var connecting = false
-    @LeafState<String> private var message = ""
+    @PebbleState<String> private var page = "Appearance"
+    @PebbleState<Bool> private var connecting = false
+    @PebbleState<String> private var message = ""
     let sections = [("Profile", "person.crop.circle"), ("Appearance", "paintpalette"), ("Writing", "textformat"), ("Shortcuts", "keyboard"), ("Sync", "arrow.triangle.2.circlepath"), ("Backups", "archivebox"), ("Updates", "arrow.down.circle"), ("About", "info.circle")]
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack { if let url = Bundle.main.url(forResource: "Leaf", withExtension: "icns"), let image = NSImage(contentsOf: url) { Image(nsImage: image).resizable().frame(width: 34, height: 34) }; Text("Pebble Notes").font(.headline) }.padding(.bottom, 14)
-                LeafScrollView { VStack(alignment: .leading, spacing: 4) { ForEach(sections, id: \.0) { label, icon in Button { page = label } label: { Label(label, systemImage: icon).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(Color.primary.opacity(page == label ? 0.09 : 0), in: RoundedRectangle(cornerRadius: 10)) }.buttonStyle(SoftButtonStyle()) } } }.scrollIndicators(.never)
+                HStack { if let url = Bundle.main.url(forResource: "Pebble", withExtension: "icns"), let image = NSImage(contentsOf: url) { Image(nsImage: image).resizable().frame(width: 34, height: 34) }; Text("Pebble Notes").font(.headline) }.padding(.bottom, 14)
+                PebbleScrollView { VStack(alignment: .leading, spacing: 4) { ForEach(sections, id: \.0) { label, icon in Button { page = label } label: { Label(label, systemImage: icon).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(Color.primary.opacity(page == label ? 0.09 : 0), in: RoundedRectangle(cornerRadius: 10)) }.buttonStyle(SoftButtonStyle()) } } }.scrollIndicators(.never)
                 Spacer(minLength: 0); Button("What’s New") { onWhatsNew() }.buttonStyle(SoftButtonStyle()).font(.caption).foregroundStyle(Color.primary.opacity(0.85)).frame(maxWidth: .infinity, minHeight: 36, alignment: .leading).contentShape(Rectangle())
             }.padding(20).frame(width: 180).background(Color.clear)
-            LeafScrollView {
+            PebbleScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    HStack { Text(page).font(.system(size: 25, weight: .semibold)); Spacer(); GlassIcon(icon: "xmark", label: "Close Settings", action: onClose).leafGlass(in: Circle()) }.padding(.bottom, 4)
+                    HStack { Text(page).font(.system(size: 25, weight: .semibold)); Spacer(); GlassIcon(icon: "xmark", label: "Close Settings", action: onClose).pebbleGlass(in: Circle()) }.padding(.bottom, 4)
                     if page == "Shortcuts" {
                         ShortcutsPanel()
                     } else if page == "Profile" {
@@ -42,11 +42,11 @@ struct SettingsHome: View {
                     } else if page == "Appearance" {
                         caption("Interface theme", "Choose the light, dark, or system appearance.")
                         HStack(spacing: 10) { ForEach([("light", "Light", "sun.max"), ("dark", "Dark", "moon"), ("system", "System", "desktopcomputer")], id: \.0) { value, label, icon in
-                            Button { appearance = value } label: { HStack(spacing: 7) { Image(systemName: icon).font(.system(size: 14)); Text(label).font(.system(size: 13)) }.frame(maxWidth: .infinity).frame(height: 40).background(Color.primary.opacity(appearance == value ? 0.09 : 0.035), in: Capsule()).overlay(Capsule().strokeBorder(appearance == value ? LeafPalette.accent.opacity(0.8) : Color.primary.opacity(0.08), lineWidth: appearance == value ? 1.5 : 0.5)) }.buttonStyle(SoftButtonStyle(radius: 20)).accessibilityLabel(label + " theme").accessibilityValue(appearance == value ? "Selected" : "")
+                            Button { appearance = value } label: { HStack(spacing: 7) { Image(systemName: icon).font(.system(size: 14)); Text(label).font(.system(size: 13)) }.frame(maxWidth: .infinity).frame(height: 40).background(Color.primary.opacity(appearance == value ? 0.09 : 0.035), in: Capsule()).overlay(Capsule().strokeBorder(appearance == value ? PebblePalette.accent.opacity(0.8) : Color.primary.opacity(0.08), lineWidth: appearance == value ? 1.5 : 0.5)) }.buttonStyle(SoftButtonStyle(radius: 20)).accessibilityLabel(label + " theme").accessibilityValue(appearance == value ? "Selected" : "")
                         } }
                         caption("Accent colour", "Choose a colour for controls and selections on this Mac.")
                         HStack(spacing: 8) { ForEach(AccentPreference.choices, id: \.self) { name in
-                            Button { accent.name = name } label: { VStack(spacing: 5) { Circle().fill(LeafPalette.color("Accents", name)).frame(width: 28, height: 28).overlay { if accent.name == name { Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(name == "Yellow" || name == "Orange" || name == "Green" ? Color.black : .white) } }; Text(name).font(.system(size: 10)).foregroundStyle(Color.primary.opacity(0.72)) }.frame(maxWidth: .infinity).frame(height: 54).contentShape(Rectangle()) }.buttonStyle(SoftButtonStyle(radius: 10)).accessibilityLabel(name + " accent").accessibilityValue(accent.name == name ? "Selected" : "")
+                            Button { accent.name = name } label: { VStack(spacing: 5) { Circle().fill(PebblePalette.color("Accents", name)).frame(width: 28, height: 28).overlay { if accent.name == name { Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(name == "Yellow" || name == "Orange" || name == "Green" ? Color.black : .white) } }; Text(name).font(.system(size: 10)).foregroundStyle(Color.primary.opacity(0.72)) }.frame(maxWidth: .infinity).frame(height: 54).contentShape(Rectangle()) }.buttonStyle(SoftButtonStyle(radius: 10)).accessibilityLabel(name + " accent").accessibilityValue(accent.name == name ? "Selected" : "")
                         } }
                         SubtleDivider(); Toggle("Sidebar note counts", isOn: $showSidebarCounts)
                         SubtleDivider(); Toggle("Calmer motion", isOn: $calmMotion); Text("Keep subtle feedback and reduce movement. System Reduce Motion is also respected.").font(.caption).foregroundStyle(Color.primary.opacity(0.72))
@@ -87,7 +87,7 @@ struct SettingsHome: View {
                     }
                 }.padding(32).frame(maxWidth: .infinity, alignment: .leading)
             }.frame(maxWidth: .infinity).background(scheme == .dark ? Color.black.opacity(0.30) : Color.white.opacity(0.52))
-        }.onAppear { page = initialPage }.tint(LeafPalette.accent).buttonStyle(MaterialActionStyle()).toggleStyle(.switch).onExitCommand(perform: onClose).preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
+        }.onAppear { page = initialPage }.tint(PebblePalette.accent).buttonStyle(MaterialActionStyle()).toggleStyle(.switch).onExitCommand(perform: onClose).preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
     }
     func typeRow(_ title: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View { HStack { Text(title).frame(width: 70, alignment: .leading); AdaptiveSlider(value: value, range: range, step: 1); Text("\(Int(value.wrappedValue)) pt").monospacedDigit().frame(width: 40) } }
     func caption(_ title: String, _ detail: String) -> some View { VStack(alignment: .leading, spacing: 6) { Text(title).font(.system(size: 14, weight: .semibold)); Text(detail).font(.system(size: 12)).foregroundStyle(Color.primary.opacity(0.72)).fixedSize(horizontal: false, vertical: true) } }

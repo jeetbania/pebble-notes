@@ -45,3 +45,11 @@ SQLite is public domain; Lucide vectors retain their MIT license in `assets/LUCI
 ## Design system
 
 [The Pebble design system](design-system/README.md) documents shared tokens, native components, motion, layouts and interaction rules for Mac and Android. Edit its token manifest and run `python3 scripts/design-tokens.py` to generate the Swift/Kotlin foundation constants; `--check` verifies they are current. Future UI work should reuse these components and rules by default.
+
+## Compatibility identities
+
+The source project, native executable, core library, UI components and artwork use Pebble naming. `dev.leafnotes`, `dev.leafnotes.mac`, the existing `LeafNotes` library directory, sync object names, backup format and release keys intentionally remain stable so updates retain existing notes and account connections.
+
+### Editor stability checks
+
+Before release, test typing into a new note, dragging a multiline block across several peers, reversing the drag, then leaving the note and typing into another note. Native Android editors use `PebbleEditText` to keep IME focus probes away from the covered lazy library. Reorder measurements remain fixed during gestures, and editor glass samples the background separately from native fields.

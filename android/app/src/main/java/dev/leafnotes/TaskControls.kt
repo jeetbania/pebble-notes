@@ -20,7 +20,7 @@ private val stageLabels=listOf("To Do","In Progress","In Review","Done")
 private val stageIcons=listOf("todo","progress","review","done")
 
 @Composable fun TaskIconStrip(labels:List<String>,icons:List<String>,selected:Int,tints:List<Color>,onSelect:(Int)->Unit){
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
         Row(Modifier.fillMaxWidth().background(c.text.copy(alpha=.035f),CircleShape).padding(4.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)){
             labels.forEachIndexed{i,label->Pressable(Modifier.weight(1f).height(46.dp).semantics{this.selected=i==selected}.background(if(i==selected)tints[i].copy(alpha=.14f)else Color.Transparent,CircleShape).border(.5.dp,if(i==selected)tints[i].copy(alpha=.25f)else Color.Transparent,CircleShape),label,onClick={onSelect(i)}){Glyph(icons[i],size=21,tint=tints[i].copy(alpha=if(i==selected)1f else .8f))}}
@@ -29,10 +29,10 @@ private val stageIcons=listOf("todo","progress","review","done")
     }
 }
 @Composable fun TaskStatusControl(stage:String,onSelect:(String)->Unit){TaskIconStrip(stageLabels,stageIcons,stages.indexOf(stage).coerceAtLeast(0),stages.map{taskStageColor(it)}){onSelect(stages[it])}}
-@Composable fun TaskPriorityControl(priority:Int,onSelect:(Int)->Unit){val c=LocalLeafColors.current;TaskIconStrip(listOf("No priority","Low priority","Medium priority","High priority"),listOf("minus","flag","flag","flag"),priority,listOf(c.secondary,taskStageColor("todo"),taskStageColor("progress"),c.danger),onSelect)}
+@Composable fun TaskPriorityControl(priority:Int,onSelect:(Int)->Unit){val c=LocalPebbleColors.current;TaskIconStrip(listOf("No priority","Low priority","Medium priority","High priority"),listOf("minus","flag","flag","flag"),priority,listOf(c.secondary,taskStageColor("todo"),taskStageColor("progress"),c.danger),onSelect)}
 
 @Composable fun TaskOptions(r:Revision,onDismiss:()->Unit,onEdit:()->Unit,onOpen:()->Unit,onChange:((Note)->Note)->Unit,onDuplicate:()->Unit){
-    val c=LocalLeafColors.current;val task=r.note.task!!
+    val c=LocalPebbleColors.current;val task=r.note.task!!
     IosSheet("Task options",onDismiss=onDismiss){
         val finish=LocalSheetAction.current
         val change:((Note)->Note)->Unit={transform->finish{onChange(transform)}}
@@ -54,7 +54,7 @@ private val stageIcons=listOf("todo","progress","review","done")
 }
 
 @Composable fun RepeatPicker(value:String,onSelect:(String)->Unit){
-    val c=LocalLeafColors.current
+    val c=LocalPebbleColors.current
     var expanded by androidx.compose.runtime.remember{androidx.compose.runtime.mutableStateOf(false)}
     val values=listOf("none","daily","weekly","monthly","yearly")
     val labels=listOf("Never","Every day","Every week","Every month","Every year")

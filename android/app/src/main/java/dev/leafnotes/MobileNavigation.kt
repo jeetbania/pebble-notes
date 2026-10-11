@@ -28,7 +28,8 @@ val LocalDockBackdrop=staticCompositionLocalOf<MutableState<Backdrop?>?>{null}
 val LocalNoteReveal=staticCompositionLocalOf<()->Float>{{1f}}
 
 @Composable fun MobileDock(page:String,modifier:Modifier=Modifier,onPage:(String)->Unit,onSearch:()->Unit,onCompose:()->Unit) {
-    val c=LocalLeafColors.current;val calm=LocalCalmMotion.current
+    val c=LocalPebbleColors.current;val calm=LocalCalmMotion.current
+    val haptic=androidx.compose.ui.platform.LocalHapticFeedback.current
     val pages=listOf("Notes","Tasks","Settings","Search");val icons=listOf("home","check","settings","search")
     val selected=pages.indexOf(page).coerceAtLeast(0)
     val position=remember{Animatable(selected.toFloat())};val scope=rememberCoroutineScope()
@@ -43,9 +44,9 @@ val LocalNoteReveal=staticCompositionLocalOf<()->Float>{{1f}}
                 val slot=maxWidth/4
                 val slotPixels=with(LocalDensity.current){slot.toPx()}
                 Box(Modifier.offset{androidx.compose.ui.unit.IntOffset((slotPixels*position.value).roundToInt(),0)}.width(slot).fillMaxHeight().graphicsLayer{scaleX=stretch;scaleY=2f-stretch}.padding(vertical=5.dp).background(c.text.copy(alpha=.10f),CircleShape))
-                Row(Modifier.fillMaxSize().pointerInput(slotPixels,calm){val velocity=VelocityTracker();var travel=0f;detectHorizontalDragGestures(
-                    onDragStart={_->dragging=true;travel=currentSelected.toFloat();velocity.resetTracking();scope.launch(start=CoroutineStart.UNDISPATCHED){position.stop();position.snapTo(currentSelected.toFloat())}},
-                    onHorizontalDrag={change,amount->change.consume();velocity.addPosition(change.uptimeMillis,change.position);scope.launch(start=CoroutineStart.UNDISPATCHED){travel+=amount/slotPixels*.82f;position.snapTo(dockDragPosition(travel))}},
+                Row(Modifier.fillMaxSize().pointerInput(slotPixels,calm){val velocity=VelocityTracker();var travel=0f;var hovered=selected;detectHorizontalDragGestures(
+                    onDragStart={_->dragging=true;travel=currentSelected.toFloat();hovered=currentSelected;velocity.resetTracking();scope.launch(start=CoroutineStart.UNDISPATCHED){position.stop();position.snapTo(currentSelected.toFloat())}},
+                    onHorizontalDrag={change,amount->change.consume();velocity.addPosition(change.uptimeMillis,change.position);scope.launch(start=CoroutineStart.UNDISPATCHED){travel+=amount/slotPixels*.82f;position.snapTo(dockDragPosition(travel));val next=position.value.roundToInt().coerceIn(0,3);if(next!=hovered){hovered=next;haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)}}},
                     onDragCancel={scope.launch{if(calm)position.snapTo(currentSelected.toFloat())else position.animateTo(currentSelected.toFloat(),spring(dampingRatio=1f,stiffness=550f));dragging=false}},
                     onDragEnd={val speed=velocity.calculateVelocity().x/slotPixels;val target=(position.value+(speed*.06f).coerceIn(-.25f,.25f)).roundToInt().coerceIn(0,3);navigate(target);scope.launch{if(calm)position.snapTo(target.toFloat())else position.animateTo(target.toFloat(),spring(dampingRatio=.74f,stiffness=420f),initialVelocity=speed);dragging=false}}
                 )}){pages.forEachIndexed{i,name->

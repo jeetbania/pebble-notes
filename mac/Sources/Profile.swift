@@ -21,12 +21,12 @@ struct ProfileSettings: View {
     @AppStorage("profileBio") private var bio = ""
     @AppStorage("profilePhoto") private var photo = Data()
     @AppStorage("profileColour") private var colour = ""
-    @LeafState private var error = ""
+    @PebbleState private var error = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 18) {
                 ZStack {
-                    Circle().fill(LeafPalette.color("Accents", colour.isEmpty ? "Blue" : colour).opacity(0.28))
+                    Circle().fill(PebblePalette.color("Accents", colour.isEmpty ? "Blue" : colour).opacity(0.28))
                     if let image = NSImage(data: photo) { Image(nsImage: image).resizable().scaledToFill() }
                     else { Text(String(name.trimmingCharacters(in: .whitespacesAndNewlines).first.map { String($0).uppercased() } ?? "P")).font(.system(size: 30, weight: .semibold)) }
                 }.frame(width: 76, height: 76).clipShape(Circle()).accessibilityLabel("Profile picture")
