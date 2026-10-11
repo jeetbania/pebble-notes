@@ -4,6 +4,8 @@ import androidx.compose.animation.core.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -57,12 +59,14 @@ class ReorderGroup {
 }
 fun Modifier.reorderTarget(id:String,group:ReorderGroup)=composed {
     val calm=LocalCalmMotion.current
+    val colours=LocalPebbleColors.current
     val dragging=group.draggedId?.let{id in (group.families[it] ?: setOf(it))} ?: false
     val target=group.offsets[id] ?: 0f
     val offset by animateFloatAsState(target,if(calm || dragging || group.draggedId==null)tween(0)else spring(dampingRatio=1f,stiffness=480f),label="block gap")
     DisposableEffect(id){onDispose{group.frames.remove(id)}}
+    val lifted=if(dragging)Modifier.shadow(10.dp,RoundedCornerShape(12.dp),clip=false).frosted(RoundedCornerShape(12.dp),surface=colours.paper.copy(alpha=.94f))else Modifier
     this.onGloballyPositioned { if(group.draggedId==null)group.frames[id]=it.boundsInRoot() }
-        .zIndex(if(dragging)1f else 0f).graphicsLayer {translationY=if(dragging)target else offset;alpha=if(dragging).92f else 1f}
+        .zIndex(if(dragging)1f else 0f).graphicsLayer {translationY=if(dragging)target else offset;alpha=1f}.then(lifted)
 }
 @Composable fun ReorderGrip(id:String,group:ReorderGroup,order:List<String>,families:Map<String,Set<String>> = emptyMap(),onDragging:(Boolean)->Unit={},onOptions:(()->Unit)?=null,onOrder:(List<String>)->Unit) {
     val currentOrder by rememberUpdatedState(order);val members by rememberUpdatedState(families)

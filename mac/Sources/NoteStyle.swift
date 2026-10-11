@@ -65,10 +65,12 @@ struct NoteStyleHost: ViewModifier {
                                 .environment(\.colorScheme, scheme)
                                 .offset(x: max(12, min(proxy.size.width - width - 12, trigger.maxX - width)), y: top)
                                 .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .topTrailing)))
-                        }.onExitCommand { presented = false }
+                        }.frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                            .onExitCommand { presented = false }
                     }
                 }
             }
+            .zIndex(presented ? 100 : 0)
             .animation(reduced || calm ? nil : .spring(response: 0.28, dampingFraction: 1), value: presented)
             .onChange(of: store.selected) { _, _ in presented = false }
     }
@@ -76,13 +78,13 @@ struct NoteStyleHost: ViewModifier {
 private struct StyleSectionTitle:View { var text:String; var body:some View { Text(text.uppercased()).font(.system(size:11,weight:.semibold)).foregroundStyle(Color.primary.opacity(0.66)).tracking(0.6) } }
 
 struct NoteStylePicker:View {
-    @ObservedObject var store:NoteStore; var onClose:()->Void={}; @PebbleState private var picker:String?=nil; @PebbleState private var gradientMode=false; @PebbleState private var imageMode=false
+    @ObservedObject var store:NoteStore; var onClose:()->Void; @PebbleState private var picker:String?=nil; @PebbleState private var gradientMode=false; @PebbleState private var imageMode=false
     var style:NoteStyle { store.current?.style ?? NoteStyle() }
     func value(_ key:String)->String? { key=="Document" ? style.document : key=="Backdrop" ? style.backdrop : style.text }
     func set(_ key:String,_ value:String?){store.update(undoKey:"noteStyle"){n in var s=n.style ?? NoteStyle();if key=="Document"{s.document=value}else if key=="Backdrop"{s.backdrop=value;s.backdropImage=nil;if value==nil{s.backdropEnd=nil}else{s=s.lightDocument(tone:value,defaultDark: !NoteStyle.isLight(NoteStyle.hex(Color(nsColor:.textBackgroundColor))))}}else{s.text=value};n.style=s.customised ? s:nil}}
     func setGradient(_ pair:[String]){guard pair.count==2 else{return};store.update(undoKey:"noteStyle"){n in var s=n.style ?? NoteStyle();s.backdrop=pair[0];s.backdropEnd=pair[1];s.backdropImage=nil;s=s.lightDocument(tone:pair[0],defaultDark: !NoteStyle.isLight(NoteStyle.hex(Color(nsColor:.textBackgroundColor))));n.style=s}}
     var body:some View { VStack(alignment:.leading,spacing:0){
-        HStack{if picker != nil{GlassIcon(icon:"chevron.left",label:"Back to style"){picker=nil}};Text(picker ?? "Style").font(.system(size:19,weight:.semibold)).tracking(-0.2);Spacer();GlassIcon(icon:"xmark",label:"Close"){onClose()}}.padding(.bottom,12)
+        HStack{if picker != nil{GlassIcon(icon:"chevron.left",label:"Back to style"){picker=nil}};Text(picker ?? "Style").font(.system(size:19,weight:.semibold)).tracking(-0.2);Spacer();Button(action:onClose){Image(systemName:"xmark").font(.system(size:14,weight:.semibold)).frame(width:44,height:44).background(Color.primary.opacity(0.07),in:Circle()).contentShape(Circle())}.buttonStyle(.plain).help("Close style").accessibilityLabel("Close style")}.padding(.bottom,12)
         if picker==nil { StyleMiniature(style:style).frame(height:142).padding(.bottom,16);StyleSectionTitle(text:"Color").padding(.bottom,5)
             ForEach(["Backdrop","Document","Text"],id:\.self){key in Button{picker=key;imageMode=key=="Backdrop" && style.backdropImage != nil;gradientMode=key=="Backdrop" && style.backdropEnd != nil}label:{HStack(spacing:12){Image(systemName:key=="Document" ? "doc.fill":key=="Backdrop" ? "square.stack.3d.up.fill":"textformat").frame(width:22);Text(key=="Document" ? "Document Color":key=="Text" ? "Text Color":key).font(.system(size:15,weight:.medium));Spacer();styleChip(key);Image(systemName:"chevron.right").font(.system(size:11,weight:.semibold)).foregroundStyle(Color.primary.opacity(0.7))}.frame(minHeight:48).contentShape(Rectangle())}.buttonStyle(SoftButtonStyle(radius:12))}
             SubtleDivider().padding(.vertical,8);Button{store.update{$0.style=nil}}label:{Label("Reset style",systemImage:"arrow.counterclockwise").font(.system(size:15,weight:.medium)).frame(maxWidth:.infinity,minHeight:42,alignment:.leading)}.buttonStyle(GhostButtonStyle()).disabled(!style.customised)

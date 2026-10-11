@@ -1,5 +1,14 @@
 # Pebble Notes changelog
 
+## 0.22.1 · Clearer saved versions and reliable Style controls
+
+- Redesigned version comparison on Mac and phone with separate cards, device labels, saved times and readable previews.
+- Fixed overlapping Mac conflict cards and clarified the outcome for deleted versions.
+- Added a larger Style close target and explicit overlay hit area.
+- Mobile dragged blocks lift onto a translucent frosted surface so nearby text remains separated.
+- Updated the Android launcher artwork while preserving the About page logo.
+- Mac keeps its bundle icon while running, avoiding a differently sized runtime replacement.
+
 ## 0.22.0 · Fresh Pebble icons and stable mobile editing
 
 - Updated Android and Mac app icons to the new Pebble Notes artwork.

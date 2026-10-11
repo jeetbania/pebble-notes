@@ -286,10 +286,8 @@ fun iconResource(name: String): Int = when(name) {
         store.collections.forEach {name -> SheetRow(name,"folder"){store.editing?.let{store.update(it.copy(collection=name))};moving=false}}
         SheetRow("Done","done"){store.editing?.let{store.update(it.copy(collection=folderName.ifBlank{"Personal"}))};moving=false}
     }
-    if(conflicts) IosSheet("Both versions are safe",onDismiss={conflicts=false}) {
-        Label("Choose a version to keep working with. Earlier versions remain in your history.",15,color=c.secondary)
-        store.heads.filter {it.noteId==store.selected}.forEach {r -> Label(r.note.displayTitle,18,FontWeight.SemiBold,modifier=Modifier.padding(top=16.dp));Label(if(r.note.deleted)"Deleted on another device" else r.note.text.take(300),15,color=c.secondary);SheetRow("Continue with this version","done"){store.resolve(r);conflicts=false} }
-    }
+    if(conflicts) ConflictReview(store,onClose={conflicts=false})
+
     preview?.let {photo->val photos=store.editing?.let{n->viewerPhotos(n,store.selected ?: "")} ?: records.flatMap{r->viewerPhotos(r.note,r.noteId)};PhotoPreview(store,photo,photos,onClose={preview=null})}
     store.error?.let {error -> IosSheet("Leaf needs attention",onDismiss={store.error=null}){Label(error,16,color=c.secondary);SheetRow("OK","done"){store.error=null}}}
     LaunchedEffect(Unit){while(true){delay(45000);store.expireTrash();if(store.preferences.getBoolean("connected",false))scheduleSync(store.context)}}

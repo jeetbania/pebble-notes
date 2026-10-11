@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 #endif
 struct PebbleNotesApp: App {
     @StateObject private var store = NoteStore()
-    init() { TaskAlerts.configure(); if let url = Bundle.main.url(forResource: "Pebble", withExtension: "icns"), let image = NSImage(contentsOf: url) { NSApplication.shared.applicationIconImage = image } }
+    init() { TaskAlerts.configure() }
     @AppStorage("appearance") private var appearance = "system"
     var body: some Scene {
         WindowGroup("Pebble Notes") {
@@ -174,7 +174,7 @@ struct LibraryView: View {
         .ignoresSafeArea(.container, edges: .top)
         .tint(PebblePalette.accent)
         .onChange(of: searchFocused) { _, focused in if !focused { withAnimation(motion) { searchVisible = false; search = "" } } }
-        .onAppear { updater.start(); if ReleaseNotes.claimAutomatic() { showWhatsNew = true }; clipboard.start(store); if let url = Bundle.main.url(forResource: "Pebble", withExtension: "icns"), let image = NSImage(contentsOf: url) { NSApp.applicationIconImage = image } }
+        .onAppear { updater.start(); if ReleaseNotes.claimAutomatic() { showWhatsNew = true }; clipboard.start(store) }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("pebbleOnboarding"))) { _ in showSettings = false; showOnboarding = true }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in store.reload() }
         .disabled(showSettings || deletingFolder != nil || newCollection || !erasing.isEmpty).accessibilityHidden(showSettings || deletingFolder != nil || newCollection || !erasing.isEmpty)
@@ -486,13 +486,8 @@ struct LibraryView: View {
         store.createFolder(name, emoji: iconMode == 1 ? collectionEmoji : "", image: iconMode == 2 && !collectionImage.isEmpty ? store.root.appendingPathComponent(collectionImage) : nil)
         iconVersion += 1; store.select(nil); section = "Collection"; collection = name; newCollection = false
     }
-    var conflicts: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Both versions are safe").font(.title2.bold()); Text("Choose a version to continue with. Earlier versions remain in your backup and revision history.").foregroundStyle(.secondary)
-            PebbleScrollView { ForEach(store.heads.filter { $0.noteId == store.selected }) { r in VStack(alignment: .leading, spacing: 8) { Text(r.note.displayTitle).font(.headline); Text(r.note.deleted ? "Deleted on another device" : String(r.note.text.prefix(500))); Button("Continue with this version") { store.resolve(r); showConflicts = false } }.padding().frame(maxWidth: .infinity, alignment: .leading).background(.quaternary, in: RoundedRectangle(cornerRadius: 14)) } }
-            Button("Keep both for now") { showConflicts = false }
-        }.padding(28).frame(width: 560, height: 520)
-    }
+    var conflicts: some View { ConflictReview(store: store) { showConflicts = false } }
+
 }
 @MainActor enum NoteWindows {
     static var windows: [NSWindow] = []

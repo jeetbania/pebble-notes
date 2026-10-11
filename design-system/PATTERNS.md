@@ -59,3 +59,9 @@ Mobile reorder measures stationary block families at gesture start, moves only v
 Editor glass samples only the wallpaper/background sibling. Never record native Android text fields inside a graphics layer that glass controls sample: this can create recursive render-node dependencies.
 
 Native Android text editors own block navigation. IME focus-neighbour probes must not traverse the covered lazy library: use `PebbleEditText` for every embedded editor. Glass capture records the background only, never the native text fields.
+
+## Version comparison
+
+Conflicting revisions use separate stacked cards inside an explicit vertical stack. Show this-device/other-device provenance, save time, title, a bounded text preview and one action per revision. Deleted revisions explain the Trash outcome. Decide later dismisses without resolving; do not call it Keep both, which implies duplication. Reuse ConflictReview in the main and detached Mac windows and the phone sheet. Style overlays reserve a complete host hit area above editor content; close actions require a callback and a visible 44-point circular target.
+
+Dragged mobile blocks use a rounded frosted document-colour surface with elevation and full text opacity. Keep backdrop capture on the editor background only; never capture native text editors. Launcher artwork is independent from the About logo. Mac uses the bundle icon without runtime image replacement.

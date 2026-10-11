@@ -19,10 +19,11 @@ for name,size in [('icp4',16),('icp5',32),('icp6',64),('ic07',128),('ic08',256),
 body=b''.join(chunks);Path(sys.argv[2]).write_bytes(b'icns'+struct.pack('>I',len(body)+8)+body)
 PYTHON
 sips -z 432 432 "$ASSETS/PebbleLogo.png" --out "$ROOT/android/app/src/main/res/drawable/pebble_logo.png" >/dev/null
+sips -z 432 432 "$ASSETS/PebbleLauncher-Android.png" --out "$ROOT/android/app/src/main/res/drawable/pebble_launcher.png" >/dev/null
 for spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
  density=${spec%:*}; n=${spec#*:}; mkdir -p "$ROOT/android/app/src/main/res/mipmap-$density"
- sips -z "$n" "$n" "$ASSETS/PebbleLogo.png" --out "$ROOT/android/app/src/main/res/mipmap-$density/ic_launcher.png" >/dev/null
+ sips -z "$n" "$n" "$ASSETS/PebbleLauncher-Android.png" --out "$ROOT/android/app/src/main/res/mipmap-$density/ic_launcher.png" >/dev/null
 done
 cat > "$ROOT/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml" <<'XML'
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/icon_background"/><foreground><inset android:drawable="@drawable/pebble_logo" android:inset="12dp"/></foreground></adaptive-icon>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/icon_background"/><foreground><inset android:drawable="@drawable/pebble_launcher" android:inset="0dp"/></foreground></adaptive-icon>
 XML
