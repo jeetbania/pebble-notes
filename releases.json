@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.23.0",
+    "title": "A little Pebble on your home screen",
+    "changes": [
+      "Android home-screen widgets come in Small, Medium and Large sizes with layouts that adapt when resized.",
+      "Choose Recent notes, Pinned notes, Collection, Single note, Checklist, Quote, Tasks or Quick capture.",
+      "Warm Glass, clean Paper and Midnight surfaces keep text readable with rounded corners and quiet dividers.",
+      "Complete checklist items and tasks directly from a widget. Repeated or outdated taps cannot overwrite a newer revision.",
+      "Widget links open the right note, collection or task list; Quick capture starts a note, checklist or task.",
+      "Archived and deleted notes stay off widgets. Missing sources offer a way to choose another note.",
+      "Mac is a companion version update; home-screen widgets in this release are for Android."
+    ]
+  },
+  {
     "version": "0.22.2",
     "title": "Quieter, clearer mobile interactions",
     "changes": [

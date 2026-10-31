@@ -10,6 +10,7 @@ Pebble is a quiet place for notes, images and tasks. Its interface uses readable
 | --- | --- |
 | [Tokens](TOKENS.md) | Colours, typography, spacing, shapes, targets and motion |
 | [Components](COMPONENTS.md) | Choosing an existing button, field, menu, card or navigation control |
+| [Widgets](WIDGETS.md) | Android home-screen sizes, content, surfaces and safe actions |
 | [Patterns](PATTERNS.md) | Page layouts, note editing, gestures, safe areas and shared behaviour |
 | [Machine-readable tokens](tokens.json) | Shared numeric foundations and native generation |
 | [Product rules](../UI_STYLE.md) | Pebble-specific requirements and exceptions |

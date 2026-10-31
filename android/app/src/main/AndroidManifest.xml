@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <application android:label="Pebble Notes" android:icon="@mipmap/ic_launcher" android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true">
+        <activity android:name=".WidgetSetupActivity" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE"/></intent-filter></activity>
+        <receiver android:name=".PebbleSmallWidget" android:label="@string/widget_small" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_small"/></receiver>
+        <receiver android:name=".PebbleMediumWidget" android:label="@string/widget_medium" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_medium"/></receiver>
+        <receiver android:name=".PebbleLargeWidget" android:label="@string/widget_large" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_large"/></receiver>
         <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.updates" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/update_paths" /></provider>
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>

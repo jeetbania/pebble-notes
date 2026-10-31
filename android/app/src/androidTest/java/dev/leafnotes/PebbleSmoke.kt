@@ -17,6 +17,7 @@ class PebbleSmoke : Instrumentation() {
         try {
             val isolated = object : ContextWrapper(targetContext) { override fun getFilesDir() = root }
             runOnMainSync {
+                results.append(widgetChecks(targetContext,root))
                 run {
                 check(preferredRefreshRate(listOf(60f,90f,120f,144f),true)==120f)
                 check(preferredRefreshRate(listOf(60f,90f,120f),false)==60f)

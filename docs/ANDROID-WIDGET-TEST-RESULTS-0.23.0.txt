@@ -1,0 +1,32 @@
+PASS: widget content excludes private hidden states; completion is durable and stale taps are idempotent; all eight variations inflate in three sizes; light/dark surfaces and 200% type fit; previews at /data/user/0/dev.leafnotes/cache/smoke-b19577d4-6571-4bc2-8799-2cf7992f864d/widget-previews
+PASS: adaptive launcher foreground keeps safe padding on every edge
+PASS: prominent action icons meet 3:1 contrast for every accent and appearance
+PASS: high refresh preferences use supported rates, and reorder previews retain nested families
+PASS: fixed drag geometry reverses without layout feedback, commits once and clears offsets
+PASS: block drag crosses multiple peers and gaps, reverses, and mobile Idea copy stays body sized
+PASS: erased collection markers, double-Return exits and nested outdent, row/column deletion and undo preserve valid content
+PASS: reversible card geometry starts at the tapped bounds and clamps interruption progress
+PASS: quote/idea text, custom highlight replacement/removal and complementary light document
+PASS: prominent wallpaper tone follows the dominant colour rather than a mixed average
+PASS: note style JSON, persistence, backup, edits, undo/redo and automatic contrast
+PASS: Android task statuses persist, completed tasks reopen, and older tasks remain compatible
+PASS: blank notes move to Trash on leave; titles and tables survive; yearly repeats persist and advance
+PASS: Android task persistence, backup, completion, and repeat rollover
+PASS: Android atomic draft recovery, JNI Unicode, and rich-text round trip
+PASS: Android overlapping rich-text styles remain stable
+PASS: Android heading/link spans survive native editing and JNI storage
+PASS: Android empty headings persist, heading sizes survive editing, Return begins body, and toggle conversion preserves children
+PASS: Android portable backup idempotence
+PASS: Android fork resolution retains both histories
+PASS: image backdrop media, blur and direction survive editing and backup restore without content blocks; reset removes the current reference
+PASS: Android mixed blocks, caret insertion, Unicode spans, checklists, tables, tags, undo/redo, and ZIP export
+PASS: Android nested folders and emoji sync records
+PASS: Android fresh-library backup restore and atomic rejection of damaged media
+PASS: Android starter refresh preserves old notes, original images, pre-refresh backup, and one-time idempotence
+PASS: Android nested folder deletion preserves notes and completion strike remains presentation-only
+PASS: Android synced note sizes, custom typography semantic round trip, and clipboard link classification
+PASS: Android toggles persist and move, duplicate, collapse, and remove nested blocks together
+PASS: Android Trash expires at 30 days and old synced revisions cannot resurrect permanently erased notes
+PASS: signed update feed rejects tampering, lists missed changes, verifies app identity/build, and provider cannot expose notes
+PASS: release acknowledgement persists across preference reads, skipped updates include missed changes, and new builds show again
+

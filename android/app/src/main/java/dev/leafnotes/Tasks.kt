@@ -65,6 +65,8 @@ fun Store.taskChange(id:String,change:(Note)->Note){val previous=selected;select
     val c=LocalPebbleColors.current;val haptic=androidx.compose.ui.platform.LocalHapticFeedback.current
     var filter by remember{mutableIntStateOf(0)};var layout by remember{mutableIntStateOf(store.preferences.getInt("taskView",0))};var list by remember{mutableStateOf("All lists")};var chooseList by remember{mutableStateOf(false)}
     var editing by remember{mutableStateOf<Revision?>(null)};var adding by remember{mutableStateOf(false)};var addingStage by remember{mutableStateOf("todo")};var options by remember{mutableStateOf<Revision?>(null)}
+    LaunchedEffect(store.widgetTaskList){store.widgetTaskList?.let{list=it.ifEmpty{"All lists"};store.widgetTaskList=null}}
+    LaunchedEffect(store.widgetTaskCreate){store.widgetTaskCreate?.let{list=it.ifEmpty{"All lists"};addingStage="todo";adding=true;store.widgetTaskCreate=null}}
     val tasks=store.visibleHeads.filter{it.note.task!=null&&!it.note.deleted&&!it.note.archived}
     val states=listOf("todo","progress","review","done");val names=listOf("To Do","In Progress","In Review","Done")
     val visible=tasks.filter{r->val t=r.note.task!!;(list=="All lists"||t.list==list)&&(filter==0||t.stage==listOf("todo","progress","done")[filter-1])}.sortedWith(compareBy<Revision>{if(it.note.task!!.dueAt==0L)Long.MAX_VALUE else it.note.task!!.dueAt}.thenByDescending{it.note.task!!.priority})
@@ -109,7 +111,7 @@ fun Store.taskChange(id:String,change:(Note)->Note){val previous=selected;select
         }
     }
     if(chooseList)IosSheet("Lists",onDismiss={chooseList=false}){(listOf("All lists")+tasks.map{it.note.task!!.list}.distinct().sorted()).forEach{name->SheetRow(name,"folder"){list=name;chooseList=false}}}
-    if(adding||editing!=null)TaskComposer(store,editing?.note ?: Note(task=TaskDetails(completed=addingStage=="done",status=addingStage)),onCancel={adding=false;editing=null}){n->val r=editing;if(r==null){store.create();store.update(n);store.flush();store.select(null)}else store.taskChange(r.noteId){n};adding=false;editing=null}
+    if(adding||editing!=null)TaskComposer(store,editing?.note ?: Note(task=TaskDetails(completed=addingStage=="done",status=addingStage,list=list.takeUnless{it=="All lists"}?:TaskDetails().list)),onCancel={adding=false;editing=null}){n->val r=editing;if(r==null){store.create();store.update(n);store.flush();store.select(null)}else store.taskChange(r.noteId){n};adding=false;editing=null}
     options?.let{r->TaskOptions(r,onDismiss={options=null},onEdit={editing=r;options=null},onOpen={editing=r;options=null},onChange={change->store.taskChange(r.noteId,change);options=null},onDuplicate={store.create();store.update(r.note.copy(task=r.note.task!!.copy(completed=false,status="todo")));store.flush();store.select(null);options=null})}
 
 }

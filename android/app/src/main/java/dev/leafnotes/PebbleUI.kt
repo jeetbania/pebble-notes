@@ -153,6 +153,19 @@ fun iconResource(name: String): Int = when(name) {
     var dailyTools by remember { mutableStateOf(false) }; var newFolder by remember { mutableStateOf(false) }; var folderEmoji by remember { mutableStateOf("") }
     var gallery by remember { mutableStateOf(store.preferences.getBoolean("gallery",false)) }
     var editor by remember(store.selected) { mutableStateOf<EditText?>(null) }
+    LaunchedEffect(store.widgetRequest) {store.widgetRequest?.let{request->
+        searching=false;search="";folders=false;launchFrame=null;menu=false;taskDetail=null
+        when(request.mode) {
+            "new","newChecklist","newCollection"->{section="Notes";store.create();if(request.mode=="newCollection")store.editing?.let{store.update(it.copy(collection=request.id.ifBlank{"Personal"}))};if(request.mode=="newChecklist")store.editing?.let{store.update(it.copy(blocks=listOf(Block(kind="check"))))}}
+            "newTask"->{store.select(null);store.widgetTaskCreate=request.id;section="Tasks"}
+            "task"->{store.select(null);section="Tasks";taskDetail=store.visibleHeads.firstOrNull{it.noteId==request.id&&!it.note.deleted&&!it.note.archived}}
+            "note"->{section="Notes";val record=store.visibleHeads.firstOrNull{it.noteId==request.id&&!it.note.deleted&&!it.note.archived};if(record!=null){if(record.note.task!=null){store.select(null);section="Tasks";taskDetail=record}else store.select(record.noteId)}else store.select(null)}
+            "tasks"->{store.select(null);store.widgetTaskList=request.id;section="Tasks"}
+            "collection"->{store.select(null);section=request.id.ifEmpty{"Notes"}}
+            else->{store.select(null);section="Notes"}
+        }
+        store.widgetRequest=null
+    }}
     val calm=LocalCalmMotion.current
     val scope=rememberCoroutineScope(); val keyboard=LocalSoftwareKeyboardController.current; val c=LocalPebbleColors.current
     val images=androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> scope.launch { try { withContext(Dispatchers.IO) { uris.forEach { store.attach(it) } } } catch(e: Exception) { store.error=e.message } } }

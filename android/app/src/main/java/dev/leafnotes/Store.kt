@@ -99,6 +99,9 @@ class Store(val context: Context) {
     private val draftWriter=java.util.concurrent.Executors.newSingleThreadExecutor { task->Thread(task,"Pebble draft writer").apply{isDaemon=true} }
     private var draftWrite:java.util.concurrent.Future<*>?=null
     private var draft: JSONObject? = null
+    var widgetTaskList by mutableStateOf<String?>(null)
+    var widgetTaskCreate by mutableStateOf<String?>(null)
+    var widgetRequest by mutableStateOf<WidgetNavigation?>(null)
     var selected by mutableStateOf<String?>(null)
     var editing by mutableStateOf<Note?>(null)
     var heads by mutableStateOf<List<Revision>>(emptyList())
@@ -135,7 +138,7 @@ class Store(val context: Context) {
     }
     @Synchronized fun ingest(raw: String, remote: Boolean) { check(NativeStore.put(db, raw.toByteArray(Charsets.UTF_8), remote) != 0) { String(NativeStore.error(db), Charsets.UTF_8) } }
     @Synchronized fun acknowledge(id: String) { check(NativeStore.ack(db, id.toByteArray(Charsets.UTF_8)) != 0) { "Could not save sync progress" } }
-    @Synchronized fun reload() { heads = revisions(headsOnly = true); expireTrash(); scheduleTaskAlerts(this); if (draft == null && selected != null) editing = allHeads.firstOrNull { it.noteId == selected }?.note }
+    @Synchronized fun reload() { heads = revisions(headsOnly = true); expireTrash(); scheduleTaskAlerts(this); WidgetViews.request(context); if (draft == null && selected != null) editing = allHeads.firstOrNull { it.noteId == selected }?.note }
     private fun discardBlankOnLeave(){editing?.takeIf{it.isCompletelyBlank && !it.deleted}?.let{update(it.copy(deleted=true),remember=false);flush()}}
     @Synchronized fun select(id: String?) { if(selected!=id)discardBlankOnLeave();flush(); undoNotes.clear();redoNotes.clear();canUndo=false;canRedo=false;activeBlock=null;insertionOffset=null; if (draft != null) return; selected = id; editing = allHeads.firstOrNull { it.noteId == id }?.note }
     @Synchronized fun create() { discardBlankOnLeave();flush(); if (draft != null) return; selected = uid(); editing = Note().prepared(); undoNotes.clear();redoNotes.clear();canUndo=false;canRedo=false;activeBlock=null;insertionOffset=null; draft = JSONObject().put("noteId", selected).put("parents", JSONArray()).put("note", editing!!.json()); saveDraft(); flush() }

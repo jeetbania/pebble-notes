@@ -55,11 +55,12 @@ class MainActivity : ComponentActivity() {
         scheduleLocalBackup(this)
         scheduleUpdates(this)
         if(intent.getBooleanExtra("checkUpdates",false))lifecycleScope.launch { PebbleUpdater.get(this@MainActivity).check(manual=true) }
-        handleShared(intent)
+        handleShared(intent); handleWidget(intent)
         intent.getStringExtra("taskId")?.let{store.select(it)}
         setContent { PebbleTheme(store) { PebbleLibrary(store, connect = { connect() }) } }
     }
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); if(intent.getBooleanExtra("checkUpdates",false))lifecycleScope.launch {PebbleUpdater.get(this@MainActivity).check(manual=true)}; handleShared(intent); intent.getStringExtra("taskId")?.let{store.select(it)} }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); if(intent.getBooleanExtra("checkUpdates",false))lifecycleScope.launch {PebbleUpdater.get(this@MainActivity).check(manual=true)}; handleShared(intent); handleWidget(intent); intent.getStringExtra("taskId")?.let{store.select(it)} }
+    private fun handleWidget(intent:Intent) {if(intent.action=="dev.leafnotes.WIDGET_OPEN")intent.getStringExtra("pebbleWidgetAction")?.let{store.widgetRequest=WidgetNavigation(it,intent.getStringExtra("pebbleWidgetSource").orEmpty());intent.removeExtra("pebbleWidgetAction");intent.removeExtra("pebbleWidgetSource")}}
     private fun handleShared(intent: Intent) {
         if(intent.action == Intent.ACTION_SEND || intent.action == Intent.ACTION_SEND_MULTIPLE) {
             store.create()

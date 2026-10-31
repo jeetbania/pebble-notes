@@ -65,3 +65,5 @@ Phone block dragging tracks the finger, springs neighbouring blocks into their p
 - Mobile library clipping uses a balanced 28-dp inward top curve below the fixed header. Idea blocks use body-size copy on mobile, including blocks converted from headings. Block dragging chooses continuous insertion positions across multiple peers and gaps; neighbours shift with interruptible springs.
 
 On mobile, returning to the library reveals the floating dock with a quick fade and small upward motion. Navigation selection has gentle finger resistance and elastic settling. Top chrome remains translucent and uses backdrop-adaptive tint and readable icons.
+
+Android home-screen widgets use native, responsive Small/Medium/Large layouts with one clear purpose. Warm Glass, Paper and Midnight retain readable coordinated ink over any wallpaper. Heading reconfigures; content opens its source; check circles complete through revision-safe store actions. Keep 44 dp targets, reduce density at larger text sizes, omit hidden/deleted content, and avoid decorative widget motion. See design-system/WIDGETS.md.
