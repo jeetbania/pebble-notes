@@ -1,5 +1,14 @@
 # Pebble Notes changelog
 
+## 0.22.2 · Quieter, clearer mobile interactions
+
+- Search keeps a stable layout, uses an inline clear control and supports the keyboard Search action.
+- Buttons respond as one surface; navigation and selections retain haptics without vibrating on every ordinary tap.
+- Dock icons follow the dragged selection, with clearer accessible button and tab states.
+- Compact controls have larger touch targets; accent-filled actions use readable contrasting icons.
+- Style opens with a brief trigger-aware reveal, respects Calmer motion and keeps its header visible while options scroll.
+- Android launcher artwork has safe padding for squircle and other adaptive icon shapes. The About logo is unchanged.
+
 ## 0.22.1 · Clearer saved versions and reliable Style controls
 
 - Redesigned version comparison on Mac and phone with separate cards, device labels, saved times and readable previews.

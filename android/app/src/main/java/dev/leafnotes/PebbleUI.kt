@@ -118,15 +118,15 @@ fun iconResource(name: String): Int = when(name) {
     else Icon(painterResource(iconResource(name)), description, tint=tint, modifier=Modifier.size(size.dp))
 }
 @OptIn(ExperimentalFoundationApi::class)
-@Composable fun Pressable(modifier: Modifier = Modifier, description: String? = null, enabled: Boolean = true, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
-    val haptic=androidx.compose.ui.platform.LocalHapticFeedback.current
+@Composable fun Pressable(modifier: Modifier = Modifier, description: String? = null, enabled: Boolean = true, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, role: Role = Role.Button, content: @Composable () -> Unit) {
     val interaction = remember { MutableInteractionSource() }; val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if(pressed && !LocalCalmMotion.current) PebbleTokens.pressScale else 1f, spring(dampingRatio=1f,stiffness=PebbleTokens.pressStiffness), label="press")
-    Box(modifier.graphicsLayer { scaleX=scale; scaleY=scale; alpha=if(enabled) 1f else PebbleTokens.disabledOpacity }.then(if(description!=null) Modifier.semantics { contentDescription=description } else Modifier).combinedClickable(interactionSource=interaction, indication=null, enabled=enabled, onClick={haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);onClick()}, onLongClick=onLongClick), contentAlignment=Alignment.Center) { content() }
+    val keyboardInput=LocalInputModeManager.current.inputMode==androidx.compose.ui.input.InputMode.Keyboard
+    val scale by animateFloatAsState(if(pressed && !LocalCalmMotion.current && !keyboardInput) PebbleTokens.pressScale else 1f, spring(dampingRatio=1f,stiffness=PebbleTokens.pressStiffness), label="press")
+    Box(Modifier.graphicsLayer { scaleX=scale; scaleY=scale; alpha=if(enabled) 1f else PebbleTokens.disabledOpacity }.then(modifier).then(if(description!=null) Modifier.semantics { contentDescription=description } else Modifier).combinedClickable(interactionSource=interaction, indication=null, enabled=enabled, role=role, onClick=onClick, onLongClick=onLongClick), contentAlignment=Alignment.Center) { content() }
 }
 @Composable fun ChromeButton(name: String, label: String, size: Int = PebbleTokens.mobileTarget, prominent: Boolean = false, onClick: () -> Unit) {
     val c=LocalPebbleColors.current
-    Pressable(Modifier.size(size.dp).shadow(14.dp,CircleShape, ambientColor=Color.Black.copy(alpha=.035f),spotColor=Color.Black.copy(alpha=.06f)).then(if(prominent)Modifier.background(c.accent,CircleShape) else Modifier.frosted(CircleShape,surface=LocalChromeTint.current ?: c.paper.copy(alpha=.22f))).border(.5.dp,c.text.copy(alpha=.025f),CircleShape),label,onClick=onClick) { Glyph(name, size=23, tint=if(prominent) Color.White else c.text) }
+    Pressable(Modifier.size(size.dp).shadow(14.dp,CircleShape, ambientColor=Color.Black.copy(alpha=.035f),spotColor=Color.Black.copy(alpha=.06f)).then(if(prominent)Modifier.background(c.accent,CircleShape) else Modifier.frosted(CircleShape,surface=LocalChromeTint.current ?: c.paper.copy(alpha=.22f))).border(.5.dp,c.text.copy(alpha=.025f),CircleShape),label,onClick=onClick) { Glyph(name, size=23, tint=if(prominent) accentInk(c.accent) else c.text) }
 }
 @Composable fun ChromePill(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     val c=LocalPebbleColors.current
@@ -299,15 +299,23 @@ fun iconResource(name: String): Int = when(name) {
     LaunchedEffect(Unit){focus.requestFocus();keyboard?.show()}
     Row(Modifier.fillMaxWidth().padding(horizontal=22.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
         ChromePill(Modifier.weight(1f).height(52.dp)) {
-            Row(Modifier.fillMaxSize().padding(start=14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxSize().padding(start=6.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Glyph("search",size=22,tint=c.secondary)
-                BasicTextField(query,onQuery,Modifier.weight(1f).focusRequester(focus),singleLine=true,textStyle=TextStyle(color=c.text,fontSize=18.sp),cursorBrush=SolidColor(c.accent),decorationBox={inner->Box{if(query.isEmpty())Label("Search notes",18,color=c.secondary);inner()}})
-                if(query.isNotEmpty())ChromeButton("close","Clear search",44){onQuery("")}else Spacer(Modifier.width(14.dp))
+                BasicTextField(query,onQuery,Modifier.weight(1f).fillMaxHeight().focusRequester(focus).semantics{contentDescription="Search notes"},singleLine=true,
+                    keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(imeAction=androidx.compose.ui.text.input.ImeAction.Search),
+                    keyboardActions=androidx.compose.foundation.text.KeyboardActions(onSearch={keyboard?.hide()}),
+                    textStyle=TextStyle(color=c.text,fontSize=18.sp),cursorBrush=SolidColor(c.accent),
+                    decorationBox={inner->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.CenterStart){if(query.isEmpty())Label("Search notes",18,color=c.secondary);inner()}})
+                // Reserve the slot so typing the first character never resizes the field.
+                Box(Modifier.size(PebbleTokens.mobileCompactTarget.dp),contentAlignment=Alignment.Center) {
+                    if(query.isNotEmpty())Pressable(Modifier.fillMaxSize(),"Clear search",onClick={onQuery("");focus.requestFocus();keyboard?.show()}){Glyph("close",size=18,tint=c.secondary)}
+                }
             }
         }
-        Pressable(Modifier.height(52.dp).padding(horizontal=8.dp),"Cancel search",onClick={keyboard?.hide();onClose()}){Label("Cancel",16,color=c.accent)}
+        Pressable(Modifier.height(52.dp).widthIn(min=PebbleTokens.mobileCompactTarget.dp).padding(horizontal=8.dp),"Cancel search",onClick={keyboard?.hide();onClose()}){Label("Cancel",16,color=c.accent)}
     }
-    Label("$count ${if(count==1)"note" else "notes"}",13,color=c.secondary,modifier=Modifier.padding(start=23.dp,bottom=14.dp))
+    val summary=if(query.isBlank())"$count ${if(count==1)"note" else "notes"}" else "$count ${if(count==1)"result" else "results"}"
+    Label(summary,13,color=c.secondary,modifier=Modifier.padding(start=23.dp,bottom=14.dp))
 }
 
 @Composable fun LibraryScreen(store:Store,section:String,records:List<Revision>,search:String,onSearch:(String)->Unit,folders:Boolean,onFolders:(Boolean)->Unit,gallery:Boolean,onGallery:()->Unit,enabled:Boolean,onSection:(String)->Unit,onMore:()->Unit,onOpen:(String)->Unit,onNew:()->Unit,onImage:(Media)->Unit,searchMode:Boolean=false,onSearchClose:()->Unit={}) {
@@ -393,7 +401,7 @@ fun dateGroup(millis:Long):String {
     val c=LocalPebbleColors.current; val scope=rememberCoroutineScope();val x=remember(r.noteId){Animatable(0f)};val actionWidth=with(LocalDensity.current){78.dp.toPx()}
     LaunchedEffect(reset,enabled){if(x.value!=0f)x.animateTo(0f,spring(dampingRatio=1f,stiffness=650f))}
     Box(Modifier.fillMaxWidth().clip(shape).background(c.paper)) {
-        Row(Modifier.matchParentSize(),horizontalArrangement=Arrangement.SpaceBetween){Pressable(Modifier.width(78.dp).fillMaxHeight().background(c.accent),"Pin note",enabled,onClick={store.select(r.noteId);store.editing?.let{store.update(it.copy(pinned=!it.pinned))};store.select(null);scope.launch{x.animateTo(0f)}}){Glyph("pin",tint=Color.White)};Pressable(Modifier.width(78.dp).fillMaxHeight().background(c.danger),"Move to Trash",enabled,onClick={store.select(r.noteId);store.editing?.let{store.update(it.copy(deleted=!it.deleted))};store.select(null);scope.launch{x.animateTo(0f)}}){Glyph(if(r.note.deleted)"undo" else "trash",tint=Color.White)}}
+        Row(Modifier.matchParentSize(),horizontalArrangement=Arrangement.SpaceBetween){Pressable(Modifier.width(78.dp).fillMaxHeight().background(c.accent),"Pin note",enabled,onClick={store.select(r.noteId);store.editing?.let{store.update(it.copy(pinned=!it.pinned))};store.select(null);scope.launch{x.animateTo(0f)}}){Glyph("pin",tint=accentInk(c.accent))};Pressable(Modifier.width(78.dp).fillMaxHeight().background(c.danger),"Move to Trash",enabled,onClick={store.select(r.noteId);store.editing?.let{store.update(it.copy(deleted=!it.deleted))};store.select(null);scope.launch{x.animateTo(0f)}}){Glyph(if(r.note.deleted)"undo" else "trash",tint=Color.White)}}
         Column(Modifier.offset{IntOffset(x.value.roundToInt(),0)}.background(c.paper).pointerInput(r.noteId,enabled){
             if(!enabled)return@pointerInput
             val tracker=VelocityTracker()
@@ -525,7 +533,7 @@ fun prefixLine(view:EditText,prefix:String) {
             onHorizontalDrag={change,amount->change.consume();velocity.addPosition(change.uptimeMillis,change.position);scope.launch(start=CoroutineStart.UNDISPATCHED){thumb.snapTo((thumb.value+amount/segment).coerceIn(-.12f,last+.12f))}},
             onDragCancel={scope.launch{if(calm)thumb.snapTo(currentSelected.toFloat())else thumb.animateTo(currentSelected.toFloat(),spring(dampingRatio=1f,stiffness=550f));dragging=false}},
             onDragEnd={val speed=velocity.calculateVelocity().x/segment;val target=(thumb.value+speed*.08f).roundToInt().coerceIn(0,labels.lastIndex);if(target!=currentSelected)haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);select(target);scope.launch{if(calm)thumb.snapTo(target.toFloat())else thumb.animateTo(target.toFloat(),spring(dampingRatio=.9f,stiffness=550f),initialVelocity=speed);dragging=false}}
-        )}) {labels.forEachIndexed{i,name->Pressable(Modifier.weight(1f).fillMaxHeight().semantics{this.selected=i==selected},name,onClick={onSelect(i)}){Label(name,14,if(i==selected)FontWeight.SemiBold else FontWeight.Normal)}}}
+        )}) {labels.forEachIndexed{i,name->Pressable(Modifier.weight(1f).fillMaxHeight().semantics{this.selected=i==selected},name,role=Role.Tab,onClick={if(i!=currentSelected){haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);onSelect(i)}}){Label(name,14,if(i==selected)FontWeight.SemiBold else FontWeight.Normal)}}}
     }
 }
 @Composable fun SheetRow(label:String,icon:String,tint:Color=LocalPebbleColors.current.text,onClick:()->Unit) {
@@ -565,7 +573,7 @@ val LocalSheetAction=compositionLocalOf<((()->Unit)->Unit)>{ {action->action()} 
 }
 object WorkCanceller {fun cancel(context:android.content.Context){androidx.work.WorkManager.getInstance(context).cancelUniqueWork("leaf-sync");androidx.work.WorkManager.getInstance(context).cancelUniqueWork("leaf-periodic")}}
 
-@Composable fun SheetRowCompact(label:String,onClick:()->Unit){Pressable(Modifier.padding(horizontal=12.dp,vertical=10.dp),label,onClick=onClick){Label(label,15,color=LocalPebbleColors.current.secondary)}}
+@Composable fun SheetRowCompact(label:String,onClick:()->Unit){Pressable(Modifier.heightIn(min=PebbleTokens.mobileCompactTarget.dp).padding(horizontal=12.dp,vertical=10.dp),label,onClick=onClick){Label(label,15,color=LocalPebbleColors.current.secondary)}}
 
 @Composable fun MobileField(value:String,placeholder:String,modifier:Modifier=Modifier,singleLine:Boolean=false,onChange:(String)->Unit) {
     val c=LocalPebbleColors.current

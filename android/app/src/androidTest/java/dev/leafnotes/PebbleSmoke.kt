@@ -1,5 +1,6 @@
 package dev.leafnotes
 
+import androidx.compose.ui.graphics.luminance
 import android.app.Instrumentation
 import android.content.ContextWrapper
 import android.os.Bundle
@@ -21,6 +22,22 @@ class PebbleSmoke : Instrumentation() {
                 check(preferredRefreshRate(listOf(60f,90f,120f),false)==60f)
                 check(preferredRefreshRate(listOf(60f),true)==60f)
                 check(preferredRefreshRate(emptyList(),true)==0f)
+                val launcher=targetContext.getDrawable(R.mipmap.ic_launcher) as android.graphics.drawable.AdaptiveIconDrawable
+                val iconBitmap=android.graphics.Bitmap.createBitmap(1080,1080,android.graphics.Bitmap.Config.ARGB_8888)
+                launcher.foreground.setBounds(0,0,1080,1080);launcher.foreground.draw(android.graphics.Canvas(iconBitmap))
+                check(android.graphics.Color.alpha(iconBitmap.getPixel(100,540))==0)
+                check(android.graphics.Color.alpha(iconBitmap.getPixel(980,540))==0)
+                check(android.graphics.Color.alpha(iconBitmap.getPixel(540,100))==0)
+                check(android.graphics.Color.alpha(iconBitmap.getPixel(540,980))==0)
+                check(android.graphics.Color.alpha(iconBitmap.getPixel(540,540))>0)
+                iconBitmap.recycle()
+                results.append("PASS: adaptive launcher foreground keeps safe padding on every edge\n")
+                for(dark in listOf(false,true))for(name in accentChoices) {
+                    val fill=accentColor(name,dark);val ink=accentInk(fill)
+                    val a=fill.luminance();val b=ink.luminance()
+                    check((maxOf(a,b)+.05f)/(minOf(a,b)+.05f)>=3f){"Insufficient $name icon contrast"}
+                }
+                results.append("PASS: prominent action icons meet 3:1 contrast for every accent and appearance\n")
                 val input=PebbleEditText(isolated)
                 check(input.focusSearch(android.view.View.FOCUS_FORWARD)==null && input.focusSearch(android.view.View.FOCUS_BACKWARD)==null)
                 val a=Block(text="A");val b=Block(kind="toggle",text="B");val child=Block(parentId=b.id,text="Child");val d=Block(text="D")

@@ -17,7 +17,7 @@ Use these implementations before adding a new control. The platforms share roles
 | Option action | Native context menu / menu buttons | `SheetRow` inside `IosSheet` | Icon, readable label, subtle divider, destructive semantic tint |
 | Compact secondary action | Standard native control | `SheetRowCompact` | Do not use for a primary or destructive action |
 
-Desktop shared controls live in [Design.swift](../mac/Sources/Design.swift); ghost/upload actions in [Wallpapers.swift](../mac/Sources/Wallpapers.swift). Phone controls live in [PebbleUI.kt](../android/app/src/main/java/dev/leafnotes/PebbleUI.kt). `Pressable` supplies feedback and click semantics, not a complete visual button or minimum size. Some legacy desktop low-emphasis styles have smaller intrinsic bounds: new callers must supply the 36-point target.
+Desktop shared controls live in [Design.swift](../mac/Sources/Design.swift); ghost/upload actions in [Wallpapers.swift](../mac/Sources/Wallpapers.swift). Phone controls live in [PebbleUI.kt](../android/app/src/main/java/dev/leafnotes/PebbleUI.kt). `Pressable` supplies subtle scale feedback and Button semantics, not a complete visual button or minimum size. Tabs pass the Tab role and expose the committed selected state. Ordinary buttons do not vibrate; navigation and segmented selection own their haptics. Some legacy desktop low-emphasis styles have smaller intrinsic bounds: new callers must supply the 36-point target.
 
 **State contract**
 

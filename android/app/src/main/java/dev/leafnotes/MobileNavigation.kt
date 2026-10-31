@@ -10,6 +10,9 @@ import androidx.compose.ui.*
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.util.VelocityTracker
@@ -36,6 +39,7 @@ val LocalNoteReveal=staticCompositionLocalOf<()->Float>{{1f}}
     var dragging by remember{mutableStateOf(false)}
     val stretch by animateFloatAsState(if(dragging && !calm)1.045f else 1f,spring(dampingRatio=.75f,stiffness=450f),label="pill elasticity")
     val currentSelected by rememberUpdatedState(selected)
+    val highlighted by remember { derivedStateOf { if(dragging)position.value.roundToInt().coerceIn(0,3) else currentSelected } }
     val navigate by rememberUpdatedState<(Int)->Unit>({i->if(pages[i]=="Search")onSearch()else onPage(pages[i])})
     LaunchedEffect(selected,calm){if(!dragging){if(calm)position.snapTo(selected.toFloat())else position.animateTo(selected.toFloat(),spring(dampingRatio=.74f,stiffness=420f))}}
     Row(modifier.navigationBarsPadding().padding(horizontal=22.dp,vertical=18.dp),horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -50,8 +54,8 @@ val LocalNoteReveal=staticCompositionLocalOf<()->Float>{{1f}}
                     onDragCancel={scope.launch{if(calm)position.snapTo(currentSelected.toFloat())else position.animateTo(currentSelected.toFloat(),spring(dampingRatio=1f,stiffness=550f));dragging=false}},
                     onDragEnd={val speed=velocity.calculateVelocity().x/slotPixels;val target=(position.value+(speed*.06f).coerceIn(-.25f,.25f)).roundToInt().coerceIn(0,3);navigate(target);scope.launch{if(calm)position.snapTo(target.toFloat())else position.animateTo(target.toFloat(),spring(dampingRatio=.74f,stiffness=420f),initialVelocity=speed);dragging=false}}
                 )}){pages.forEachIndexed{i,name->
-                    Pressable(Modifier.weight(1f).fillMaxHeight(),name,onClick={if(name=="Search")onSearch()else onPage(name)}) {
-                        Glyph(icons[i],size=24,tint=if(i==selected)c.accent else c.secondary)
+                    Pressable(Modifier.weight(1f).fillMaxHeight().semantics{this.selected=i==selected},if(name=="Notes")"Home" else name,role=if(name=="Search")Role.Button else Role.Tab,onClick={if(i!=selected)haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove);if(name=="Search")onSearch()else onPage(name)}) {
+                        Glyph(icons[i],size=24,tint=if(i==highlighted)c.accent else c.secondary)
                     }
                 }}
             }

@@ -1,6 +1,8 @@
 package dev.leafnotes
 
 import org.json.JSONObject
+import androidx.compose.animation.core.*
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
@@ -42,16 +44,35 @@ fun lightColour(c:Color)=c.luminance()>.179f
 fun colourHex(c:Color)=String.format(Locale.ROOT,"#%02X%02X%02X",(c.red*255).toInt(),(c.green*255).toInt(),(c.blue*255).toInt())
 
 @Composable fun NoteStyleMenu(store:Store,colors:PebbleColors=LocalPebbleColors.current) {
-    var open by remember(store.selected){mutableStateOf(false)};val density=LocalDensity.current
-    Box {Pressable(Modifier.size(44.dp),"Note style",onClick={open=!open}){Glyph("paintbrush")}
+    var open by remember(store.selected){mutableStateOf(false)}
+    val density=LocalDensity.current;val calm=LocalCalmMotion.current
+    val keyboardInput=LocalInputModeManager.current.inputMode==androidx.compose.ui.input.InputMode.Keyboard
+    val visibility=updateTransition(open,label="Style visibility")
+    val progress by visibility.animateFloat(transitionSpec={
+        if(keyboardInput)snap() else tween(if(calm)80 else if(targetState)PebbleTokens.cardEnterMs else PebbleTokens.feedbackMs,easing=CubicBezierEasing(.23f,1f,.32f,1f))
+    },label="Style reveal"){if(it)1f else 0f}
+    var origin by remember{mutableStateOf(TransformOrigin(1f,0f))}
+    val configuration=LocalConfiguration.current
+    val popupWidth=(configuration.screenWidthDp-16).coerceAtMost(374).dp
+    Box {Pressable(Modifier.size(PebbleTokens.mobileCompactTarget.dp),"Note style",onClick={open=!open}){Glyph("paintbrush")}
         val position=remember(density){object:PopupPositionProvider {
             override fun calculatePosition(anchorBounds:IntRect,windowSize:IntSize,layoutDirection:LayoutDirection,popupContentSize:IntSize):IntOffset {
-                val inset=with(density){0.dp.roundToPx()};val gap=with(density){0.dp.roundToPx()}
-                return IntOffset((windowSize.width-popupContentSize.width-inset).coerceAtLeast(inset),(anchorBounds.bottom+gap).coerceIn(inset,(windowSize.height-popupContentSize.height-inset).coerceAtLeast(inset)))
+                val inset=with(density){8.dp.roundToPx()}
+                val offset=IntOffset((windowSize.width-popupContentSize.width-inset).coerceAtLeast(inset),anchorBounds.bottom.coerceIn(inset,(windowSize.height-popupContentSize.height-inset).coerceAtLeast(inset)))
+                origin=TransformOrigin(((anchorBounds.center.x-offset.x).toFloat()/popupContentSize.width.coerceAtLeast(1)).coerceIn(0f,1f),((anchorBounds.bottom-offset.y).toFloat()/popupContentSize.height.coerceAtLeast(1)).coerceIn(0f,1f))
+                return offset
             }
         }}
-        if(open)Popup(popupPositionProvider=position,onDismissRequest={open=false},properties=PopupProperties(focusable=true,clippingEnabled=true)) {
-            CompositionLocalProvider(LocalPebbleColors provides colors) {Column(Modifier.padding(24.dp).width((LocalConfiguration.current.screenWidthDp-24).coerceAtMost(326).dp).shadow(16.dp,RoundedCornerShape(26.dp),clip=false,ambientColor=(hexColour(store.editing?.style?.backdrop)?:colors.text).copy(alpha=.24f),spotColor=(hexColour(store.editing?.style?.backdrop)?:colors.text).copy(alpha=.30f)).heightIn(max=(LocalConfiguration.current.screenHeightDp-150).coerceIn(300,620).dp).frosted(RoundedCornerShape(26.dp),surface=colors.paper.copy(alpha=.82f)).border(.7.dp,colors.separator,RoundedCornerShape(26.dp)).verticalScroll(rememberScrollState()).padding(18.dp)){NoteStylePicker(store){open=false}}}
+        // Keep the popup mounted through exit; retarget the same progress on reversal.
+        if(visibility.currentState || visibility.targetState)Popup(popupPositionProvider=position,onDismissRequest={open=false},properties=PopupProperties(focusable=true,clippingEnabled=true)) {
+            CompositionLocalProvider(LocalPebbleColors provides colors) {
+                Column(Modifier.width(popupWidth).heightIn(max=(configuration.screenHeightDp-64).coerceAtLeast(0).dp).graphicsLayer{
+                    alpha=progress;val scale=if(calm || keyboardInput)1f else .98f+.02f*progress
+                    scaleX=scale;scaleY=scale;transformOrigin=origin
+                }.padding(24.dp).shadow(16.dp,RoundedCornerShape(26.dp),clip=false,ambientColor=(hexColour(store.editing?.style?.backdrop)?:colors.text).copy(alpha=.24f),spotColor=(hexColour(store.editing?.style?.backdrop)?:colors.text).copy(alpha=.30f)).frosted(RoundedCornerShape(26.dp),surface=colors.paper.copy(alpha=.82f)).border(.7.dp,colors.separator,RoundedCornerShape(26.dp)).padding(18.dp)) {
+                    NoteStylePicker(store){open=false}
+                }
+            }
         }
     }
 }
@@ -61,7 +82,9 @@ fun colourHex(c:Color)=String.format(Locale.ROOT,"#%02X%02X%02X",(c.red*255).toI
     fun value(key:String)=when(key){"Document"->style.document;"Backdrop"->style.backdrop;"End"->style.backdropEnd;else->style.text}
     fun set(key:String,value:String?){store.editing?.let{n->val s=when(key){"Document"->style.copy(document=value);"Backdrop"->style.copy(backdrop=value,backdropEnd=if(value==null)null else style.backdropEnd,backdropImage=null);"End"->style.copy(backdropEnd=value);else->style.copy(text=value)};store.update(n.copy(style=(if(key=="Backdrop"&&value!=null)s.lightDocument(hexColour(value)!!,c.dark)else s).takeIf{it.customised}),"noteStyle")}}
     fun setGradient(pair:Pair<String,String>){store.editing?.let{store.update(it.copy(style=style.copy(backdrop=pair.first,backdropEnd=pair.second,backdropImage=null).lightDocument(hexColour(pair.first)!!,c.dark)),"noteStyle")}}
-    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){if(picker!=null)Pressable(Modifier.size(40.dp),"Back to style",onClick={picker=null;custom=false}){Glyph("back",size=18)};Label(picker ?: "Style",22,FontWeight.SemiBold,modifier=Modifier.weight(1f));Pressable(Modifier.size(42.dp).background(c.fill,CircleShape),"Close",onClick={onClose()}){Glyph("close",size=19)}}
+    Column {
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){if(picker!=null)Pressable(Modifier.size(PebbleTokens.mobileCompactTarget.dp),"Back to style",onClick={picker=null;custom=false}){Glyph("back",size=18)};Label(picker ?: "Style",22,FontWeight.SemiBold,modifier=Modifier.weight(1f));Pressable(Modifier.size(PebbleTokens.mobileCompactTarget.dp).background(c.fill,CircleShape),"Close",onClick={onClose()}){Glyph("close",size=19)}}
+    Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState())) {
     Spacer(Modifier.height(14.dp));if(picker==null){StylePreview(style,c);Spacer(Modifier.height(18.dp))}
     if(picker==null){SectionTitle("Color");listOf("Backdrop","Document","Text").forEach{name->StyleRow(name,value(name),onClick={picker=name;imageMode=name=="Backdrop"&&style.backdropImage!=null;gradientMode=name=="Backdrop"&&style.backdropEnd!=null;custom=false})};SubtleDivider();Spacer(Modifier.height(9.dp));Pressable(Modifier.fillMaxWidth().height(48.dp).background(c.fill,RoundedCornerShape(12.dp)).border(.7.dp,c.separator,RoundedCornerShape(12.dp)).padding(horizontal=12.dp),"Reset style",onClick={store.editing?.let{store.update(it.copy(style=null),"noteStyle")}}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){Glyph("undo",size=19);Label("Reset style",16,FontWeight.Medium)}}
     }else{SubtleDivider();Spacer(Modifier.height(14.dp));val key=picker!!
@@ -74,6 +97,8 @@ fun colourHex(c:Color)=String.format(Locale.ROOT,"#%02X%02X%02X",(c.red*255).toI
         if(key=="Backdrop"&&style.backdropEnd!=null){Spacer(Modifier.height(12.dp));SectionTitle("Gradient");ColourDetail("Start Color",style.backdrop){custom=true;customEnd=false};ColourDetail("End Color",style.backdropEnd){custom=true;customEnd=true};Row(Modifier.fillMaxWidth().height(46.dp),verticalAlignment=Alignment.CenterVertically){Label("Direction",16,modifier=Modifier.weight(1f));Pressable(Modifier.background(c.fill,RoundedCornerShape(12.dp)).padding(horizontal=12.dp).height(44.dp),"Gradient direction",onClick={store.editing?.let{store.update(it.copy(style=style.copy(gradientDirection=if(style.gradientDirection=="up")"down"else"up")),"noteStyle")}}){Label(if(style.gradientDirection=="up")"Bottom to Top"else"Top to Bottom",15)}}}
         Spacer(Modifier.height(8.dp));SubtleDivider();Pressable(Modifier.fillMaxWidth().height(48.dp),"Custom color",onClick={custom=!custom;customEnd=false}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Glyph("paintbrush",size=19);Label("Custom Color",16,modifier=Modifier.padding(start=12.dp).weight(1f));Glyph("next",size=14)}}
         if(custom){val target=if(customEnd)"End"else key;var hex by remember(target){mutableStateOf(value(target)?:"#FFFFFF")};LaunchedEffect(value(target)){hex=value(target)?:"#FFFFFF"};BasicTextField(hex,{hex=it.uppercase(Locale.ROOT);validHex(hex)?.let{v->set(target,v)}},singleLine=true,textStyle=TextStyle(color=c.text,fontSize=16.sp),modifier=Modifier.semantics{contentDescription="Hex color"}.fillMaxWidth().background(c.fill,RoundedCornerShape(12.dp)).padding(12.dp));val colour=hexColour(value(target))?:Color.White;listOf("Red","Green","Blue").forEachIndexed{i,label->Row(verticalAlignment=Alignment.CenterVertically){Label(label,13,modifier=Modifier.width(48.dp));PillSlider(listOf(colour.red,colour.green,colour.blue)[i],{v->val ch=mutableListOf(colour.red,colour.green,colour.blue);ch[i]=v;hex=colourHex(Color(ch[0],ch[1],ch[2]));set(target,hex)},valueRange=0f..1f,description="$label color",modifier=Modifier.weight(1f))}}}
+        }
+    }
         }
     }
 }

@@ -25,5 +25,5 @@ for spec in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
  sips -z "$n" "$n" "$ASSETS/PebbleLauncher-Android.png" --out "$ROOT/android/app/src/main/res/mipmap-$density/ic_launcher.png" >/dev/null
 done
 cat > "$ROOT/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml" <<'XML'
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/icon_background"/><foreground><inset android:drawable="@drawable/pebble_launcher" android:inset="0dp"/></foreground></adaptive-icon>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/icon_background"/><foreground><inset android:drawable="@drawable/pebble_launcher" android:inset="20%"/></foreground></adaptive-icon>
 XML

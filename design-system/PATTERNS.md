@@ -65,3 +65,11 @@ Native Android text editors own block navigation. IME focus-neighbour probes mus
 Conflicting revisions use separate stacked cards inside an explicit vertical stack. Show this-device/other-device provenance, save time, title, a bounded text preview and one action per revision. Deleted revisions explain the Trash outcome. Decide later dismisses without resolving; do not call it Keep both, which implies duplication. Reuse ConflictReview in the main and detached Mac windows and the phone sheet. Style overlays reserve a complete host hit area above editor content; close actions require a callback and a visible 44-point circular target.
 
 Dragged mobile blocks use a rounded frosted document-colour surface with elevation and full text opacity. Keep backdrop capture on the editor background only; never capture native text editors. Launcher artwork is independent from the About logo. Mac uses the bundle icon without runtime image replacement.
+
+## Mobile interaction polish
+
+Search reserves a 44-dp clear slot from the start, uses an inline icon rather than nested glass, retains focus after clearing, and hides the keyboard on the Search IME action while leaving results visible. Result updates remain immediate. Dock icons follow the hovered slot during dragging; accessible selection reflects the committed page. Ordinary press feedback stays visual, with haptics reserved for meaningful navigation/selection changes. Compact actions retain at least a 44-dp target. Accent-filled chrome and swipe-pin actions choose contrasting ink rather than assuming white.
+
+Shared press feedback transforms the entire surface and label together, dims the complete disabled control, and skips spatial press feedback for keyboard input and Calmer motion.
+
+The mobile Style popup uses one interruptible 160-ms entrance / 120-ms exit progress for opacity and 0.98–1 scale, anchored to the measured paintbrush after viewport clamping. Calmer motion uses an 80-ms fade and keyboard activation is instant. Keep the popup mounted through exit and its header outside the scrolling options. Launcher foregrounds keep a 20% inset on the 108-dp adaptive layer; use the artwork’s yellow for the background and let the launcher supply its mask. About branding remains separate.
