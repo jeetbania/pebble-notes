@@ -1,4 +1,4 @@
-PASS: widget content excludes private hidden states; completion is durable and stale taps are idempotent; all eight variations inflate in three sizes; light/dark surfaces and 200% type fit; previews at /data/user/0/dev.leafnotes/cache/smoke-b19577d4-6571-4bc2-8799-2cf7992f864d/widget-previews
+PASS: widget content excludes private hidden states; completion is durable and stale taps are idempotent; all eight variations inflate in three sizes; light/dark surfaces and 200% type fit; previews at /data/user/0/dev.leafnotes/cache/smoke-29055d84-6d27-438b-a766-37053184e189/widget-previews
 PASS: adaptive launcher foreground keeps safe padding on every edge
 PASS: prominent action icons meet 3:1 contrast for every accent and appearance
 PASS: high refresh preferences use supported rates, and reorder previews retain nested families
@@ -29,4 +29,3 @@ PASS: Android toggles persist and move, duplicate, collapse, and remove nested b
 PASS: Android Trash expires at 30 days and old synced revisions cannot resurrect permanently erased notes
 PASS: signed update feed rejects tampering, lists missed changes, verifies app identity/build, and provider cannot expose notes
 PASS: release acknowledgement persists across preference reads, skipped updates include missed changes, and new builds show again
-

@@ -131,7 +131,7 @@ object WidgetViews {
         val v=RemoteViews(c.packageName,R.layout.widget_pebble)
         v.setInt(R.id.widget_root,"setBackgroundResource",when(choice.theme){"midnight"->R.drawable.widget_midnight;"paper"->R.drawable.widget_paper;else->R.drawable.widget_glass})
         v.setImageViewBitmap(R.id.widget_heading_icon,headingIcon(c,choice.kind,accent));v.setViewVisibility(R.id.widget_heading_icon,if(size==0)View.GONE else View.VISIBLE);v.setTextViewText(R.id.widget_heading,if(size==0&&choice.kind=="quote")"Quote" else data.heading);v.setTextColor(R.id.widget_heading,accent);v.setTextColor(R.id.widget_add,accent);v.setTextColor(R.id.widget_footer,secondary)
-        v.setTextViewText(R.id.widget_footer,data.footer);v.setViewVisibility(R.id.widget_footer,if(scale>1.3)View.GONE else View.VISIBLE)
+        v.setTextViewText(R.id.widget_footer,data.footer);v.setViewVisibility(R.id.widget_footer,if(scale>1.3||size==0&&choice.kind=="quote")View.GONE else View.VISIBLE)
         val route=when(choice.kind){"tasks"->"tasks";"collection"->"collection";else->"home"}
         if(id>=0){v.setOnClickPendingIntent(R.id.widget_root,open(c,id,if(data.noteId.isNotEmpty())"note" else route,data.noteId.ifEmpty{choice.source}));v.setOnClickPendingIntent(R.id.widget_add,open(c,id,when(choice.kind){"tasks"->"newTask";"checklist"->"newChecklist";"collection"->"newCollection";else->"new"},choice.source));v.setOnClickPendingIntent(R.id.widget_heading,configure(c,id));v.setContentDescription(R.id.widget_heading,"${data.heading}. Widget settings")}
         v.setContentDescription(R.id.widget_add,when(choice.kind){"tasks"->"Create a task";"checklist"->"Create a checklist";"collection"->"Create a note in ${choice.source}";else->"Create a note"})
@@ -140,10 +140,10 @@ object WidgetViews {
         if(data.empty.isNotEmpty() || data.featureTitle.isNotEmpty()) {
             val f=RemoteViews(c.packageName,R.layout.widget_feature)
             f.setTextViewText(R.id.widget_feature_title,if(size==0)data.empty.ifEmpty{if(choice.kind=="quote")data.featureBody else data.featureTitle} else if(data.empty.isNotEmpty())"A little space" else data.featureTitle)
-            f.setTextViewTextSize(R.id.widget_feature_title,android.util.TypedValue.COMPLEX_UNIT_SP,if(size==0)if(data.empty.isNotEmpty())14f else 18f else 19f)
+            f.setTextViewTextSize(R.id.widget_feature_title,android.util.TypedValue.COMPLEX_UNIT_SP,if(size==0)if(data.empty.isNotEmpty())14f else if(choice.kind=="quote")16f else 18f else 19f)
             f.setTextViewText(R.id.widget_feature_body,data.empty.ifEmpty{data.featureBody});f.setTextColor(R.id.widget_feature_title,ink);f.setTextColor(R.id.widget_feature_body,secondary)
             f.setTextViewTextSize(R.id.widget_feature_body,android.util.TypedValue.COMPLEX_UNIT_SP,if(choice.kind=="quote")if(size==2)23f else 18f else 14f)
-            f.setInt(R.id.widget_feature_title,"setMaxLines",if(size==1 || size==0&&scale>1.3)1 else 2);f.setInt(R.id.widget_feature_body,"setMaxLines",if(scale>1f)1 else if(size==1)2 else if(choice.kind=="quote")4 else 5);if(size==0)f.setViewVisibility(R.id.widget_feature_body,View.GONE);f.setContentDescription(R.id.widget_feature,data.featureTitle+". "+data.empty.ifEmpty{data.featureBody})
+            f.setInt(R.id.widget_feature_title,"setMaxLines",if(size==1 || size==0&&scale>1.3)1 else if(size==0&&choice.kind=="quote")3 else 2);f.setInt(R.id.widget_feature_body,"setMaxLines",if(scale>1f)1 else if(size==1)2 else if(choice.kind=="quote")4 else 5);if(size==0)f.setViewVisibility(R.id.widget_feature_body,View.GONE);f.setContentDescription(R.id.widget_feature,data.featureTitle+". "+data.empty.ifEmpty{data.featureBody})
             if(id>=0)f.setOnClickPendingIntent(R.id.widget_feature,if(data.noteId.isEmpty()&&choice.kind in listOf("note","quote","checklist"))configure(c,id)else open(c,id,if(data.noteId.isNotEmpty())"note" else route,data.noteId.ifEmpty{choice.source}))
             v.addView(R.id.widget_content,f)
         } else data.lines.take(if(choice.kind=="capture")if(size==2)3 else if(size==1)2 else 1 else rows).forEachIndexed{index,line->

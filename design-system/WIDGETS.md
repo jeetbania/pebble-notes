@@ -23,7 +23,7 @@ Three gallery entries: Small (2×2), Medium (4×2), Large (4×4). Cell dimension
 | Tasks | Pending tasks, earliest due first; optional list | Open task, complete it, or open task list |
 | Quick capture | New note, checklist, task | Start creation in Pebble |
 
-Small shows one list item or a title/quote with no body excerpt. Medium shows up to two items; Large up to four, or three capture actions. Larger system text reduces row count, removes details, and at the largest setting hides the footer. Full content remains accessible by opening Pebble. Avoid compressing targets to fit extra rows.
+Small shows one list item or a title/quote with no body excerpt. The compact quote omits its footer to give the quotation three readable lines; opening it reveals the source note. Medium shows up to two items; Large up to four, or three capture actions. Larger system text reduces row count, removes details, and at the largest setting hides the footer. Full content remains accessible by opening Pebble. Avoid compressing targets to fit extra rows.
 
 ## Launcher-specific foundations
 
