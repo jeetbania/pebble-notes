@@ -2,8 +2,9 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
     namespace = "dev.leafnotes"
     compileSdk = 35
-    defaultConfig { testInstrumentationRunner = "dev.leafnotes.PebbleSmoke"; applicationId = "dev.leafnotes"; minSdk = 29; targetSdk = 35; versionCode = 36; versionName = "0.23.0"; ndk { abiFilters += "arm64-v8a" } }
+    defaultConfig { testInstrumentationRunner = "dev.leafnotes.PebbleSmoke"; applicationId = "dev.leafnotes"; minSdk = 29; targetSdk = 35; versionCode = 37; versionName = "0.24.0"; ndk { abiFilters += "arm64-v8a" } }
     buildFeatures { compose = true }
+    if (providers.gradleProperty("pebbleTestHost").isPresent) { sourceSets.getByName("debug") { java.srcDir("src/testHost/java"); manifest.srcFile("src/testHost/AndroidManifest.xml") } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     signingConfigs { getByName("debug") { storeFile = rootProject.file("../private/leaf-development.keystore"); storePassword = "leaf-development"; keyAlias = "leaf"; keyPassword = "leaf-development" } }

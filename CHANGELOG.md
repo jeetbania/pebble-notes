@@ -1,5 +1,15 @@
 # Pebble Notes changelog
 
+## 0.24.0 · Scrollable widgets and considered Settings
+
+- Android widgets now use the supplied Apple Notes reference: yellow gradient headers, white paper, black titles and fine dividers.
+- Every widget size exposes the entire matching note list through native scrolling, including libraries with more than 200 notes.
+- Tap a note after scrolling to open the correct document. Checklist and task circles complete items directly without opening the editor.
+- Widget setup now previews the actual scrollable widget. Existing widgets keep their selected sources when updated.
+- Settings has a compact title bar, neutral icon tiles, clearer General, Library and Pebble Notes groups, and current preference values.
+- Large text uses growing rows, stacked choices and a wrapping accent palette, keeping settings reachable on narrower screens.
+- The Mac package is a companion version update. These widget and Settings changes are for Android.
+
 ## 0.23.0 · A little Pebble on your home screen
 
 - Android home-screen widgets come in Small, Medium and Large sizes with layouts that adapt when resized.

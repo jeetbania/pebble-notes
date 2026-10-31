@@ -66,4 +66,6 @@ Phone block dragging tracks the finger, springs neighbouring blocks into their p
 
 On mobile, returning to the library reveals the floating dock with a quick fade and small upward motion. Navigation selection has gentle finger resistance and elastic settling. Top chrome remains translucent and uses backdrop-adaptive tint and readable icons.
 
-Android home-screen widgets use native, responsive Small/Medium/Large layouts with one clear purpose. Warm Glass, Paper and Midnight retain readable coordinated ink over any wallpaper. Heading reconfigures; content opens its source; check circles complete through revision-safe store actions. Keep 44 dp targets, reduce density at larger text sizes, omit hidden/deleted content, and avoid decorative widget motion. See design-system/WIDGETS.md.
+Android home-screen widgets use the supplied Apple Notes reference: #FFD500 → #FFBA00 header, white icon/title, white paper, black regular row text, dotted perforation and thin inset dividers, with 27 dp outer clipping. Small/Medium/Large widgets all expose the complete eligible collection through native vertical scrolling; never cap recent notes to visible rows. Preserve accessible targets and grow rows at larger system text sizes. See design-system/WIDGETS.md.
+
+Phone Settings uses a compact centred toolbar title, neutral icon tiles, aligned labels/current values and clearly named General, Library and Pebble Notes groups. One inset separator belongs between rows. Preserve every existing preference, action and About artwork.

@@ -10,8 +10,10 @@ import java.util.Calendar
 /** Runs production storage and text adapters on Android; no simulated Android APIs. */
 class PebbleSmoke : Instrumentation() {
     private var seedPerformance=false
-    override fun onCreate(arguments: Bundle?) { seedPerformance=arguments?.getString("fixture")=="true";super.onCreate(arguments); start() }
+    private var uiMode:String?=null
+    override fun onCreate(arguments: Bundle?) { uiMode=arguments?.getString("ui");seedPerformance=arguments?.getString("fixture")=="true";super.onCreate(arguments); start() }
     override fun onStart() {
+        if(uiMode!=null){runUiChecks(uiMode!!);return}
         val results = StringBuilder()
         val root = File(targetContext.cacheDir, "smoke-${uid()}").apply { mkdirs() }
         try {

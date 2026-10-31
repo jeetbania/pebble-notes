@@ -32,6 +32,10 @@ Desktop shared controls live in [Design.swift](../mac/Sources/Design.swift); gho
 | Destructive | Semantic danger tint and recoverable Delete where supported; irreversible actions confirm the captured set |
 | Busy | Preserve geometry; expose progress and prevent duplicate submissions |
 
+## Grouped phone settings
+
+`SettingsLinks` and `SettingsLinkedRow` in Settings.kt provide grouped destinations: 24 dp card radius, neutral 36 dp icon tiles with 20 dp glyphs, 60 dp minimum row heights, 12 dp icon gap and one 0.5 dp inset divider. Inline current values are secondary; labels grow and wrap at larger type. Keep the full destination/value accessible. Reuse the existing SettingsGroup for forms and selectors inside a destination.
+
 ## Fields and selectors
 
 - Android: reuse `MobileField`, `IosSegments`, `PillSlider`, `TypographySettings` and `NoteSizeControl`. A field needs a visible fill/stroke, primary input, secondary placeholder, accent cursor, and explicit multiline/single-line intent. Put multiline content at the top.

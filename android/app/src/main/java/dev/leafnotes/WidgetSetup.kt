@@ -36,14 +36,14 @@ class WidgetSetupActivity:ComponentActivity() {
             Column(Modifier.fillMaxSize().background(c.page).statusBarsPadding().navigationBarsPadding().padding(20.dp)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Label("Your Pebble widget",26,FontWeight.SemiBold,modifier=Modifier.weight(1f));ChromeButton("close","Cancel widget setup",44){finish()}}
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-                    Label("Keep something useful close.",15,color=c.secondary)
-                    AndroidView(factory={android.widget.FrameLayout(it)},update={host->host.removeAllViews();host.addView(WidgetViews.render(this@WidgetSetupActivity,-1,choice,widgetContent(records,choice),1).apply(this@WidgetSetupActivity,host))},modifier=Modifier.fillMaxWidth().height(184.dp))
+                    Label("Choose the notes you want on your home screen.",15,color=c.secondary)
+                    AndroidView(factory={android.appwidget.AppWidgetHostView(it).apply{setAppWidget(id,AppWidgetManager.getInstance(it).getAppWidgetInfo(id))}},update={host->host.updateAppWidget(WidgetViews.render(this@WidgetSetupActivity,-1,choice,widgetContent(records,choice),1))},modifier=Modifier.fillMaxWidth().height(184.dp))
                     Label("Show",14,FontWeight.SemiBold)
                     WidgetChoice.kinds.forEach{(kind,name)->Pressable(Modifier.fillMaxWidth().heightIn(min=48.dp).background(if(choice.kind==kind)c.fill else androidx.compose.ui.graphics.Color.Transparent,CircleShape).padding(horizontal=14.dp),"$name${if(choice.kind==kind)", selected" else ""}",onClick={choice=choice.copy(kind=kind,source="")}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Label(name,16,modifier=Modifier.weight(1f));if(choice.kind==kind)Glyph("done",tint=c.text)}}}
                     if(choice.kind in listOf("note","checklist","quote","collection","tasks"))GhostAction(if(sourceName.isBlank())if(choice.kind=="tasks")"All lists" else "Choose ${if(choice.kind=="collection")"a collection" else "a note"}" else sourceName,"folder"){selecting=true}
                     Label("Surface",14,FontWeight.SemiBold)
-                    IosSegments(listOf("Glass","Paper","Midnight"),listOf("glass","paper","midnight").indexOf(choice.theme).coerceAtLeast(0)){choice=choice.copy(theme=listOf("glass","paper","midnight")[it])}
-                    Label("The selected content will be visible on your home screen. Tap the widget heading to change these choices.",13,color=c.secondary)
+                    IosSegments(listOf("Light","Dark"),if(choice.theme=="midnight")1 else 0){choice=choice.copy(theme=if(it==1)"midnight" else "notes")}
+                    Label("Scroll inside any size to see all matching notes. Content is visible on your home screen. Tap the header to change these choices.",13,color=c.secondary)
                     Spacer(Modifier.height(8.dp))
                 }
                 Pressable(Modifier.fillMaxWidth().height(52.dp).background(c.accent,CircleShape),"Save widget",enabled=valid,onClick={choice.save(this@WidgetSetupActivity,id);WidgetViews.update(this@WidgetSetupActivity,id);setResult(Activity.RESULT_OK,Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,id));finish()}){Label("Save widget",17,FontWeight.SemiBold,color=accentInk(c.accent))}

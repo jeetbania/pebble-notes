@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import java.io.File
 
 @Composable fun MobileSettings(store:Store,onTour:()->Unit,onBack:()->Unit,onWriting:()->Unit,onWhatsNew:()->Unit,onConnect:()->Unit,onExport:()->Unit,onImport:()->Unit) {
+    val largeType=androidx.compose.ui.platform.LocalDensity.current.fontScale>1.3f
     val c=LocalPebbleColors.current; val version=LocalPreferencesVersion.current
     var page by remember { mutableStateOf("Settings") }
     val updater=remember { PebbleUpdater.get(store.context) };val scope=rememberCoroutineScope()
@@ -45,26 +46,29 @@ import java.io.File
     FrostedHost {
     PublishDockBackdrop()
         Box(Modifier.fillMaxSize().background(c.page)) {
-            Column(Modifier.fillMaxSize().backdropSource().verticalScroll(rememberScrollState()).padding(horizontal=22.dp).padding(top=92.dp+WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),bottom=40.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
-                Label(page,30,FontWeight.Bold)
+            Column(Modifier.fillMaxSize().backdropSource().verticalScroll(rememberScrollState()).padding(horizontal=20.dp).padding(top=(if(largeType)112.dp else 80.dp)+WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),bottom=40.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
                 when(page) {
                     "Settings" -> {
-                        Pressable(Modifier.fillMaxWidth().background(c.paper,RoundedCornerShape(22.dp)).padding(18.dp),"Profile",onClick={page="Profile"}) {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)){Avatar();Column(Modifier.weight(1f)){Label(name.ifBlank{"Your profile"},18,FontWeight.SemiBold)};Glyph("next",size=18,tint=c.secondary)}}
-                        SettingsGroup("Preferences") {
-                            SettingsRow("Appearance","sun"){page="Appearance"}
-                            SettingsRow("Writing & text sizes","format",onWriting)
-                            SettingsRow("Card layout","grid"){page="Card layout"}
-                            SettingsRow("Clipboard suggestions","clip"){page="Clipboard"}
+                        Pressable(Modifier.fillMaxWidth().background(c.paper,RoundedCornerShape(24.dp)).padding(16.dp),"Edit profile, ${name.ifBlank{"Your profile"}}",onClick={page="Profile"}) {
+                            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
+                                Avatar(48);Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)){Label(name.ifBlank{"Your profile"},18,FontWeight.Medium);Label("Edit profile",13,color=c.secondary)};Glyph("next",size=16,tint=c.secondary)
+                            }
                         }
-                        SettingsGroup("Your library") {
-                            SettingsRow("Sync & backups","folder"){page="Sync & backups"}
-                            SettingsRow("App updates","download"){page="App updates"}
-                        }
-                        SettingsGroup("Pebble Notes") {
-                            SettingsRow("What’s new","sparkle",onWhatsNew)
-                            SettingsRow("Welcome tour","next",onTour)
-                            SettingsRow("About","info"){page="About"}
-                        }
+                        SettingsLinks("General",listOf(
+                            SettingsLink("Appearance","sun",store.preferences.getString("appearance","system")!!.replaceFirstChar{it.uppercase()}){page="Appearance"},
+                            SettingsLink("Writing & text sizes","format",action=onWriting),
+                            SettingsLink("Card layout","grid",if(store.preferences.getString("cardLayout","masonry")=="grid")"Grid" else "Masonry"){page="Card layout"},
+                            SettingsLink("Clipboard suggestions","clip",if(store.preferences.getBoolean("clipboardSuggestions",true))"On" else "Off"){page="Clipboard"}
+                        ))
+                        SettingsLinks("Library",listOf(
+                            SettingsLink("Sync & backups","sync",if(store.preferences.getBoolean("connected",false))"Connected" else "On device"){page="Sync & backups"}
+                        ))
+                        SettingsLinks("Pebble Notes",listOf(
+                            SettingsLink("App updates","download"){page="App updates"},
+                            SettingsLink("What’s new","sparkle",action=onWhatsNew),
+                            SettingsLink("Welcome tour","next",action=onTour),
+                            SettingsLink("About","info"){page="About"}
+                        ))
 
                     }
                     "Profile" -> {
@@ -75,22 +79,23 @@ import java.io.File
                     "Appearance" -> {
                         SettingsGroup("Theme") {
                             val appearance=store.preferences.getString("appearance","system")
-                            IosSegments(listOf("System","Light","Dark"),listOf("system","light","dark").indexOf(appearance).coerceAtLeast(0)){store.preferences.edit().putString("appearance",listOf("system","light","dark")[it]).apply()}
+                            SettingsSegments(listOf("System","Light","Dark"),listOf("system","light","dark").indexOf(appearance).coerceAtLeast(0)){store.preferences.edit().putString("appearance",listOf("system","light","dark")[it]).apply()}
                         }
                         SettingsGroup("Accent colour") {
-                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {accentChoices.forEach {accent->val selected=store.preferences.getString("accentColor","Yellow")==accent
-                                Pressable(Modifier.weight(1f).height(64.dp),"$accent accent${if(selected) ", selected" else ""}",onClick={store.preferences.edit().putString("accentColor",accent).apply()}) {Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(6.dp)){Box(Modifier.size(30.dp).background(accentColor(accent,c.dark),CircleShape),contentAlignment=Alignment.Center){if(selected)Glyph("done",size=17,tint=if(accent in listOf("Yellow","Orange","Green"))Color.Black else Color.White)};Label(accent,10,color=c.secondary)}}
-                            }}
+                            accentChoices.chunked(if(largeType)3 else 6).forEach{choices->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){choices.forEach{accent->val selected=store.preferences.getString("accentColor","Yellow")==accent
+                                Pressable(Modifier.weight(1f).heightIn(min=76.dp).padding(vertical=8.dp),"$accent accent${if(selected)", selected" else ""}",onClick={store.preferences.edit().putString("accentColor",accent).apply()}){Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(6.dp)){Box(Modifier.size(30.dp).background(accentColor(accent,c.dark),CircleShape),contentAlignment=Alignment.Center){if(selected)Glyph("done",size=17,tint=accentInk(accentColor(accent,c.dark)))};Label(accent,12,color=c.secondary)}}
+                            }}}
                         }
+
                         SettingsGroup("Refresh rate") {
                             val high=store.preferences.getBoolean("highRefreshRate",true)
-                            IosSegments(listOf("Standard","Up to 120 Hz"),if(high)1 else 0){store.preferences.edit().putBoolean("highRefreshRate",it==1).apply()}
+                            SettingsSegments(listOf("Standard","Up to 120 Hz"),if(high)1 else 0){store.preferences.edit().putBoolean("highRefreshRate",it==1).apply()}
                             Label("Uses supported display rates. Your phone’s power and display settings still apply.",13,color=c.secondary)
                         }
-                        SettingsGroup("Motion") {IosSegments(listOf("Fluid","Calmer"),if(store.preferences.getBoolean("calmMotion",false))1 else 0){store.preferences.edit().putBoolean("calmMotion",it==1).apply()}}
+                        SettingsGroup("Motion") {SettingsSegments(listOf("Fluid","Calmer"),if(store.preferences.getBoolean("calmMotion",false))1 else 0){store.preferences.edit().putBoolean("calmMotion",it==1).apply()}}
                     }
-                    "Clipboard" -> SettingsGroup("Clipboard suggestions") {IosSegments(listOf("On","Off"),if(store.preferences.getBoolean("clipboardSuggestions",true))0 else 1){store.preferences.edit().putBoolean("clipboardSuggestions",it==0).apply()}}
-                    "Card layout" -> SettingsGroup("Note cards") {IosSegments(listOf("Masonry","Grid"),if(store.preferences.getString("cardLayout","masonry")=="grid")1 else 0){store.preferences.edit().putString("cardLayout",if(it==1)"grid"else "masonry").apply()}}
+                    "Clipboard" -> SettingsGroup("Clipboard suggestions") {SettingsSegments(listOf("On","Off"),if(store.preferences.getBoolean("clipboardSuggestions",true))0 else 1){store.preferences.edit().putBoolean("clipboardSuggestions",it==0).apply()}}
+                    "Card layout" -> SettingsGroup("Note cards") {SettingsSegments(listOf("Masonry","Grid"),if(store.preferences.getString("cardLayout","masonry")=="grid")1 else 0){store.preferences.edit().putString("cardLayout",if(it==1)"grid"else "masonry").apply()}}
                     "Sync & backups" -> {
                         SettingsGroup("Google Drive") {SettingsRow(if(store.preferences.getBoolean("connected",false))"Sync now"else "Connect Google Drive","sync",onClick=onConnect);Label(store.status,13,color=c.secondary,modifier=Modifier.padding(start=35.dp,bottom=8.dp))}
                         SettingsGroup("Backups") {SettingsRow("Export backup","share",onExport);SubtleDivider();SettingsRow("Import backup","archive",onImport)}
@@ -110,7 +115,7 @@ import java.io.File
                     }
                 }
             }
-            ScrollHeader {Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically){ChromeButton("back",if(page=="Settings")"Back to library"else "Back to Settings",44,onClick={back()});Spacer(Modifier.weight(1f))}}
+            ScrollHeader {Box(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=12.dp)){Label(page,17,FontWeight.SemiBold,modifier=Modifier.align(Alignment.Center).padding(horizontal=52.dp));ChromeButton("back",if(page=="Settings")"Back to library"else "Back to Settings",44,onClick={back()})}}
         }
     }
 }
@@ -118,7 +123,37 @@ import java.io.File
     val c=LocalPebbleColors.current
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Label(title,12,FontWeight.Medium,c.secondary,modifier=Modifier.padding(start=8.dp));Column(Modifier.fillMaxWidth().background(c.paper,RoundedCornerShape(20.dp)).padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(4.dp),content=content)}
 }
-@Composable private fun SettingsRow(title:String,icon:String,onClick:()->Unit) {
+private data class SettingsLink(val title:String,val icon:String,val value:String="",val action:()->Unit)
+@Composable private fun SettingsLinks(title:String,links:List<SettingsLink>) {
     val c=LocalPebbleColors.current
-    Pressable(Modifier.fillMaxWidth().heightIn(min=54.dp),title,onClick=onClick){Row(Modifier.fillMaxWidth().padding(vertical=13.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)){Glyph(icon,size=21,tint=c.accent);Label(title,16,modifier=Modifier.weight(1f));Glyph("next",size=17,tint=c.secondary)}}
+    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        Label(title,16,FontWeight.SemiBold,modifier=Modifier.padding(start=4.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(c.paper)) {
+            links.forEachIndexed{index,link->
+                SettingsLinkedRow(link.title,link.icon,link.action,link.value,Modifier.padding(horizontal=16.dp))
+                if(index<links.lastIndex)Box(Modifier.fillMaxWidth().padding(start=64.dp).height(.5.dp).background(c.text.copy(alpha=.08f)))
+            }
+        }
+    }
+}
+@Composable private fun SettingsRow(title:String,icon:String,onClick:()->Unit){SettingsLinkedRow(title,icon,onClick)}
+@Composable private fun SettingsLinkedRow(title:String,icon:String,onClick:()->Unit,value:String="",modifier:Modifier=Modifier) {
+    val c=LocalPebbleColors.current
+    val showValue=androidx.compose.ui.platform.LocalDensity.current.fontScale<=1.3f
+    Pressable(modifier.fillMaxWidth().heightIn(min=60.dp),title+if(value.isBlank())"" else ", $value",onClick=onClick){
+        Row(Modifier.fillMaxWidth().padding(vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(36.dp).background(c.text.copy(alpha=.035f),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){Glyph(icon,size=20,tint=c.text.copy(alpha=.78f))}
+            Label(title,16,modifier=Modifier.weight(1f))
+            if(value.isNotBlank()&&showValue)Label(value,13,color=c.secondary,modifier=Modifier.widthIn(max=88.dp),lines=2)
+            Glyph("next",size=16,tint=c.text.copy(alpha=.32f))
+        }
+    }
+}
+
+@Composable private fun SettingsSegments(labels:List<String>,selected:Int,onSelect:(Int)->Unit) {
+    if(androidx.compose.ui.platform.LocalDensity.current.fontScale<=1.3f){IosSegments(labels,selected,onSelect);return}
+    val c=LocalPebbleColors.current
+    Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+        labels.forEachIndexed{index,label->Pressable(Modifier.fillMaxWidth().heightIn(min=52.dp).background(if(index==selected)c.fill else Color.Transparent,RoundedCornerShape(12.dp)).padding(12.dp),label+if(index==selected)", selected" else "",onClick={onSelect(index)}){Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){Label(label,16,modifier=Modifier.weight(1f));if(index==selected)Glyph("done",size=20,tint=c.text)}}}
+    }
 }

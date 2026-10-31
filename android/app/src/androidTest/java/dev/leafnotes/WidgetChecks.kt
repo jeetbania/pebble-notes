@@ -41,25 +41,24 @@ fun widgetChecks(context:Context,root:File):String {
     check(!store.widgetComplete("task",task.id,""))
     check(store.revisions(headsOnly=true).first{it.noteId=="task"}.note.task!!.dueAt>task.note.task!!.dueAt)
     check(android.appwidget.AppWidgetManager.getInstance(context).installedProviders.count{it.provider.packageName==context.packageName}==3)
-    val previews=File(root,"widget-previews").apply{mkdirs()}
-    for(font in listOf(1f,2f))for(theme in listOf("glass","paper","midnight"))for(size in 0..2) {
-        val config=Configuration(context.resources.configuration).apply{fontScale=font};val c=context.createConfigurationContext(config)
-        val choice=WidgetChoice("checklist","check",theme);val content=widgetContent(all,choice)
-        val density=c.resources.displayMetrics.density;val width=((if(size==0)140 else 250)*density).toInt();val height=((if(size==0)140 else if(size==1)184 else 280)*density).toInt()
-        val view=WidgetViews.render(c,-1,choice,content,size).apply(c,null)
-        view.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));view.layout(0,0,width,height)
-        val container=view.findViewById<LinearLayout>(R.id.widget_content)
-        for(i in 0 until container.childCount){val row=container.getChildAt(i);check(row.bottom<=container.height){"Clipped widget rows: $theme size $size font $font"};if(row.id==R.id.widget_row)check(row.height>=44*density-1){"Compressed touch target: $theme size $size font $font"}}
-        if(font==1f){val bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);view.draw(Canvas(bitmap));File(previews,"$theme-$size.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()}
-    }
-    // Every variation must inflate, including empty and deleted-source states.
-    for(kind in WidgetChoice.kinds.keys)for(size in 0..2) {
-        val choice=WidgetChoice(kind,when(kind){"quote"->"quote";"note","checklist"->"check";"collection"->"Personal";else->""})
-        val view=WidgetViews.render(context,-1,choice,widgetContent(all,choice),size).apply(context,null)
-        val density=context.resources.displayMetrics.density;val width=((if(size==0)140 else 320)*density).toInt();val height=((if(size==0)140 else if(size==1)184 else 280)*density).toInt()
-        view.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));view.layout(0,0,width,height)
-        val bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);view.draw(Canvas(bitmap));File(previews,"$kind-$size.png").outputStream().use{bitmap.compress(Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()
-        WidgetViews.render(context,-1,choice,widgetContent(emptyList(),choice),size).apply(context,null)
-    }
-    return "PASS: widget content excludes private hidden states; completion is durable and stale taps are idempotent; all eight variations inflate in three sizes; light/dark surfaces and 200% type fit; previews at ${previews.path}\n"
+    val many=(1..220).map{revision("note-$it",Note(title="Note $it · 日本語 🌿",blocks=listOf(Block(text="A thought to keep"))),it.toLong())}
+    val projected=widgetContent(many,WidgetChoice())
+    check(projected.lines.size==220&&projected.lines.first().noteId=="note-220")
+    check(WidgetViews.items(projected).map{WidgetViews.stableId(it)}.distinct().size==220)
+    var maxPayload=0
+    for(size in 0..2){val rv=WidgetViews.render(context,-1,WidgetChoice(),projected,size);check(rv.layoutId==R.layout.widget_pebble);val parcel=android.os.Parcel.obtain();rv.writeToParcel(parcel,0);maxPayload=maxOf(maxPayload,parcel.dataSize());parcel.recycle()};check(maxPayload<900000){"Widget payload too large: $maxPayload"}
+    check(!widgetText("🌿".repeat(500),240).contains('\uFFFD'))
+    val cached=object:ContextWrapper(context){override fun getFilesDir()=File(root,"widget-snapshot-test").apply{mkdirs()}}
+    WidgetViews.saveCache(cached,43,WidgetChoice(),projected.lines)
+    val persisted=WidgetCollectionFactory(cached,android.content.Intent().putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID,43))
+    persisted.onDataSetChanged();check(persisted.count==220)
+    WidgetViews.cache(cached,43).baseFile.writeText("damaged cache");persisted.onDataSetChanged();check(persisted.count==0);WidgetViews.cache(cached,43).delete()
+    val factory=WidgetCollectionFactory(context,android.content.Intent().putExtra("size",2)){many}
+    factory.onDataSetChanged();check(factory.count==220&&factory.getViewAt(219)!=null&&factory.getViewAt(220)==null)
+    val first= factory.getItemId(0);factory.onDataSetChanged();check(factory.getItemId(0)==first);factory.onDestroy();check(factory.count==0)
+    for(kind in WidgetChoice.kinds.keys)for(size in 0..2){val choice=WidgetChoice(kind,when(kind){"quote"->"quote";"note","checklist"->"check";"collection"->"Personal";else->""});WidgetViews.render(context,-1,choice,widgetContent(all,choice),size).apply(context,null)}
+    val line=WidgetViews.items(widgetContent(all,WidgetChoice("checklist","check"))).first()
+    check(WidgetViews.fillIn(line).getStringExtra("mode")=="note")
+    check(WidgetViews.fillIn(line,true).getStringExtra("revision")==checks.id)
+    return "PASS: scrollable widgets retain all 220 recent notes in every size (maximum payload $maxPayload bytes); legacy factory reaches the final note with stable IDs; hidden states are excluded, stale completion is rejected and recurrence is preserved\n"
 }

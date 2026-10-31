@@ -11,21 +11,23 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 
 /** Widget preferences belong to this home screen, never to the synced note. */
-data class WidgetChoice(val kind:String="recent",val source:String="",val theme:String="glass") {
+data class WidgetChoice(val kind:String="recent",val source:String="",val theme:String="notes") {
     companion object {
         val kinds=linkedMapOf("recent" to "Recent notes","pinned" to "Pinned notes","collection" to "Collection","note" to "Single note","checklist" to "Checklist","quote" to "Quote","tasks" to "Tasks","capture" to "Quick capture")
-        fun read(c:Context,id:Int):WidgetChoice {val p=c.getSharedPreferences("pebble_widgets",0);return WidgetChoice(p.getString("$id.kind","recent")!!,p.getString("$id.source","")!!,p.getString("$id.theme","glass")!!)}
+        fun read(c:Context,id:Int):WidgetChoice {val p=c.getSharedPreferences("pebble_widgets",0);return WidgetChoice(p.getString("$id.kind","recent")!!,p.getString("$id.source","")!!,p.getString("$id.theme","notes")!!)}
     }
     fun save(c:Context,id:Int){c.getSharedPreferences("pebble_widgets",0).edit().putString("$id.kind",kind).putString("$id.source",source).putString("$id.theme",theme).apply()}
 }
 data class WidgetNavigation(val mode:String,val id:String="",val token:String=uid())
-data class WidgetLine(val title:String,val detail:String="",val noteId:String="",val blockId:String="",val checked:Boolean?=null,val revisionId:String="",val action:String="note")
+data class WidgetLine(val title:String,val detail:String="",val noteId:String="",val blockId:String="",val checked:Boolean?=null,val revisionId:String="",val action:String="note",val modifiedAt:Long=0,val feature:Boolean=false)
 data class WidgetContent(val heading:String,val lines:List<WidgetLine> = emptyList(),val featureTitle:String="",val featureBody:String="",val noteId:String="",val footer:String="",val empty:String="")
+
+/** Keep excerpts within widget transport limits without splitting emoji surrogate pairs. */
+fun widgetText(text:String,limit:Int):String=if(text.codePointCount(0,text.length)<=limit)text else text.substring(0,text.offsetByCodePoints(0,limit-1))+"…"
 
 /** Pure projection: don't expose Trash, archives, folder markers or attachment paths. */
 fun widgetContent(revisions:List<Revision>,choice:WidgetChoice):WidgetContent {
@@ -33,26 +35,26 @@ fun widgetContent(revisions:List<Revision>,choice:WidgetChoice):WidgetContent {
     val notes=live.filter{it.note.task==null}
     fun matching()=notes.firstOrNull{it.noteId==choice.source}
     return when(choice.kind) {
-        "capture"->WidgetContent("Capture",listOf(WidgetLine("New note","A thought worth keeping",action="new"),WidgetLine("Checklist","Make a little progress",action="newChecklist"),WidgetLine("New task","Give it a next step",action="newTask")),footer="A quieter place to begin")
+        "capture"->WidgetContent("Capture",listOf(WidgetLine("New note","Write a note",action="new"),WidgetLine("Checklist","Start a checklist",action="newChecklist"),WidgetLine("New task","Add a task",action="newTask")),footer="A quieter place to begin")
         "note","quote","checklist"->{
             val r=matching()
             if(r==null)WidgetContent(WidgetChoice.kinds[choice.kind]!!,empty="Choose a note in widget settings",footer="Tap to choose a note")
             else if(choice.kind=="checklist") {
                 val checks=r.note.document.filter{it.kind=="check"}
-                WidgetContent(r.note.displayTitle,checks.map{WidgetLine(it.text.ifBlank{"Untitled item"},noteId=r.noteId,blockId=it.id,checked=it.checked,revisionId=r.id)},noteId=r.noteId,footer="${checks.count{it.checked}} of ${checks.size} complete",empty=if(checks.isEmpty())"No checklist items yet. Open this note to add one." else "")
+                WidgetContent(r.note.displayTitle,checks.map{WidgetLine(widgetText(it.text.ifBlank{"Untitled item"},400),noteId=r.noteId,blockId=it.id,checked=it.checked,revisionId=r.id)},noteId=r.noteId,footer="${checks.count{it.checked}} of ${checks.size} complete",empty=if(checks.isEmpty())"No checklist items yet. Open this note to add one." else "")
             } else if(choice.kind=="quote") {
-                val quote=r.note.document.firstOrNull{it.kind=="quote"&&it.text.isNotBlank()}?.text
+                val quote=r.note.document.firstOrNull{it.kind=="quote"&&it.text.isNotBlank()}?.text?.let{widgetText(it,4000)}
                 WidgetContent("A thought to keep",emptyList(),featureTitle="“",featureBody=quote ?: "Add a Quote block to this note.",noteId=r.noteId,footer=r.note.displayTitle)
-            } else WidgetContent("Note",emptyList(),featureTitle=r.note.displayTitle,featureBody=r.note.document.filter{it.isText}.joinToString("\n"){when(it.kind){"check"->(if(it.checked)"☑ " else "☐ ")+it.text;"bullet"->"• "+it.text;"quote"->"“${it.text}”";else->it.text}}.take(1800),noteId=r.noteId,footer=r.note.collection)
+            } else WidgetContent("Note",emptyList(),featureTitle=r.note.displayTitle,featureBody=r.note.document.filter{it.isText}.joinToString("\n"){when(it.kind){"check"->(if(it.checked)"☑ " else "☐ ")+it.text;"bullet"->"• "+it.text;"quote"->"“${it.text}”";else->it.text}}.let{widgetText(it,10000)},noteId=r.noteId,footer=r.note.collection)
         }
         "tasks"->{
             val tasks=live.filter{it.note.task?.let{t->!t.completed&&(choice.source.isEmpty()||t.list==choice.source)}==true}.sortedWith(compareBy<Revision>{it.note.task!!.dueAt.takeIf{d->d>0}?:Long.MAX_VALUE}.thenByDescending{it.note.task!!.priority})
-            WidgetContent(if(choice.source.isEmpty())"Tasks" else choice.source,tasks.map{WidgetLine(it.note.displayTitle,taskDate(it.note.task!!),it.noteId,checked=false,revisionId=it.id,action="task")},footer="${tasks.size} to do",empty=if(tasks.isEmpty())"Nothing waiting. A little room to breathe." else "")
+            WidgetContent(if(choice.source.isEmpty())"Tasks" else choice.source,tasks.map{WidgetLine(widgetText(it.note.displayTitle,240),taskDate(it.note.task!!),it.noteId,checked=false,revisionId=it.id,action="task")},footer="${tasks.size} to do",empty=if(tasks.isEmpty())"No pending tasks" else "")
         }
         else->{
             val records=notes.filter{when(choice.kind){"pinned"->it.note.pinned;"collection"->it.note.collection==choice.source||it.note.collection.startsWith(choice.source+"/");else->true}}
             val heading=when(choice.kind){"pinned"->"Pinned";"collection"->choice.source.substringAfterLast('/').ifBlank{"Collection"};else->"Notes"}
-            WidgetContent(heading,records.map{WidgetLine(it.note.displayTitle,it.note.text.lineSequence().firstOrNull{t->t.isNotBlank()}?.take(120)?:"Open note",it.noteId)},footer="${records.size} ${if(records.size==1)"note" else "notes"}",empty=if(records.isNotEmpty())"" else when(choice.kind){"pinned"->"Pin a note to keep it close.";"collection"->"No notes in this collection yet.";else->"A little space for your next thought."})
+            WidgetContent(heading,records.map{WidgetLine(widgetText(it.note.displayTitle,240),it.note.text.lineSequence().firstOrNull{t->t.isNotBlank()}?.let{widgetText(it,120)}?:"",it.noteId,modifiedAt=it.createdAt)},footer="${records.size} ${if(records.size==1)"note" else "notes"}",empty=if(records.isNotEmpty())"" else when(choice.kind){"pinned"->"Pin a note to keep it close.";"collection"->"No notes in this collection yet.";else->"No notes yet"})
         }
     }
 }
@@ -71,7 +73,7 @@ fun Store.widgetComplete(noteId:String,revisionId:String,blockId:String):Boolean
 open class PebbleWidget:AppWidgetProvider() {
     override fun onUpdate(context:Context,manager:AppWidgetManager,ids:IntArray){ids.forEach{WidgetViews.update(context,it)}}
     override fun onAppWidgetOptionsChanged(context:Context,manager:AppWidgetManager,id:Int,options:Bundle){WidgetViews.update(context,id)}
-    override fun onDeleted(context:Context,ids:IntArray){val p=context.getSharedPreferences("pebble_widgets",0).edit();ids.forEach{id->listOf("kind","source","theme").forEach{p.remove("$id.$it")}};p.apply()}
+    override fun onDeleted(context:Context,ids:IntArray){ids.forEach{WidgetViews.cache(context,it).delete()};val p=context.getSharedPreferences("pebble_widgets",0).edit();ids.forEach{id->listOf("kind","source","theme").forEach{p.remove("$id.$it")}};p.apply()}
     override fun onReceive(context:Context,intent:Intent){
         super.onReceive(context,intent)
         if(intent.action==COMPLETE) {
@@ -89,6 +91,43 @@ class PebbleSmallWidget:PebbleWidget()
 class PebbleMediumWidget:PebbleWidget()
 class PebbleLargeWidget:PebbleWidget()
 
+/** A collection tap is delivered directly by the launcher to this explicit activity.
+ * Completion has a transparent, preview-free window and never brings the editor forward. */
+class WidgetTapActivity:android.app.Activity() {
+    override fun onCreate(state:Bundle?) {
+        super.onCreate(state)
+        val id=intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,-1)
+        try { if(id in WidgetViews.ids(this)) {
+            val mode=intent.getStringExtra("mode").orEmpty()
+            if(mode=="complete")WidgetViews.complete(this,id,intent.getStringExtra("note").orEmpty(),intent.getStringExtra("block").orEmpty(),intent.getStringExtra("revision").orEmpty())
+            else if(mode in setOf("note","task","new","newChecklist","newTask"))startActivity(WidgetViews.navigationIntent(this,id,mode,intent.getStringExtra("note").orEmpty()))
+        }}catch(e:Exception){Libraries.get(this).error=e.message}
+        finish();overridePendingTransition(0,0)
+    }
+}
+
+/** Pre-Android 12 fallback, and a lazy source for larger libraries to avoid binder limits. */
+class WidgetCollectionService:android.widget.RemoteViewsService() {
+    override fun onGetViewFactory(intent:Intent)=WidgetCollectionFactory(applicationContext,intent)
+}
+class WidgetCollectionFactory(private val context:Context,private val intent:Intent,private val load:(()->List<Revision>)? = null):android.widget.RemoteViewsService.RemoteViewsFactory {
+    private var choice=WidgetChoice();private var items=emptyList<WidgetLine>()
+    override fun onCreate(){}
+    override fun onDataSetChanged(){
+        items=try {
+            if(load!=null){choice=WidgetChoice.read(context,intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,-1));WidgetViews.items(widgetContent(load.invoke(),choice))}
+            else {val o=org.json.JSONObject(String(WidgetViews.cache(context,intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,-1)).readFully(),Charsets.UTF_8));choice=WidgetChoice(o.getString("kind"),o.getString("source"),o.getString("theme"));val a=o.getJSONArray("items");(0 until a.length()).map{WidgetViews.readLine(a.getJSONObject(it))}}
+        }catch(_:Exception){emptyList()}
+    }
+    override fun onDestroy(){items=emptyList()}
+    override fun getCount()=items.size
+    override fun getViewAt(position:Int):RemoteViews?=items.getOrNull(position)?.let{WidgetViews.row(context,choice,it,intent.getIntExtra("size",1))}
+    override fun getLoadingView()=RemoteViews(context.packageName,R.layout.widget_loading)
+    override fun getViewTypeCount()=2
+    override fun getItemId(position:Int)=items.getOrNull(position)?.let{WidgetViews.stableId(it)}?:0
+    override fun hasStableIds()=true
+}
+
 object WidgetViews {
     private val providers=listOf(PebbleSmallWidget::class.java,PebbleMediumWidget::class.java,PebbleLargeWidget::class.java)
     fun ids(c:Context)=providers.flatMap{AppWidgetManager.getInstance(c).getAppWidgetIds(ComponentName(c,it)).toList()}
@@ -97,63 +136,96 @@ object WidgetViews {
     fun refresh(c:Context){val widgets=ids(c);if(widgets.isEmpty())return;val revisions=try{Libraries.get(c).revisions(headsOnly=true)}catch(_:Exception){null};widgets.forEach{update(c,it,revisions)}}
     fun update(c:Context,id:Int,revisions:List<Revision>?=null){
         val manager=AppWidgetManager.getInstance(c);val choice=WidgetChoice.read(c,id)
-        val content=try{widgetContent(revisions?:Libraries.get(c).revisions(headsOnly=true),choice)}catch(_:Exception){WidgetContent("Pebble",empty="Open Pebble to restore access to your notes.")}
-        val view=if(Build.VERSION.SDK_INT>=31)RemoteViews(mapOf(SizeF(140f,140f) to render(c,id,choice,content,0),SizeF(250f,184f) to render(c,id,choice,content,1),SizeF(250f,280f) to render(c,id,choice,content,2)))
-        else {val o=manager.getAppWidgetOptions(id);render(c,id,choice,content,if(o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)>=280)2 else if(o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)>=250&&o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)>=184)1 else 0)}
+        val data=try{widgetContent(revisions?:Libraries.get(c).revisions(headsOnly=true),choice)}catch(_:Exception){WidgetContent("Pebble",empty="Open Pebble to restore access to your notes.")}
+        // One current-size collection avoids triplicating hundreds of rows in the binder payload.
+        // The provider refreshes this composition whenever the launcher resizes the widget.
+        val o=manager.getAppWidgetOptions(id)
+        val portrait=c.resources.configuration.orientation!=android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val width=o.getInt(if(portrait)AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH else AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH)
+        val height=o.getInt(if(portrait)AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT else AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+        val size=if(height>=280)2 else if(width>=250)1 else 0
+        val view=render(c,id,choice,data,size)
+        if(Build.VERSION.SDK_INT<31)saveCache(c,id,choice,items(data)) else cache(c,id).delete()
         manager.updateAppWidget(id,view)
+        if(Build.VERSION.SDK_INT<31)manager.notifyAppWidgetViewDataChanged(id,R.id.widget_list)
     }
-    private fun open(c:Context,id:Int,mode:String,note:String=""):PendingIntent {
-        val intent=Intent(c,MainActivity::class.java).setAction("dev.leafnotes.WIDGET_OPEN").setData(Uri.Builder().scheme("pebble").authority("widget").appendPath(id.toString()).appendPath(mode).appendPath(note).build()).putExtra("pebbleWidgetAction",mode).putExtra("pebbleWidgetSource",note).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        return PendingIntent.getActivity(c,0,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+    fun cache(c:Context,id:Int)=android.util.AtomicFile(java.io.File(java.io.File(c.filesDir,"widget-cache").apply{mkdirs()},"$id.json"))
+    fun readLine(o:org.json.JSONObject)=WidgetLine(o.getString("title"),o.getString("detail"),o.getString("note"),o.getString("block"),if(o.isNull("checked"))null else o.getBoolean("checked"),o.getString("revision"),o.getString("action"),o.getLong("modified"),o.getBoolean("feature"))
+    internal fun saveCache(c:Context,id:Int,choice:WidgetChoice,rows:List<WidgetLine>){
+        val a=org.json.JSONArray(rows.map{org.json.JSONObject().put("title",it.title).put("detail",it.detail).put("note",it.noteId).put("block",it.blockId).put("checked",it.checked?:org.json.JSONObject.NULL).put("revision",it.revisionId).put("action",it.action).put("modified",it.modifiedAt).put("feature",it.feature)})
+        val bytes=org.json.JSONObject().put("schema",1).put("kind",choice.kind).put("source",choice.source).put("theme",choice.theme).put("items",a).toString().toByteArray(Charsets.UTF_8)
+        val f=cache(c,id);val out=f.startWrite();try{out.write(bytes);f.finishWrite(out)}catch(e:Exception){f.failWrite(out);throw e}
     }
+    fun navigationIntent(c:Context,id:Int,mode:String,note:String="")=Intent(c,MainActivity::class.java).setAction("dev.leafnotes.WIDGET_OPEN").setData(Uri.Builder().scheme("pebble").authority("widget").appendPath(id.toString()).appendPath(mode).appendPath(note).build()).putExtra("pebbleWidgetAction",mode).putExtra("pebbleWidgetSource",note).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    private fun open(c:Context,id:Int,mode:String,note:String="")=PendingIntent.getActivity(c,0,navigationIntent(c,id,mode,note),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     private fun configure(c:Context,id:Int)=PendingIntent.getActivity(c,id,Intent(c,WidgetSetupActivity::class.java).setData(Uri.parse("pebble://widget/$id/configure")).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,id),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    private fun complete(c:Context,id:Int,line:WidgetLine):PendingIntent {
-        val provider=AppWidgetManager.getInstance(c).getAppWidgetInfo(id)?.provider?:ComponentName(c,PebbleSmallWidget::class.java)
-        val intent=Intent(PebbleWidget.COMPLETE).setComponent(provider).setData(Uri.Builder().scheme("pebble").authority("widget").appendPath(id.toString()).appendPath(line.noteId).appendPath(line.blockId).appendPath(line.revisionId).build()).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,id).putExtra("note",line.noteId).putExtra("block",line.blockId).putExtra("revision",line.revisionId)
-        return PendingIntent.getBroadcast(c,0,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    fun complete(c:Context,id:Int,note:String,block:String,revision:String):Boolean {
+        if(id !in ids(c))return false
+        val choice=WidgetChoice.read(c,id)
+        if(choice.kind !in listOf("checklist","tasks")||choice.kind=="checklist"&&choice.source!=note)return false
+        val store=Libraries.get(c)
+        val allowed=widgetContent(store.revisions(headsOnly=true),choice).lines.any{it.noteId==note&&it.blockId==block&&it.revisionId==revision}
+        val changed=allowed&&store.widgetComplete(note,revision,block);refresh(c);return changed
     }
-    private fun checkIcon(c:Context,checked:Boolean,accent:Int):android.graphics.Bitmap {
-        val px=(24*c.resources.displayMetrics.density).toInt().coerceAtLeast(24)
-        val b=android.graphics.Bitmap.createBitmap(px,px,android.graphics.Bitmap.Config.ARGB_8888)
-        val canvas=android.graphics.Canvas(b);canvas.scale(px/24f,px/24f)
-        val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply{color=accent;strokeWidth=1.6f;style=if(checked)android.graphics.Paint.Style.FILL else android.graphics.Paint.Style.STROKE}
-        canvas.drawCircle(12f,12f,9f,paint)
-        if(checked){paint.style=android.graphics.Paint.Style.STROKE;paint.strokeWidth=2f;paint.strokeCap=android.graphics.Paint.Cap.ROUND;paint.strokeJoin=android.graphics.Paint.Join.ROUND;paint.color=if(accent==android.graphics.Color.parseColor("#FFDC75"))android.graphics.Color.parseColor("#191B21") else android.graphics.Color.WHITE;val path=android.graphics.Path().apply{moveTo(7.8f,12f);lineTo(10.7f,15f);lineTo(16.5f,9f)};canvas.drawPath(path,paint)}
-        return b
+    fun items(data:WidgetContent):List<WidgetLine> = when {
+        data.empty.isNotEmpty()->emptyList()
+        data.featureTitle.isNotEmpty()->listOf(WidgetLine(data.featureTitle,data.featureBody,data.noteId,feature=true))
+        else->data.lines
     }
-    private fun headingIcon(c:Context,kind:String,accent:Int):android.graphics.Bitmap {
-        val px=(20*c.resources.displayMetrics.density).toInt().coerceAtLeast(20);val bitmap=android.graphics.Bitmap.createBitmap(px,px,android.graphics.Bitmap.Config.ARGB_8888)
-        val drawable=c.getDrawable(if(kind in listOf("tasks","checklist"))R.drawable.lucide_list_checks else if(kind=="quote")R.drawable.pebble_quote else R.drawable.lucide_folder)!!.mutate();drawable.setTint(accent);drawable.setBounds(0,0,px,px);drawable.draw(android.graphics.Canvas(bitmap));return bitmap
+    fun stableId(line:WidgetLine)=java.nio.ByteBuffer.wrap(java.security.MessageDigest.getInstance("SHA-256").digest("${line.noteId}/${line.blockId}/${line.action}/${line.feature}".toByteArray())).long
+    fun fillIn(line:WidgetLine,complete:Boolean=false)=Intent().putExtra("mode",if(complete)"complete" else line.action).putExtra("note",line.noteId).putExtra("block",line.blockId).putExtra("revision",line.revisionId)
+    private fun icon(c:Context,kind:String):android.graphics.Bitmap {
+        val px=(20*c.resources.displayMetrics.density).toInt().coerceAtLeast(20);val b=android.graphics.Bitmap.createBitmap(px,px,android.graphics.Bitmap.Config.ARGB_8888)
+        val d=c.getDrawable(if(kind in listOf("tasks","checklist"))R.drawable.lucide_list_checks else if(kind=="quote")R.drawable.pebble_quote else R.drawable.lucide_folder)!!.mutate();d.setTint(android.graphics.Color.WHITE);d.setBounds(0,0,px,px);d.draw(android.graphics.Canvas(b));return b
+    }
+    fun row(c:Context,choice:WidgetChoice,line:WidgetLine,size:Int):RemoteViews {
+        val dark=choice.theme=="midnight";val ink=if(dark)0xFFF5F5F5.toInt() else android.graphics.Color.BLACK;val secondary=if(dark)0xFFBEBEBE.toInt() else 0xFF858585.toInt()
+        if(line.feature) return RemoteViews(c.packageName,R.layout.widget_feature).apply {
+            setTextViewText(R.id.widget_feature_title,line.title);setTextColor(R.id.widget_feature_title,ink)
+            setTextViewText(R.id.widget_feature_body,line.detail);setTextColor(R.id.widget_feature_body,ink)
+            setTextViewTextSize(R.id.widget_feature_body,android.util.TypedValue.COMPLEX_UNIT_SP,if(choice.kind=="quote")18f else 14f)
+            setOnClickFillInIntent(R.id.widget_feature,fillIn(line));setContentDescription(R.id.widget_feature,line.title+". "+line.detail)
+        }
+        return RemoteViews(c.packageName,R.layout.widget_row).apply {
+            setTextViewText(R.id.widget_row_title,line.title);setTextColor(R.id.widget_row_title,ink)
+            val detail=if(line.modifiedAt>0)java.text.SimpleDateFormat("MMM d",java.util.Locale.getDefault()).format(java.util.Date(line.modifiedAt))+if(line.detail.isBlank())"" else "  "+line.detail else line.detail
+            setTextViewText(R.id.widget_row_detail,detail);setTextColor(R.id.widget_row_detail,secondary)
+            setViewVisibility(R.id.widget_row_detail,if(detail.isBlank()||size==1&&line.checked==null&&choice.kind!="capture")View.GONE else View.VISIBLE)
+            setInt(R.id.widget_row_separator,"setBackgroundColor",if(dark)0x33FFFFFF else 0x33000000)
+            setOnClickFillInIntent(R.id.widget_row,fillIn(line));setContentDescription(R.id.widget_row,line.title+if(detail.isBlank())"" else ", $detail")
+            if(line.checked!=null){setViewVisibility(R.id.widget_row_check,View.VISIBLE);setImageViewResource(R.id.widget_row_check,if(line.checked)R.drawable.widget_checked else if(dark)R.drawable.widget_unchecked_dark else R.drawable.widget_unchecked);setContentDescription(R.id.widget_row_check,if(line.checked)"Mark ${line.title} incomplete" else "Complete ${line.title}");setOnClickFillInIntent(R.id.widget_row_check,fillIn(line,true))}
+        }
     }
     fun render(c:Context,id:Int,choice:WidgetChoice,data:WidgetContent,size:Int):RemoteViews {
-        val dark=choice.theme=="midnight";val ink=android.graphics.Color.parseColor(if(dark)"#FAF7EE" else "#24211C");val secondary=android.graphics.Color.parseColor(if(dark)"#D1CDC3" else "#5B5750");val accent=android.graphics.Color.parseColor(if(dark)"#FFDC75" else "#765B06")
-        val scale=c.resources.configuration.fontScale;val rows=if(size==2)if(scale>1f)3 else 4 else if(size==1&&scale<=1.3)2 else 1
+        val dark=choice.theme=="midnight"
         val v=RemoteViews(c.packageName,R.layout.widget_pebble)
-        v.setInt(R.id.widget_root,"setBackgroundResource",when(choice.theme){"midnight"->R.drawable.widget_midnight;"paper"->R.drawable.widget_paper;else->R.drawable.widget_glass})
-        v.setImageViewBitmap(R.id.widget_heading_icon,headingIcon(c,choice.kind,accent));v.setViewVisibility(R.id.widget_heading_icon,if(size==0)View.GONE else View.VISIBLE);v.setTextViewText(R.id.widget_heading,if(size==0&&choice.kind=="quote")"Quote" else data.heading);v.setTextColor(R.id.widget_heading,accent);v.setTextColor(R.id.widget_add,accent);v.setTextColor(R.id.widget_footer,secondary)
-        v.setTextViewText(R.id.widget_footer,data.footer);v.setViewVisibility(R.id.widget_footer,if(scale>1.3||size==0&&choice.kind=="quote")View.GONE else View.VISIBLE)
-        val route=when(choice.kind){"tasks"->"tasks";"collection"->"collection";else->"home"}
-        if(id>=0){v.setOnClickPendingIntent(R.id.widget_root,open(c,id,if(data.noteId.isNotEmpty())"note" else route,data.noteId.ifEmpty{choice.source}));v.setOnClickPendingIntent(R.id.widget_add,open(c,id,when(choice.kind){"tasks"->"newTask";"checklist"->"newChecklist";"collection"->"newCollection";else->"new"},choice.source));v.setOnClickPendingIntent(R.id.widget_heading,configure(c,id));v.setContentDescription(R.id.widget_heading,"${data.heading}. Widget settings")}
-        v.setContentDescription(R.id.widget_add,when(choice.kind){"tasks"->"Create a task";"checklist"->"Create a checklist";"collection"->"Create a note in ${choice.source}";else->"Create a note"})
-        v.setTextViewTextSize(R.id.widget_add,android.util.TypedValue.COMPLEX_UNIT_DIP,24f)
-        v.removeAllViews(R.id.widget_content)
-        if(data.empty.isNotEmpty() || data.featureTitle.isNotEmpty()) {
-            val f=RemoteViews(c.packageName,R.layout.widget_feature)
-            f.setTextViewText(R.id.widget_feature_title,if(size==0)data.empty.ifEmpty{if(choice.kind=="quote")data.featureBody else data.featureTitle} else if(data.empty.isNotEmpty())"A little space" else data.featureTitle)
-            f.setTextViewTextSize(R.id.widget_feature_title,android.util.TypedValue.COMPLEX_UNIT_SP,if(size==0)if(data.empty.isNotEmpty())14f else if(choice.kind=="quote")16f else 18f else 19f)
-            f.setTextViewText(R.id.widget_feature_body,data.empty.ifEmpty{data.featureBody});f.setTextColor(R.id.widget_feature_title,ink);f.setTextColor(R.id.widget_feature_body,secondary)
-            f.setTextViewTextSize(R.id.widget_feature_body,android.util.TypedValue.COMPLEX_UNIT_SP,if(choice.kind=="quote")if(size==2)23f else 18f else 14f)
-            f.setInt(R.id.widget_feature_title,"setMaxLines",if(size==1 || size==0&&scale>1.3)1 else if(size==0&&choice.kind=="quote")3 else 2);f.setInt(R.id.widget_feature_body,"setMaxLines",if(scale>1f)1 else if(size==1)2 else if(choice.kind=="quote")4 else 5);if(size==0)f.setViewVisibility(R.id.widget_feature_body,View.GONE);f.setContentDescription(R.id.widget_feature,data.featureTitle+". "+data.empty.ifEmpty{data.featureBody})
-            if(id>=0)f.setOnClickPendingIntent(R.id.widget_feature,if(data.noteId.isEmpty()&&choice.kind in listOf("note","quote","checklist"))configure(c,id)else open(c,id,if(data.noteId.isNotEmpty())"note" else route,data.noteId.ifEmpty{choice.source}))
-            v.addView(R.id.widget_content,f)
-        } else data.lines.take(if(choice.kind=="capture")if(size==2)3 else if(size==1)2 else 1 else rows).forEachIndexed{index,line->
-            if(index>0){val separator=RemoteViews(c.packageName,R.layout.widget_separator);separator.setInt(R.id.widget_separator,"setBackgroundColor",if(dark)0x22FFFFFF else 0x1524211C);v.addView(R.id.widget_content,separator)}
-            val r=RemoteViews(c.packageName,R.layout.widget_row);r.setTextViewText(R.id.widget_row_title,line.title);r.setTextColor(R.id.widget_row_title,ink);r.setTextViewText(R.id.widget_row_detail,line.detail);r.setTextColor(R.id.widget_row_detail,secondary);r.setViewVisibility(R.id.widget_row_detail,if(line.detail.isBlank()||size==0||scale>1f)View.GONE else View.VISIBLE)
-            r.setContentDescription(R.id.widget_row,line.title+if(line.detail.isNotEmpty())", ${line.detail}" else "")
-            if(line.checked!=null){r.setViewVisibility(R.id.widget_row_check,View.VISIBLE);r.setImageViewBitmap(R.id.widget_row_check,checkIcon(c,line.checked,accent));r.setContentDescription(R.id.widget_row_check,if(line.checked)"Mark ${line.title} incomplete" else "Complete ${line.title}");if(id>=0)r.setOnClickPendingIntent(R.id.widget_row_check,complete(c,id,line))}
-            if(id>=0)r.setOnClickPendingIntent(R.id.widget_row,open(c,id,line.action,line.noteId))
-            v.addView(R.id.widget_content,r)
+        v.setInt(R.id.widget_root,"setBackgroundResource",if(dark)R.drawable.widget_midnight else R.drawable.widget_paper)
+        v.setInt(R.id.widget_header,"setBackgroundResource",R.drawable.widget_header)
+        v.setImageViewBitmap(R.id.widget_heading_icon,icon(c,choice.kind))
+        v.setTextViewText(R.id.widget_heading,if(choice.kind=="quote")"Quote" else data.heading)
+        v.setTextViewText(R.id.widget_footer,data.footer);v.setTextColor(R.id.widget_footer,if(dark)0xFFBEBEBE.toInt() else 0xFF858585.toInt())
+        v.setTextViewText(R.id.widget_empty,data.empty.ifBlank{"Open Pebble to refresh your notes"});v.setTextColor(R.id.widget_empty,if(dark)0xFFF5F5F5.toInt() else android.graphics.Color.BLACK)
+        v.setEmptyView(R.id.widget_list,R.id.widget_empty)
+        v.setViewVisibility(R.id.widget_footer,View.GONE)
+        if(id>=0){
+            v.setOnClickPendingIntent(R.id.widget_header,configure(c,id))
+            v.setContentDescription(R.id.widget_heading,"${data.heading}. Widget settings")
+            v.setOnClickPendingIntent(R.id.widget_empty,if(choice.kind in listOf("note","quote","checklist"))configure(c,id)else open(c,id,if(choice.kind=="tasks")"tasks" else "home",choice.source))
+            val click=Intent(c,WidgetTapActivity::class.java).setData(Uri.parse("pebble://widget/$id/tap")).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,id)
+            v.setPendingIntentTemplate(R.id.widget_list,PendingIntent.getActivity(c,id,click,PendingIntent.FLAG_UPDATE_CURRENT or if(Build.VERSION.SDK_INT>=31)PendingIntent.FLAG_MUTABLE else 0))
         }
+        val rows=items(data)
+        if(Build.VERSION.SDK_INT>=31){
+            val builder=RemoteViews.RemoteCollectionItems.Builder().setHasStableIds(true).setViewTypeCount(2)
+            rows.forEach{builder.addItem(stableId(it),row(c,choice,it,size))}
+            v.setRemoteAdapter(R.id.widget_list,builder.build())
+        }else {
+            val service=Intent(c,WidgetCollectionService::class.java).setData(Uri.parse("pebble://widget/$id/list/$size")).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,id).putExtra("size",size)
+            v.setRemoteAdapter(R.id.widget_list,service)
+        }
+        v.setViewVisibility(R.id.widget_list,if(rows.isEmpty())View.GONE else View.VISIBLE)
+        v.setViewVisibility(R.id.widget_empty,if(rows.isEmpty())View.VISIBLE else View.GONE)
         return v
     }
 }

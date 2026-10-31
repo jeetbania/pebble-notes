@@ -1,9 +1,12 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@drawable/widget_glass" android:padding="12dp">
- <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:gravity="center_vertical">
-  <ImageView android:id="@+id/widget_heading_icon" android:layout_width="18dp" android:layout_height="18dp" android:layout_marginEnd="8dp" android:importantForAccessibility="no"/>
-  <TextView android:id="@+id/widget_heading" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:gravity="center_vertical" android:text="Pebble" android:textSize="14sp" android:textStyle="bold" android:textColor="#765B06" android:maxLines="1" android:ellipsize="end"/>
-  <TextView android:id="@+id/widget_add" android:layout_width="44dp" android:layout_height="match_parent" android:gravity="center" android:text="＋" android:textSize="24sp" android:textColor="#765B06" android:contentDescription="Create a note"/>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@drawable/widget_paper" android:clipToOutline="true">
+ <LinearLayout android:id="@+id/widget_header" android:layout_width="match_parent" android:layout_height="44dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="17dp" android:paddingEnd="17dp" android:background="@drawable/widget_header">
+  <ImageView android:id="@+id/widget_heading_icon" android:layout_width="18dp" android:layout_height="18dp" android:layout_marginEnd="12dp" android:importantForAccessibility="no"/>
+  <TextView android:id="@+id/widget_heading" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:gravity="center_vertical" android:text="Notes" android:textSize="14.5sp" android:fontFamily="sans-serif-medium" android:textColor="#FFFFFF" android:maxLines="1" android:ellipsize="end"/>
  </LinearLayout>
- <LinearLayout android:id="@+id/widget_content" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical" android:paddingTop="4dp"/>
- <TextView android:id="@+id/widget_footer" android:layout_width="match_parent" android:layout_height="20dp" android:gravity="bottom" android:text="Your thoughts, close by" android:textColor="#5B5750" android:textSize="11sp" android:maxLines="1" android:ellipsize="end"/>
+ <ImageView android:layout_width="match_parent" android:layout_height="4dp" android:background="@drawable/widget_perforation" android:importantForAccessibility="no"/>
+ <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+  <ListView android:id="@+id/widget_list" android:layout_width="match_parent" android:layout_height="match_parent" android:divider="@null" android:scrollbars="vertical" android:fadeScrollbars="true" android:scrollbarStyle="insideOverlay" android:paddingBottom="8dp" android:clipToPadding="false" android:contentDescription="Notes, scroll to see more"/>
+  <TextView android:id="@+id/widget_empty" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center_vertical" android:padding="17dp" android:textSize="13sp" android:textColor="#000000" android:text="No notes yet"/>
+ </FrameLayout>
+ <TextView android:id="@+id/widget_footer" android:layout_width="match_parent" android:layout_height="20dp" android:paddingStart="17dp" android:textSize="11sp" android:visibility="gone"/>
 </LinearLayout>

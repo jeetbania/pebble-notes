@@ -1,49 +1,54 @@
 # Home-screen widgets
 
-Android 10+ · Native RemoteViews · Pebble 0.23.0
+Android 10+ · RemoteViews collection widgets · Pebble 0.24.0
 
-## Intent
+## Visual contract
 
-A small, useful part of Pebble lives on the home screen. Inspired by Apple Notes' clear heading, paper-like content and quiet row separators, without copying its yellow banner. One widget has one purpose; it opens the corresponding content rather than recreating an editor. No decorative animation, scrolling feed, attachment loading or wallpaper blur.
+The user supplied an Apple Notes reference and Figma-exported colours and geometry. Follow that reference explicitly, overriding the earlier warm glass treatment:
 
-The [Apple widget guidelines](https://developer.apple.com/design/human-interface-guidelines/widgets) inform glanceable content and size-specific composition. Implementation follows Android's [widget overview](https://developer.android.com/develop/ui/views/appwidgets/overview), [responsive layouts](https://developer.android.com/develop/ui/views/appwidgets/layouts) and [configuration contract](https://developer.android.com/develop/ui/views/appwidgets/configuration).
+- Header gradient: `#FFD500` at the top → `#FFBA00` at the bottom.
+- Header icon and title: white; 18 dp folder icon, 12 dp icon gap, 14.5 sp medium title.
+- Header height: 44 dp with a 4 dp white perforation strip below. The whole header opens widget settings.
+- Body: opaque `#FFFFFF`; black regular 13 sp row titles, readable grey metadata `#858585` (the supplied black-at-48% composite), 0.3 dp black-at-20% inset separators.
+- Radius: 27 dp, clipped at the outer container. Content inset: 17 dp. Rows grow with text, with at least a 48 dp interaction area; check circles have a separate 44 dp action target.
+- Light is the default. An optional Dark body retains a coordinated charcoal/white palette. Old Glass/Paper choices migrate visually to the reference white surface; their saved sources are preserved.
+- Use the native platform font; do not bundle Apple's proprietary SF font files. Exact header hex colours are taken from the provided sRGB export rather than guessed from a screenshot.
 
-## Components and sizes
+## Content and scrolling
 
-Three gallery entries: Small (2×2), Medium (4×2), Large (4×4). Cell dimensions depend on the launcher. Each entry resizes in both directions; Android 12+ chooses from three RemoteViews layouts. Earlier versions use available dimensions. Compact composition is the fallback when the host cannot fit a wider layout.
+Three launcher gallery sizes remain: Small (2×2), Medium (4×2), Large (4×4). Each resizes in both directions. The launcher controls the physical cell dimensions. All compositions use a native, vertically scrollable `ListView`; no size caps the collection to the number of visible rows.
 
-| Variation | Content | Interaction |
-| --- | --- | --- |
-| Recent notes | Latest edited live notes | Open a note |
-| Pinned notes | Pinned live notes | Open a note |
-| Collection | Notes in a chosen collection, including descendants | Open note or collection; create within collection |
-| Single note | Title and plain-text excerpt | Open selected note |
-| Checklist | Items from a chosen note; completion count | Open note or toggle a check circle |
-| Quote | First Quote block in a selected note; note title as source | Open source note; never invent an author |
-| Tasks | Pending tasks, earliest due first; optional list | Open task, complete it, or open task list |
-| Quick capture | New note, checklist, task | Start creation in Pebble |
+Recent notes exposes every eligible note, including five or ten when that many exist. Small widgets show fewer rows at once and scroll to the rest. Large widgets also retain the complete list. Never create fake rows to satisfy a minimum in a smaller library.
 
-Small shows one list item or a title/quote with no body excerpt. The compact quote omits its footer to give the quotation three readable lines; opening it reveals the source note. Medium shows up to two items; Large up to four, or three capture actions. Larger system text reduces row count, removes details, and at the largest setting hides the footer. Full content remains accessible by opening Pebble. Avoid compressing targets to fit extra rows.
+| Variation | Content and interaction |
+| --- | --- |
+| Recent notes | All live notes, newest edit first; tap a row to open it |
+| Pinned notes | All live pinned notes |
+| Collection | All notes in a selected collection and descendants |
+| Single note | Scroll a selected note's title and plain-text excerpt; open for full content |
+| Checklist | All check items from the selected note; text opens it, circle toggles it |
+| Quote | Scroll a selected note's first Quote block; open the source note |
+| Tasks | All pending tasks, earliest due first, optionally filtered by list; open or complete |
+| Quick capture | New note, checklist and task actions |
 
-## Launcher-specific foundations
+No decorative widget motion. Do not compress text and targets to fit five rows into a tiny tile. At large system text sizes, rows grow; scrolling keeps the remaining content reachable. Media paths, Trash, archives and erased records stay out of the projection.
 
-These values are intentionally local to RemoteViews, which cannot consume Compose's runtime theme/material. They are not replacements for the app's semantic colours.
+## Collection implementation
 
-- Rounded surface: 28 dp; inset 12 dp; divider 1 dp; action targets 44 dp.
-- Header: 14 sp bold; row title: 15 sp bold; detail: 12 sp; footer: 11 sp. Feature title 18/19 sp; excerpt 14 sp; quote 18/23 sp by size. Honour system font scaling.
-- Glass: warm ivory translucent gradient, `#F7FFF9E8` → `#EDEDE9DF`, white hairline `#D9FFFFFF`. High opacity protects readability over arbitrary wallpapers. This is a glass-like tint, not real wallpaper blur.
-- Paper: opaque off-white. Midnight: dark charcoal. Each has a coordinated ink, secondary ink and accent; note custom text colours never leak into launcher widgets.
-- Light ink `#24211C`, secondary `#5B5750`, accent `#765B06`; Midnight ink `#FAF7EE`, secondary `#D1CDC3`, accent `#FFDC75`.
-- Check circles use one native vector-like drawing at 24 dp, inside a 44 dp target; checked state adds a tick, not colour alone.
+Android 12+ uses `RemoteCollectionItems` for the complete collection. Send one composition based on current launcher dimensions and refresh it when resized, avoiding three copies of the same rows. Android 10–11 uses `RemoteViewsService`/`RemoteViewsFactory` in a separate process reading an atomic, private widget snapshot. This avoids opening the editor library from a remote adapter callback. Stable IDs derive from note/block/action identity, never position. Updates can therefore retain a sensible scroll anchor.
 
-## Configuration and recovery
+Collection rows use fill-in intents on an explicit mutable pending-intent template. The destination is a private, transparent, preview-free widget activity. Completion uses the existing store and immutable revision token without bringing the editor forward. Note taps open the correct document through the normal navigation path. Reconfiguration, stale actions and deleted sources cannot mutate a different item. Keep direct per-row pending intents out of collection children: Android ignores that unsupported pattern.
 
-Configure content, source and surface before adding. The preview uses the actual renderer. Save commits settings; Cancel leaves them unchanged. Tap the heading to reconfigure an existing widget. Required note/collection sources must be selected. Empty notes, empty lists and deleted sources provide readable recovery guidance.
+Refresh after store changes and completion; legacy lazy collections also receive data-set notifications. Periodic refresh is requested at 30 minutes; Android controls scheduling. No network work or attachment bitmap decoding runs during widget rendering.
 
-Widgets only project live, unarchived notes; folder records, erased records and media paths are excluded. The setup page explains that selected content is visible on the home screen. Widget choices belong to the device and do not modify or sync a note's appearance.
+## Settings pattern
 
-Completion runs through the existing store, revision history and sync pipeline. An immutable note revision token prevents duplicate or stale taps from toggling again or overwriting a newer edit. Conflicted heads are not changed from a widget. Recurring task completion uses the existing recurrence rules. Refresh immediately after actions and shortly after store changes; periodic refresh is requested every 30 minutes and is controlled by Android. No network polling or per-frame work.
+The phone Settings root has a compact centred title, profile row, and General / Library / Pebble Notes groups. Use `SettingsLinks`/`SettingsLinkedRow`: neutral 36 dp icon tiles, fixed icon and text columns, current values when space allows, 60 dp minimum rows, one inset divider between rows and 24 dp grouped corners. At large text sizes, allow labels to wrap and omit redundant inline values; keep their full accessible descriptions.
 
-## Verification boundary
+Preserve every existing preference, action and the About artwork. Grouping changes must not invent security, language or payment features from the supplied reference image.
 
-Native instrumentation covers content filtering, durable completion, stale taps, recurrence, provider registration, all eight variations in three sizes, empty states, three surfaces, and checklist layouts at 200% system type. Rendered previews are inspected at their actual native density. Vivo launcher placement/resizing, TalkBack traversal and physical-device battery behaviour still require on-device verification. macOS WidgetKit is not part of this Android release.
+## Research and provenance
+
+The collection design follows Android's [collection-widget guide](https://developer.android.com/develop/ui/views/appwidgets/collections), [responsive layouts](https://developer.android.com/develop/ui/views/appwidgets/layouts) and [configuration contract](https://developer.android.com/develop/ui/views/appwidgets/configuration). The Apple reference is the user's supplied recreation and [widget guidance](https://developer.apple.com/design/human-interface-guidelines/widgets).
+
+Settings refinement follows the user's app-design.md and **unslop by Damir Sokolovsky (@heydamir)**, [source](https://github.com/heydamir/unslop), CC BY 4.0. The skill is installed locally for Codex; its web-specific suggestions are adapted to native Compose and the existing Pebble design system. The requested yellow widget gradient is an explicit user exception to the skill's default neutral-surface rule.
